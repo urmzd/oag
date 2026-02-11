@@ -48,6 +48,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
+  embed-it:
+    name: Embed-it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: urmzd/embed-it@v2
+        with:
+          commit-dry: "true"
+          commit-push: "false"
+      - name: Verify no drift
+        run: git diff --exit-code README.md
+
   demo:
     name: Demo (VHS)
     runs-on: ubuntu-latest

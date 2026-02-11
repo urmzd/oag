@@ -45,7 +45,9 @@ oag init
 
 This creates `.urmzd.oag.yaml` in the current directory:
 
+<!-- embed-it src="doc/default-config.yaml" fence="yaml" -->
 ```yaml
+# oag configuration — https://github.com/urmzd/openapi-generator
 input: openapi.yaml
 
 naming:
@@ -85,6 +87,7 @@ generators:
   #     formatter: ruff       # ruff | false
   #     test_runner: pytest   # pytest | false
 ```
+<!-- /embed-it -->
 
 Generate code:
 

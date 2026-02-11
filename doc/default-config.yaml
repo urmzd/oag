@@ -1,0 +1,39 @@
+# oag configuration — https://github.com/urmzd/openapi-generator
+input: openapi.yaml
+
+naming:
+  strategy: use_operation_id  # use_operation_id | use_route_based
+  aliases: {}
+    # createChatCompletion: chat     # operationId → custom name
+    # listModels: models
+
+generators:
+  node-client:
+    output: src/generated/node
+    layout: modular           # bundled | modular | split
+    # split_by: tag           # operation | tag | route (only for split layout)
+    # base_url: https://api.example.com
+    # no_jsdoc: false
+    # source_dir: src         # subdirectory for source files ("src", "lib", or "" for root)
+    scaffold:
+      # package_name: my-api-client
+      # repository: https://github.com/you/your-repo
+      # existing_repo: false   # set to true to skip all scaffold files (package.json, tsconfig, etc.)
+      formatter: biome        # biome | false
+      test_runner: vitest     # vitest | false
+      bundler: tsdown         # tsdown | false
+
+  # react-swr-client:
+  #   output: src/generated/react
+  #   layout: modular
+  #   scaffold:
+  #     formatter: biome
+  #     test_runner: vitest
+  #     bundler: tsdown
+
+  # fastapi-server:
+  #   output: src/generated/server
+  #   layout: modular
+  #   scaffold:
+  #     formatter: ruff       # ruff | false
+  #     test_runner: pytest   # pytest | false
