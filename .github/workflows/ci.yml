@@ -66,7 +66,9 @@ jobs:
       - name: Install VHS
         run: |
           VHS_VERSION="0.10.0"
-          curl -fsSL "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_x86_64.tar.gz" | sudo tar xz -C /usr/local/bin vhs
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_x86_64.tar.gz" | tar xz -C "$HOME/.local/bin" vhs
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Record demo
         run: vhs doc/demo.tape
       - uses: actions/upload-artifact@v4
