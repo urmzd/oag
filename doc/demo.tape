@@ -15,34 +15,42 @@ Type "export PATH=./target/release:$PATH"
 Enter
 Sleep 1s
 
+# Show CLI help
 Type "oag --help"
 Enter
 Sleep 3s
 
-Type "oag init"
-Enter
-Sleep 2s
-
-Type "cat .urmzd.oag.yaml"
-Enter
-Sleep 3s
-
+# Validate a spec
 Type "oag validate -i crates/oag-core/tests/fixtures/petstore-3.2.yaml"
 Enter
 Sleep 2s
 
+# Inspect the IR
+Type "oag inspect -i crates/oag-core/tests/fixtures/petstore-3.2.yaml"
+Enter
+Sleep 4s
+
+# Generate TypeScript client
 Type "oag generate -i crates/oag-core/tests/fixtures/petstore-3.2.yaml -o out -t typescript"
 Enter
 Sleep 2s
 
+# Show what was generated
 Type "ls out/"
 Enter
 Sleep 2s
 
-Type "head -40 out/types.ts"
+# Show the generated types
+Type "cat out/types.ts"
 Enter
 Sleep 4s
 
-Type "rm -rf out .urmzd.oag.yaml"
+# Show the generated client (the interesting methods)
+Type "cat out/client.ts"
+Enter
+Sleep 5s
+
+# Clean up
+Type "rm -rf out"
 Enter
 Sleep 1s
