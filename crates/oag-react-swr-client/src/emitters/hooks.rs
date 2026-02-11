@@ -55,15 +55,21 @@ pub fn emit_hooks(ir: &IrSpec) -> String {
             .filter(|(i, _)| used_op_indices.contains(i))
             .map(|(_, op)| op),
     );
-    let has_queries = hooks
-        .iter()
-        .any(|h| h.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("query")));
-    let has_mutations = hooks
-        .iter()
-        .any(|h| h.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("mutation")));
-    let has_sse = hooks
-        .iter()
-        .any(|h| h.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("sse")));
+    let has_queries = hooks.iter().any(|h| {
+        h.get_attr("kind")
+            .ok()
+            .is_some_and(|v| v.as_str() == Some("query"))
+    });
+    let has_mutations = hooks.iter().any(|h| {
+        h.get_attr("kind")
+            .ok()
+            .is_some_and(|v| v.as_str() == Some("mutation"))
+    });
+    let has_sse = hooks.iter().any(|h| {
+        h.get_attr("kind")
+            .ok()
+            .is_some_and(|v| v.as_str() == Some("sse"))
+    });
 
     tmpl.render(context! {
         imported_types => imported_types,
@@ -178,7 +184,8 @@ fn build_hook_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
                             .as_ref()
                             .map(|b| ir_type_to_ts(&b.body_type))
                             .unwrap_or_else(|| "void".to_string());
-                        let (path_params_sig, swr_key, call_args, swr_key_type) = build_mutation_params(op);
+                        let (path_params_sig, swr_key, call_args, swr_key_type) =
+                            build_mutation_params(op);
                         results.push(context! {
                             kind => "mutation",
                             hook_name => format!("use{}", op.name.pascal_case),

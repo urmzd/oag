@@ -45,3 +45,5 @@ record:
     vhs doc/demo.tape
 
 check: check-fmt lint test
+
+ci: check-fmt lint build test

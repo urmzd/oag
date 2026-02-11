@@ -2,7 +2,7 @@ use std::fs;
 use std::process::Command;
 
 use oag_core::config::GeneratorConfig;
-use oag_core::{parse, transform, CodeGenerator};
+use oag_core::{CodeGenerator, parse, transform};
 use oag_react_swr_client::ReactSwrClientGenerator;
 
 const PETSTORE: &str = include_str!("../../oag-core/tests/fixtures/petstore-3.2.yaml");

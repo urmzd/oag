@@ -60,9 +60,11 @@ pub fn emit_client(ir: &IrSpec, _no_jsdoc: bool) -> String {
             .map(|(_, op)| op),
     );
 
-    let has_sse = operations
-        .iter()
-        .any(|op| op.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("sse")));
+    let has_sse = operations.iter().any(|op| {
+        op.get_attr("kind")
+            .ok()
+            .is_some_and(|v| v.as_str() == Some("sse"))
+    });
 
     tmpl.render(context! {
         title => ir.info.title.clone(),

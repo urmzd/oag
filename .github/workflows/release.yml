@@ -81,6 +81,8 @@ jobs:
           fetch-depth: 0
           ref: main
 
+      - uses: dtolnay/rust-toolchain@stable
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -101,6 +103,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "release-assets/*"
+
+      - name: Sync Cargo.lock
+        if: steps.sr.outputs.released == 'true'
+        run: |
+          cargo update --workspace
+          git add Cargo.lock
+          git diff --staged --quiet || git commit -m "chore: sync Cargo.lock [skip ci]"
+          git push
 
       - name: Publish to crates.io
         if: steps.sr.outputs.released == 'true'
