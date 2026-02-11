@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 (2026-02-11)
+
+### Features
+
+- use embed-it to keep README config in sync with source ([92701db](https://github.com/urmzd/openapi-generator/commit/92701dbd537852d7124f0078682e50556ecf8420))
+
+### Bug Fixes
+
+- **ci**: chain embed-it before ci/build/release to prevent push race ([9ca4086](https://github.com/urmzd/openapi-generator/commit/9ca4086c462f152f9f6be9f0aea8010841ffa4a9))
+
+### Documentation
+
+- **source_dir**: document source_dir configuration option ([4ec8c46](https://github.com/urmzd/openapi-generator/commit/4ec8c46a3518eaa511321025648911efdf186dee))
+
+### Miscellaneous
+
+- auto-sync embedded files on push to main ([b01b88e](https://github.com/urmzd/openapi-generator/commit/b01b88e02a58520774698546fcbcb877b8a3555f))
+
+
 ## 0.3.0 (2026-02-11)
 
 ### Features
