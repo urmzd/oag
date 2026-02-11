@@ -20,10 +20,13 @@ Sleep 500ms
 Type "export SPEC=crates/oag-core/tests/fixtures/petstore-3.2.yaml"
 Enter
 Sleep 500ms
+Type "export SSE_SPEC=crates/oag-core/tests/fixtures/sse-chat.yaml"
+Enter
+Sleep 500ms
 Type "export PS1='❯ '"
 Enter
 Sleep 500ms
-Type "splash() { clear; echo ''; echo '  ╔══════════════════════════════════════════════╗'; echo '  ║                                              ║'; echo '  ║           OpenAPI Generator (oag)            ║'; echo '  ║                                              ║'; echo '  ║         github.com/urmzd · urmzd.com         ║'; echo '  ║                                              ║'; echo '  ╚══════════════════════════════════════════════╝'; echo ''; }"
+Type "splash() { clear; print ''; print '  \e[90m╭──────────────────────────────────────────────╮\e[0m'; print '  \e[90m│\e[0m                                              \e[90m│\e[0m'; print '  \e[90m│\e[0m        \e[35m✦\e[0m  \e[1;36mOpenAPI Generator\e[0m \e[36m(oag)\e[0m  \e[35m✦\e[0m         \e[90m│\e[0m'; print '  \e[90m│\e[0m                                              \e[90m│\e[0m'; print '  \e[90m│\e[0m         \e[34mgithub.com/urmzd\e[0m \e[90m·\e[0m \e[34murmzd.com\e[0m         \e[90m│\e[0m'; print '  \e[90m│\e[0m                                              \e[90m│\e[0m'; print '  \e[90m╰──────────────────────────────────────────────╯\e[0m'; print ''; }"
 Enter
 Sleep 500ms
 Type "splash"
@@ -65,5 +68,24 @@ Sleep 4s
 Ctrl+L
 Sleep 500ms
 Type "head -n 40 /tmp/petstore/client.ts"
+Enter
+Sleep 5s
+
+# ── Generate React hooks from SSE chat spec ───────
+Ctrl+L
+Sleep 500ms
+Type "oag generate -i $SSE_SPEC -o /tmp/sse-chat -t react"
+Enter
+Sleep 3s
+
+# ── Show generated React files ────────────────────
+Type "ls /tmp/sse-chat/"
+Enter
+Sleep 2s
+
+# ── Preview generated hooks ──────────────────────
+Ctrl+L
+Sleep 500ms
+Type "head -n 40 /tmp/sse-chat/hooks.ts"
 Enter
 Sleep 5s
