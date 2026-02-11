@@ -4,6 +4,7 @@ use oag_core::{CodeGenerator, GeneratedFile, GeneratorError};
 
 use crate::emitters;
 use crate::emitters::scaffold::{NodeScaffoldConfig, ScaffoldOptions};
+use crate::emitters::source_path;
 
 /// TypeScript/Node code generator.
 pub struct NodeClientGenerator;
@@ -27,6 +28,7 @@ impl NodeClientGenerator {
             bundler: ToolSetting::resolve(scaffold.bundler.as_ref(), "tsdown").map(String::from),
             react,
             existing_repo: scaffold.existing_repo.unwrap_or(false),
+            source_dir: config.source_dir.clone(),
         })
     }
 }
@@ -42,39 +44,40 @@ impl CodeGenerator for NodeClientGenerator {
         config: &GeneratorConfig,
     ) -> Result<Vec<GeneratedFile>, GeneratorError> {
         let no_jsdoc = config.no_jsdoc.unwrap_or(false);
+        let sd = &config.source_dir;
         let scaffold_options = Self::build_scaffold_options(ir, config, false);
 
         let mut files = match config.layout {
             OutputLayout::Bundled => {
                 let content = emitters::bundled::emit_bundled(ir, no_jsdoc);
                 vec![GeneratedFile {
-                    path: "src/index.ts".to_string(),
+                    path: source_path(sd, "index.ts"),
                     content,
                 }]
             }
             OutputLayout::Modular => {
                 vec![
                     GeneratedFile {
-                        path: "src/types.ts".to_string(),
+                        path: source_path(sd, "types.ts"),
                         content: emitters::types::emit_types(ir),
                     },
                     GeneratedFile {
-                        path: "src/sse.ts".to_string(),
+                        path: source_path(sd, "sse.ts"),
                         content: emitters::sse::emit_sse(),
                     },
                     GeneratedFile {
-                        path: "src/client.ts".to_string(),
+                        path: source_path(sd, "client.ts"),
                         content: emitters::client::emit_client(ir, no_jsdoc),
                     },
                     GeneratedFile {
-                        path: "src/index.ts".to_string(),
+                        path: source_path(sd, "index.ts"),
                         content: emitters::index::emit_index(),
                     },
                 ]
             }
             OutputLayout::Split => {
                 let split_by = config.split_by.unwrap_or(SplitBy::Tag);
-                emitters::split::emit_split(ir, no_jsdoc, split_by)
+                emitters::split::emit_split(ir, no_jsdoc, split_by, sd)
             }
         };
 
@@ -83,7 +86,7 @@ impl CodeGenerator for NodeClientGenerator {
 
             if scaffold.test_runner.is_some() {
                 files.push(GeneratedFile {
-                    path: "src/client.test.ts".to_string(),
+                    path: source_path(sd, "client.test.ts"),
                     content: emitters::tests::emit_client_tests(ir),
                 });
             }

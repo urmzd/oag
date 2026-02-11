@@ -118,6 +118,9 @@ pub struct GeneratorConfig {
     pub split_by: Option<SplitBy>,
     pub base_url: Option<String>,
     pub no_jsdoc: Option<bool>,
+    /// Subdirectory for generated source files. Default `"src"`.
+    /// Empty string `""` places files at the output root.
+    pub source_dir: String,
     /// Opaque scaffold config — each generator defines and parses its own struct.
     pub scaffold: Option<serde_json::Value>,
 }
@@ -130,6 +133,7 @@ impl Default for GeneratorConfig {
             split_by: None,
             base_url: None,
             no_jsdoc: None,
+            source_dir: "src".to_string(),
             scaffold: None,
         }
     }
@@ -314,6 +318,7 @@ fn convert_legacy(legacy: LegacyConfig) -> OagConfig {
         split_by: None,
         base_url: legacy.client.base_url.clone(),
         no_jsdoc: Some(legacy.client.no_jsdoc),
+        source_dir: "src".to_string(),
         scaffold: scaffold.clone(),
     };
 
@@ -393,6 +398,7 @@ generators:
     # split_by: tag           # operation | tag | route (only for split layout)
     # base_url: https://api.example.com
     # no_jsdoc: false
+    # source_dir: src         # subdirectory for source files ("src", "lib", or "" for root)
     scaffold:
       # package_name: my-api-client
       # repository: https://github.com/you/your-repo

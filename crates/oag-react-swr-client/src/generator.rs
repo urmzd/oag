@@ -2,6 +2,7 @@ use oag_core::config::{GeneratorConfig, GeneratorId};
 use oag_core::ir::IrSpec;
 use oag_core::{CodeGenerator, GeneratedFile, GeneratorError};
 use oag_node_client::NodeClientGenerator;
+use oag_node_client::emitters::source_path;
 
 use crate::emitters;
 
@@ -23,17 +24,18 @@ impl CodeGenerator for ReactSwrClientGenerator {
         // Generate base TypeScript client files via the node-client generator
         // We manually produce the files to inject react scaffold options
         let no_jsdoc = config.no_jsdoc.unwrap_or(false);
+        let sd = &config.source_dir;
         let mut files = vec![
             GeneratedFile {
-                path: "src/types.ts".to_string(),
+                path: source_path(sd, "types.ts"),
                 content: oag_node_client::emitters::types::emit_types(ir),
             },
             GeneratedFile {
-                path: "src/sse.ts".to_string(),
+                path: source_path(sd, "sse.ts"),
                 content: oag_node_client::emitters::sse::emit_sse(),
             },
             GeneratedFile {
-                path: "src/client.ts".to_string(),
+                path: source_path(sd, "client.ts"),
                 content: oag_node_client::emitters::client::emit_client(ir, no_jsdoc),
             },
         ];
@@ -43,11 +45,11 @@ impl CodeGenerator for ReactSwrClientGenerator {
 
             if scaffold.test_runner.is_some() {
                 files.push(GeneratedFile {
-                    path: "src/client.test.ts".to_string(),
+                    path: source_path(sd, "client.test.ts"),
                     content: oag_node_client::emitters::tests::emit_client_tests(ir),
                 });
                 files.push(GeneratedFile {
-                    path: "src/hooks.test.ts".to_string(),
+                    path: source_path(sd, "hooks.test.tsx"),
                     content: emitters::tests::emit_hooks_tests(ir),
                 });
             }
@@ -55,18 +57,18 @@ impl CodeGenerator for ReactSwrClientGenerator {
 
         // Add React-specific files
         files.push(GeneratedFile {
-            path: "src/hooks.ts".to_string(),
+            path: source_path(sd, "hooks.tsx"),
             content: emitters::hooks::emit_hooks(ir),
         });
 
         files.push(GeneratedFile {
-            path: "src/provider.ts".to_string(),
+            path: source_path(sd, "provider.tsx"),
             content: emitters::provider::emit_provider(),
         });
 
-        // Add React index.ts (includes hooks + provider exports)
+        // Add React index.tsx (includes hooks + provider exports)
         files.push(GeneratedFile {
-            path: "src/index.ts".to_string(),
+            path: source_path(sd, "index.tsx"),
             content: emitters::index::emit_index(),
         });
 

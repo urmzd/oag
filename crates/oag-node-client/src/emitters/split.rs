@@ -3,6 +3,7 @@ use oag_core::config::SplitBy;
 use oag_core::ir::{IrSpec, OperationGroup, group_operations};
 
 use crate::emitters;
+use crate::emitters::source_path;
 
 /// Emit files for split layout mode.
 ///
@@ -12,32 +13,37 @@ use crate::emitters;
 /// - `{group}.ts` — per-group files with standalone functions
 /// - `sse.ts` — SSE runtime (same as modular)
 /// - `index.ts` — barrel re-export
-pub fn emit_split(ir: &IrSpec, no_jsdoc: bool, split_by: SplitBy) -> Vec<GeneratedFile> {
+pub fn emit_split(
+    ir: &IrSpec,
+    no_jsdoc: bool,
+    split_by: SplitBy,
+    source_dir: &str,
+) -> Vec<GeneratedFile> {
     let groups = group_operations(ir, split_by);
     let mut files = Vec::new();
 
     // Centralized types
     files.push(GeneratedFile {
-        path: "src/types.ts".to_string(),
+        path: source_path(source_dir, "types.ts"),
         content: emitters::types::emit_types(ir),
     });
 
     // SSE runtime
     files.push(GeneratedFile {
-        path: "src/sse.ts".to_string(),
+        path: source_path(source_dir, "sse.ts"),
         content: emitters::sse::emit_sse(),
     });
 
     // Client base — full client class
     files.push(GeneratedFile {
-        path: "src/client.ts".to_string(),
+        path: source_path(source_dir, "client.ts"),
         content: emitters::client::emit_client(ir, no_jsdoc),
     });
 
     // Per-group files — re-export from client for the group's operations
     let mut group_names = Vec::new();
     for group in &groups {
-        let group_file_name = format!("src/{}.ts", group.name.snake_case);
+        let group_file_name = source_path(source_dir, &format!("{}.ts", group.name.snake_case));
         let content = emit_group_file(ir, group);
         group_names.push(group.name.snake_case.clone());
         files.push(GeneratedFile {
@@ -48,7 +54,7 @@ pub fn emit_split(ir: &IrSpec, no_jsdoc: bool, split_by: SplitBy) -> Vec<Generat
 
     // Index barrel
     files.push(GeneratedFile {
-        path: "src/index.ts".to_string(),
+        path: source_path(source_dir, "index.ts"),
         content: emit_split_index(&group_names),
     });
 

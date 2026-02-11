@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: ["{{ source_dir ~ '/' if source_dir }}index.{% if react %}tsx{% else %}ts{% endif %}"],
   outDir: "dist",
   format: ["esm"],
   dts: true,

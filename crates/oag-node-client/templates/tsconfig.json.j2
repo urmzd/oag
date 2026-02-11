@@ -10,11 +10,15 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-{% if react %}
+{%- if react %}
     "jsx": "react-jsx",
-{% endif %}
+{%- endif %}
+{%- if source_dir %}
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "{{ source_dir }}"
+{%- else %}
+    "outDir": "dist"
+{%- endif %}
   },
-  "include": ["src"]
+  "include": [{% if source_dir %}"{{ source_dir }}"{% else %}"**/*"{% endif %}]
 }

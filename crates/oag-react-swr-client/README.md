@@ -12,11 +12,11 @@ In modular mode, the generator produces everything from [`oag-node-client`](../o
 
 | File | Description |
 |------|-------------|
-| `src/hooks.ts` | Typed React hooks for every operation |
-| `src/provider.ts` | `ApiProvider` context component and `useApiClient()` hook |
-| `src/index.ts` | Enhanced barrel exports (includes hooks and provider) |
+| `src/hooks.tsx` | Typed React hooks for every operation |
+| `src/provider.tsx` | `ApiProvider` context component and `useApiClient()` hook |
+| `src/index.tsx` | Enhanced barrel exports (includes hooks and provider) |
 | `src/client.test.ts` | vitest tests for `ApiClient` (optional, `scaffold.test_runner`) |
-| `src/hooks.test.ts` | vitest smoke tests verifying each hook is exported (optional, `scaffold.test_runner`) |
+| `src/hooks.test.tsx` | vitest smoke tests verifying each hook is exported (optional, `scaffold.test_runner`) |
 
 Source files are placed in a `src/` subdirectory to match the tsconfig.json and tsdown.config.ts scaffold configuration. Scaffold files (`package.json`, `tsconfig.json`, etc.) remain at the output root.
 
