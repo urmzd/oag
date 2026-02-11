@@ -1,0 +1,170 @@
+openapi: "3.2.0"
+info:
+  title: Petstore
+  description: A sample API for managing pets
+  version: "1.0.0"
+servers:
+  - url: https://petstore.example.com/api
+tags:
+  - name: pets
+    description: Pet operations
+  - name: store
+    description: Store operations
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      tags: [pets]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 100
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [available, pending, sold]
+      responses:
+        "200":
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+    post:
+      operationId: createPet
+      summary: Create a pet
+      tags: [pets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "201":
+          description: Pet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      summary: Get a pet by ID
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+    put:
+      operationId: updatePet
+      summary: Update a pet
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "200":
+          description: Updated pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+    delete:
+      operationId: deletePet
+      summary: Delete a pet
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Pet deleted
+
+  /store/inventory:
+    get:
+      operationId: getInventory
+      summary: Returns pet inventories by status
+      tags: [store]
+      responses:
+        "200":
+          description: Inventory map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tag:
+          type: string
+        status:
+          $ref: "#/components/schemas/PetStatus"
+        category:
+          $ref: "#/components/schemas/Category"
+
+    NewPet:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        tag:
+          type: string
+        status:
+          $ref: "#/components/schemas/PetStatus"
+        category:
+          $ref: "#/components/schemas/Category"
+
+    PetStatus:
+      type: string
+      enum: [available, pending, sold]
+
+    Category:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string

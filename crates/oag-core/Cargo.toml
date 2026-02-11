@@ -1,0 +1,21 @@
+[package]
+name = "oag-core"
+description = "OpenAPI 3.2 parser, IR, and transforms for oag"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml_ng = { workspace = true }
+indexmap = { workspace = true }
+heck = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
