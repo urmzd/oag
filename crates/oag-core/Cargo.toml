@@ -1,7 +1,7 @@
 [package]
 name = "oag-core"
 description = "OpenAPI 3.2 parser, IR, and transforms for oag"
-version = "0.4.1"
+version = "0.4.2"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

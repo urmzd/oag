@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 (2026-02-11)
+
+### Bug Fixes
+
+- auto-format code and add `just ci` recipe ([3613b31](https://github.com/urmzd/openapi-generator/commit/3613b31090867e5f268d0cd5eecf8b3c0076cbab))
+
+
 ## 0.4.1 (2026-02-11)
 
 ### Bug Fixes
