@@ -382,7 +382,7 @@ pub fn load_config(path: &Path) -> Result<Option<OagConfig>, String> {
 
 /// Generate the default config file content (new format).
 pub fn default_config_content() -> &'static str {
-    include_str!("../../../doc/default-config.yaml")
+    include_str!("../default-config.yaml")
 }
 
 #[cfg(test)]
