@@ -1,0 +1,22 @@
+[package]
+name = "oag-fastapi-server"
+description = "FastAPI server stub generator for oag"
+version = "0.1.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+
+[dependencies]
+oag-core = { workspace = true }
+minijinja = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+heck = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+serde_yaml_ng = { workspace = true }

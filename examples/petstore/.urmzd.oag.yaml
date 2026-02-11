@@ -1,21 +1,30 @@
 # oag configuration — Petstore example
-# Generates a TypeScript client from the Petstore OpenAPI 3.2 spec.
+# Generates both a Node client and React/SWR client from the Petstore OpenAPI 3.2 spec.
 input: ../../crates/oag-core/tests/fixtures/petstore-3.2.yaml
-output: generated
-target: typescript
 
 naming:
   strategy: use_operation_id
   aliases: {}
 
-output_options:
-  layout: single
-  index: true
-  biome: true
-  tsdown: true
-  package_name: "@examples/petstore-client"
-  repository: https://github.com/urmzd/openapi-generator
+generators:
+  node-client:
+    output: generated/node
+    layout: modular
+    base_url: https://petstore.example.com/api
+    scaffold:
+      package_name: "@examples/petstore-node-client"
+      repository: https://github.com/urmzd/openapi-generator
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
 
-client:
-  base_url: https://petstore.example.com/api
-  no_jsdoc: false
+  react-swr-client:
+    output: generated/react
+    layout: modular
+    base_url: https://petstore.example.com/api
+    scaffold:
+      package_name: "@examples/petstore-react-client"
+      repository: https://github.com/urmzd/openapi-generator
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown

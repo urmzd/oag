@@ -14,8 +14,9 @@ path = "src/main.rs"
 
 [dependencies]
 oag-core = { workspace = true }
-oag-typescript = { workspace = true }
-oag-react = { workspace = true }
+oag-node-client = { workspace = true }
+oag-react-swr-client = { workspace = true }
+oag-fastapi-server = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }

@@ -33,23 +33,29 @@ The spec-to-IR transform runs in five phases:
 | `IrType` | Primitive and composite types (String, Array, Ref, Union, Map, etc.) |
 | `NormalizedName` | A name in all four case conventions |
 | `OagConfig` | Parsed `.urmzd.oag.yaml` configuration |
+| `GeneratorId` | Enum identifying each generator: `NodeClient`, `ReactSwrClient`, `FastapiServer` |
+| `GeneratorConfig` | Per-generator configuration (output, layout, scaffold options, etc.) |
 | `CodeGenerator` | Trait that all generators implement |
+| `GeneratorError` | Unified error type for generator failures |
 | `GeneratedFile` | Output file with path and content |
 
 ## `CodeGenerator` trait
 
 ```rust
 pub trait CodeGenerator {
-    type Config;
-    type Error: std::error::Error;
+    fn id(&self) -> config::GeneratorId;
     fn generate(
         &self,
-        ir: &IrSpec,
-        config: &Self::Config,
-    ) -> Result<Vec<GeneratedFile>, Self::Error>;
+        ir: &ir::IrSpec,
+        config: &config::GeneratorConfig,
+    ) -> Result<Vec<GeneratedFile>, GeneratorError>;
 }
 ```
 
-Implement this trait to add a new language or framework target.
+Each generator implements this trait with:
+- **`id()`** — Returns a unique identifier (`GeneratorId::NodeClient`, `GeneratorId::ReactSwrClient`, or `GeneratorId::FastapiServer`)
+- **`generate()`** — Transforms the IR into a list of files using the provided configuration
+
+The trait uses a unified `GeneratorConfig` type and `GeneratorError`, simplifying the plugin architecture and allowing the CLI to treat all generators uniformly.
 
 ## Part of [oag](../../README.md)

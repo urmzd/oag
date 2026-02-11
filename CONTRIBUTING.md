@@ -25,9 +25,10 @@ This installs git hooks and adds the `clippy` and `rustfmt` components.
 | `just check` | Run format check, clippy, and tests (the default target) |
 | `just fmt` | Format all code |
 | `just lint` | Run clippy with `-D warnings` |
-| `just test` | Run all workspace tests |
+| `just test` | Run all workspace tests (excluding integration tests) |
+| `just test-all` | Run all tests including integration tests (requires test servers) |
 | `just build` | Build all crates |
-| `just run <args>` | Run the CLI (e.g. `just run generate -i spec.yaml -o out`) |
+| `just run <args>` | Run the CLI (e.g. `just run generate -i spec.yaml`) |
 | `just examples` | Rebuild the example output in `examples/` |
 | `just record` | Record the demo GIF with [VHS](https://github.com/charmbracelet/vhs) |
 
@@ -35,15 +36,16 @@ This installs git hooks and adds the `clippy` and `rustfmt` components.
 
 ```
 crates/
-  oag-core/         Core parser, IR types, and transform pipeline
-  oag-typescript/   TypeScript client generator
-  oag-react/        React/SWR hooks generator
-  oag-cli/          CLI binary (oag)
+  oag-core/              Core parser, IR types, transform pipeline, and CodeGenerator trait
+  oag-node-client/       TypeScript/Node client generator (zero deps)
+  oag-react-swr-client/  React/SWR hooks generator (extends node-client)
+  oag-fastapi-server/    Python FastAPI server generator (Pydantic v2)
+  oag-cli/               CLI binary (oag)
 examples/
-  petstore/         TypeScript example (Petstore 3.2)
-  sse-chat/         React + SSE example
+  petstore/              Node client + React client examples (Petstore 3.2)
+  sse-chat/              Node client + React + SSE streaming examples
 tests/
-  integration/      Integration compile tests (TypeScript/React)
+  integration/           Integration tests with mock Axum servers (marked #[ignore])
 ```
 
 ## Commit conventions
@@ -79,31 +81,40 @@ Breaking changes: append `!` after the type/scope (e.g. `feat!: drop Node 18 sup
 
 ## Adding a new generator
 
-1. Create a new crate under `crates/` (e.g. `oag-python`)
-2. Depend on `oag-core`
-3. Implement the `CodeGenerator` trait:
+1. Create a new crate under `crates/` (e.g., `oag-go-client`)
+2. Add it to the workspace `Cargo.toml` members
+3. Depend on `oag-core` in the new crate's `Cargo.toml`
+4. Add a new variant to `GeneratorId` in `crates/oag-core/src/config.rs`
+5. Implement the `CodeGenerator` trait:
 
 ```rust
-use oag_core::{CodeGenerator, GeneratedFile, ir::IrSpec};
+use oag_core::{CodeGenerator, GeneratedFile, GeneratorError, config, ir};
 
-pub struct PythonGenerator;
+pub struct GoClientGenerator;
 
-impl CodeGenerator for PythonGenerator {
-    type Config = PythonConfig;
-    type Error = PythonError;
+impl CodeGenerator for GoClientGenerator {
+    fn id(&self) -> config::GeneratorId {
+        config::GeneratorId::GoClient // (add this variant to the enum)
+    }
 
     fn generate(
         &self,
-        ir: &IrSpec,
-        config: &Self::Config,
-    ) -> Result<Vec<GeneratedFile>, Self::Error> {
+        ir: &ir::IrSpec,
+        config: &config::GeneratorConfig,
+    ) -> Result<Vec<GeneratedFile>, GeneratorError> {
         // ...
     }
 }
 ```
 
-4. Wire it into the CLI in `crates/oag-cli/src/main.rs`
-5. Add the crate to the workspace `Cargo.toml` members
+6. Register the generator in `crates/oag-cli/src/main.rs`:
+   - Import the generator
+   - Add it to the generator registry
+   - Handle its `GeneratorId` in the match arms
+
+7. Add documentation: `crates/oag-go-client/README.md`
+8. Add integration tests in `tests/integration/`
+9. Update the `just publish` command in `justfile` to include the new crate
 
 ## Publishing
 
@@ -113,4 +124,9 @@ Publishing to crates.io is handled by CI via semantic-release on pushes to `main
 just publish
 ```
 
-Crates are published in dependency order: `oag-core` -> `oag-typescript` -> `oag-react` -> `oag-cli`.
+Crates are published in dependency order:
+1. `oag-core` (foundation)
+2. `oag-node-client` (depends on core)
+3. `oag-react-swr-client` (depends on core)
+4. `oag-fastapi-server` (depends on core)
+5. `oag-cli` (depends on all generators)

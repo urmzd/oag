@@ -22,22 +22,25 @@ cargo install oag-cli
 
 ## Configuration
 
-The CLI automatically loads `.urmzd.oag.yaml` from the current directory. CLI flags override config values:
+The CLI automatically loads `.urmzd.oag.yaml` from the current directory. You can override the input spec with `-i/--input`:
 
 ```sh
 # Use config file
 oag generate
 
-# Override specific options
-oag generate -i other-spec.yaml -o dist/api -t react --base-url https://api.example.com
+# Override input spec
+oag generate -i other-spec.yaml
 ```
 
-See the [root README](../../README.md#configuration) for the full configuration reference.
+The new config format uses a `generators` map instead of a `target` field. Each generator has its own output directory and settings. See the [root README](../../README.md#configuration) for the full configuration reference.
+
+The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported for backward compatibility.
 
 ## Depends on
 
-- [`oag-core`](../oag-core/) — parser, IR, and config
-- [`oag-typescript`](../oag-typescript/) — TypeScript generator
-- [`oag-react`](../oag-react/) — React generator
+- [`oag-core`](../oag-core/) — parser, IR, config, and `CodeGenerator` trait
+- [`oag-node-client`](../oag-node-client/) — TypeScript/Node client generator
+- [`oag-react-swr-client`](../oag-react-swr-client/) — React/SWR hooks generator
+- [`oag-fastapi-server`](../oag-fastapi-server/) — Python FastAPI server generator
 
 ## Part of [oag](../../README.md)

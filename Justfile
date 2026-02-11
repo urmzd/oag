@@ -29,8 +29,8 @@ check-fmt:
 
 publish:
     cargo publish -p oag-core --dry-run
-    cargo publish -p oag-typescript --dry-run
-    cargo publish -p oag-react --dry-run
+    cargo publish -p oag-node-client --dry-run
+    cargo publish -p oag-react-swr-client --dry-run
     cargo publish -p oag-cli --dry-run
 
 examples: install

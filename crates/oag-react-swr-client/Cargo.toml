@@ -1,6 +1,6 @@
 [package]
-name = "oag-typescript"
-description = "TypeScript/Node client generator for oag"
+name = "oag-react-swr-client"
+description = "React/SWR client generator for oag"
 version = "0.1.1"
 edition.workspace = true
 license.workspace = true
@@ -10,6 +10,7 @@ homepage.workspace = true
 
 [dependencies]
 oag-core = { workspace = true }
+oag-node-client = { workspace = true }
 minijinja = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }

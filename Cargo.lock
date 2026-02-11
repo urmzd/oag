@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "oag-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -354,15 +354,16 @@ dependencies = [
  "indexmap",
  "log",
  "oag-core",
- "oag-react",
- "oag-typescript",
+ "oag-fastapi-server",
+ "oag-node-client",
+ "oag-react-swr-client",
  "serde_json",
  "serde_yaml_ng",
 ]
 
 [[package]]
 name = "oag-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "heck",
  "indexmap",
@@ -375,26 +376,43 @@ dependencies = [
 ]
 
 [[package]]
-name = "oag-react"
-version = "0.1.0"
+name = "oag-fastapi-server"
+version = "0.1.1"
 dependencies = [
+ "heck",
  "insta",
  "log",
  "minijinja",
  "oag-core",
- "oag-typescript",
+ "serde",
+ "serde_json",
  "serde_yaml_ng",
  "thiserror",
 ]
 
 [[package]]
-name = "oag-typescript"
-version = "0.1.0"
+name = "oag-node-client"
+version = "0.1.1"
 dependencies = [
  "insta",
  "log",
  "minijinja",
  "oag-core",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "thiserror",
+]
+
+[[package]]
+name = "oag-react-swr-client"
+version = "0.1.1"
+dependencies = [
+ "insta",
+ "log",
+ "minijinja",
+ "oag-core",
+ "oag-node-client",
  "serde_yaml_ng",
  "thiserror",
 ]

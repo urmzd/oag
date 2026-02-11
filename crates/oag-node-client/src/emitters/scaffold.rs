@@ -1,5 +1,19 @@
 use minijinja::{Environment, context};
 use oag_core::GeneratedFile;
+use oag_core::config::ToolSetting;
+use serde::Deserialize;
+
+/// Node/TS-specific scaffold configuration, parsed from the opaque `serde_json::Value`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct NodeScaffoldConfig {
+    pub package_name: Option<String>,
+    pub repository: Option<String>,
+    pub index: Option<bool>,
+    pub formatter: Option<ToolSetting>,
+    pub test_runner: Option<ToolSetting>,
+    pub bundler: Option<ToolSetting>,
+}
 
 /// Options controlling which scaffold files to generate.
 #[derive(Debug, Clone)]
@@ -10,10 +24,12 @@ pub struct ScaffoldOptions {
     pub package_name: Option<String>,
     /// Repository URL for package.json.
     pub repository: Option<String>,
-    /// Generate `biome.json`.
-    pub biome: bool,
-    /// Generate `tsdown.config.ts`.
-    pub tsdown: bool,
+    /// Formatter tool name (e.g. "biome") or None if disabled.
+    pub formatter: Option<String>,
+    /// Test runner tool name (e.g. "vitest") or None if disabled.
+    pub test_runner: Option<String>,
+    /// Bundler tool name (e.g. "tsdown") or None if disabled.
+    pub bundler: Option<String>,
     /// Whether React target is included.
     pub react: bool,
 }
@@ -35,7 +51,7 @@ pub fn emit_scaffold(options: &ScaffoldOptions) -> Vec<GeneratedFile> {
     });
 
     // biome.json (optional)
-    if options.biome {
+    if options.formatter.as_deref() == Some("biome") {
         files.push(GeneratedFile {
             path: "biome.json".to_string(),
             content: emit_biome(),
@@ -43,7 +59,7 @@ pub fn emit_scaffold(options: &ScaffoldOptions) -> Vec<GeneratedFile> {
     }
 
     // tsdown.config.ts (optional)
-    if options.tsdown {
+    if options.bundler.as_deref() == Some("tsdown") {
         files.push(GeneratedFile {
             path: "tsdown.config.ts".to_string(),
             content: emit_tsdown(),
@@ -67,11 +83,17 @@ fn emit_package_json(options: &ScaffoldOptions) -> String {
         .clone()
         .unwrap_or_else(|| slugify(&options.name));
 
+    let biome = options.formatter.as_deref() == Some("biome");
+    let vitest = options.test_runner.as_deref() == Some("vitest");
+    let tsdown = options.bundler.as_deref() == Some("tsdown");
+
     tmpl.render(context! {
         name => pkg_name,
         repository => options.repository,
         react => options.react,
-        biome => options.biome,
+        biome => biome,
+        vitest => vitest,
+        tsdown => tsdown,
     })
     .expect("render should succeed")
 }
@@ -147,8 +169,9 @@ mod tests {
             name: "Test API".to_string(),
             package_name: None,
             repository: Some("https://github.com/test/repo".to_string()),
-            biome: true,
-            tsdown: true,
+            formatter: Some("biome".to_string()),
+            bundler: Some("tsdown".to_string()),
+            test_runner: Some("vitest".to_string()),
             react: true,
         };
         let files = emit_scaffold(&options);
@@ -165,8 +188,9 @@ mod tests {
             name: "Test".to_string(),
             package_name: None,
             repository: None,
-            biome: false,
-            tsdown: false,
+            formatter: None,
+            bundler: None,
+            test_runner: None,
             react: false,
         };
         let files = emit_scaffold(&options);
@@ -179,8 +203,9 @@ mod tests {
             name: "Some API".to_string(),
             package_name: Some("@myorg/api-client".to_string()),
             repository: None,
-            biome: false,
-            tsdown: false,
+            formatter: None,
+            bundler: None,
+            test_runner: None,
             react: false,
         };
         let files = emit_scaffold(&options);

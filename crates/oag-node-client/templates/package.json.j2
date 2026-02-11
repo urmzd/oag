@@ -12,11 +12,16 @@
   },
 {% endif %}
   "scripts": {
+{% if tsdown %}
     "build": "tsdown",
+{% endif %}
 {% if biome %}
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",
+{% endif %}
+{% if vitest %}
+    "test": "vitest run",
 {% endif %}
     "typecheck": "tsc --noEmit"
   },
@@ -33,7 +38,12 @@
 {% if react %}
     "@types/react": "^19.0.0",
 {% endif %}
+{% if tsdown %}
     "tsdown": "^0.12.0",
+{% endif %}
+{% if vitest %}
+    "vitest": "^3.0.0",
+{% endif %}
     "typescript": "^5.7.0"
   }
 }

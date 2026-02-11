@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use minijinja::{Environment, context};
 use oag_core::ir::{HttpMethod, IrOperation, IrParameterLocation, IrReturnType, IrSpec, IrType};
-use oag_typescript::type_mapper::ir_type_to_ts;
+use oag_node_client::type_mapper::ir_type_to_ts;
 
 /// Emit `hooks.ts` — React hooks wrapping the API client.
 pub fn emit_hooks(ir: &IrSpec) -> String {
