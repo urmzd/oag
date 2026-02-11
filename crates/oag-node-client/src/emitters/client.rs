@@ -5,9 +5,15 @@ use oag_core::ir::{IrOperation, IrParameterLocation, IrReturnType, IrSpec, IrTyp
 
 use crate::type_mapper::ir_type_to_ts;
 
+/// Escape `*/` sequences that would prematurely close JSDoc comment blocks.
+fn escape_jsdoc(value: String) -> String {
+    value.replace("*/", "*\\/")
+}
+
 /// Emit `client.ts` — the API client class with REST and SSE methods.
 pub fn emit_client(ir: &IrSpec, _no_jsdoc: bool) -> String {
     let mut env = Environment::new();
+    env.add_filter("escape_jsdoc", escape_jsdoc);
     env.add_template("client.ts.j2", include_str!("../../templates/client.ts.j2"))
         .expect("template should be valid");
     let tmpl = env.get_template("client.ts.j2").unwrap();

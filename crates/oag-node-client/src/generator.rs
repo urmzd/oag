@@ -26,6 +26,7 @@ impl NodeClientGenerator {
                 .map(String::from),
             bundler: ToolSetting::resolve(scaffold.bundler.as_ref(), "tsdown").map(String::from),
             react,
+            existing_repo: scaffold.existing_repo.unwrap_or(false),
         })
     }
 }
@@ -47,26 +48,26 @@ impl CodeGenerator for NodeClientGenerator {
             OutputLayout::Bundled => {
                 let content = emitters::bundled::emit_bundled(ir, no_jsdoc);
                 vec![GeneratedFile {
-                    path: "index.ts".to_string(),
+                    path: "src/index.ts".to_string(),
                     content,
                 }]
             }
             OutputLayout::Modular => {
                 vec![
                     GeneratedFile {
-                        path: "types.ts".to_string(),
+                        path: "src/types.ts".to_string(),
                         content: emitters::types::emit_types(ir),
                     },
                     GeneratedFile {
-                        path: "sse.ts".to_string(),
+                        path: "src/sse.ts".to_string(),
                         content: emitters::sse::emit_sse(),
                     },
                     GeneratedFile {
-                        path: "client.ts".to_string(),
+                        path: "src/client.ts".to_string(),
                         content: emitters::client::emit_client(ir, no_jsdoc),
                     },
                     GeneratedFile {
-                        path: "index.ts".to_string(),
+                        path: "src/index.ts".to_string(),
                         content: emitters::index::emit_index(),
                     },
                 ]
@@ -82,7 +83,7 @@ impl CodeGenerator for NodeClientGenerator {
 
             if scaffold.test_runner.is_some() {
                 files.push(GeneratedFile {
-                    path: "client.test.ts".to_string(),
+                    path: "src/client.test.ts".to_string(),
                     content: emitters::tests::emit_client_tests(ir),
                 });
             }

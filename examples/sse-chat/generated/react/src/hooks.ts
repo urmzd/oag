@@ -5,9 +5,21 @@ import { useCallback, useRef, useState } from "react";
 import { useApiClient } from "./provider";
 import type {
 
+  CreateChatCompletionBody,
+
+  CreateChatCompletionResponse,
+
+  CreateChatCompletionStreamBody,
+
   CreateChatCompletionStreamEvent,
 
   CreateChatCompletionStreamStreamEvent,
+
+  GetModelResponse,
+
+  ListModelsResponse,
+
+  SubmitFeedbackBody,
 
 } from "./types";
 
@@ -16,9 +28,9 @@ import type {
 
 /** List available models */
 
-export function useListModels(, config?: SWRConfiguration<{ data: { id: string; name: string; provider: string; maxTokens?: number; capabilities?: string[] }[] }>) {
+export function useListModels(config?: SWRConfiguration<ListModelsResponse>) {
   const client = useApiClient();
-  return useSWR<{ data: { id: string; name: string; provider: string; maxTokens?: number; capabilities?: string[] }[] }>(
+  return useSWR<ListModelsResponse>(
     "/models",
     () => client.listModels(),
     config,
@@ -31,10 +43,10 @@ export function useListModels(, config?: SWRConfiguration<{ data: { id: string; 
 
 /** Get a specific model */
 
-export function useGetModel(modelId: string, config?: SWRConfiguration<{ id: string; name: string; provider: string; maxTokens?: number; capabilities?: string[] }>) {
+export function useGetModel(modelId: string, config?: SWRConfiguration<GetModelResponse>) {
   const client = useApiClient();
-  return useSWR<{ id: string; name: string; provider: string; maxTokens?: number; capabilities?: string[] }>(
-    ["/models/{modelId}" , modelId] as const,
+  return useSWR<GetModelResponse>(
+    ["/models/{modelId}", modelId] as const,
     () => client.getModel(modelId),
     config,
   );
@@ -53,7 +65,7 @@ export function useCreateChatCompletionStream() {
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const trigger = useCallback(async (body: { model: string; messages: { role: string; content: string }[]; temperature?: number; maxTokens?: number; stream?: boolean }) => {
+  const trigger = useCallback(async (body: CreateChatCompletionBody) => {
     setEvents([]);
     setError(null);
     setIsStreaming(true);
@@ -93,11 +105,11 @@ export function useCreateChatCompletionStream() {
 
 /** Create a chat completion */
 
-export function useCreateChatCompletion(config?: SWRMutationConfiguration<{ id: string; model: string; choices: { index: number; message: { role: string; content: string }; finishReason: string }[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }, Error, string, { model: string; messages: { role: string; content: string }[]; temperature?: number; maxTokens?: number; stream?: boolean }>) {
+export function useCreateChatCompletion(config?: SWRMutationConfiguration<CreateChatCompletionResponse, Error, string, CreateChatCompletionBody>) {
   const client = useApiClient();
-  return useSWRMutation<{ id: string; model: string; choices: { index: number; message: { role: string; content: string }; finishReason: string }[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }, Error, string, { model: string; messages: { role: string; content: string }[]; temperature?: number; maxTokens?: number; stream?: boolean }>(
+  return useSWRMutation<CreateChatCompletionResponse, Error, string, CreateChatCompletionBody>(
     "/chat/completions",
-    (_key: string, { arg }: { arg: { model: string; messages: { role: string; content: string }[]; temperature?: number; maxTokens?: number; stream?: boolean } }) => client.createChatCompletion(arg),
+    (_key: string, { arg }: { arg: CreateChatCompletionBody }) => client.createChatCompletion(arg),
     config,
   );
 }
@@ -115,7 +127,7 @@ export function useCreateChatCompletionStream() {
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const trigger = useCallback(async (body: { model: string; messages: { role: string; content: string }[]; temperature?: number; maxTokens?: number; stream?: boolean }) => {
+  const trigger = useCallback(async (body: CreateChatCompletionStreamBody) => {
     setEvents([]);
     setError(null);
     setIsStreaming(true);
@@ -155,11 +167,11 @@ export function useCreateChatCompletionStream() {
 
 /** Submit feedback for a completion */
 
-export function useSubmitFeedback(config?: SWRMutationConfiguration<void, Error, string, { completionId: string; rating: number; comment?: string }>) {
+export function useSubmitFeedback(config?: SWRMutationConfiguration<void, Error, string, SubmitFeedbackBody>) {
   const client = useApiClient();
-  return useSWRMutation<void, Error, string, { completionId: string; rating: number; comment?: string }>(
+  return useSWRMutation<void, Error, string, SubmitFeedbackBody>(
     "/chat/feedback",
-    (_key: string, { arg }: { arg: { completionId: string; rating: number; comment?: string } }) => client.submitFeedback(arg),
+    (_key: string, { arg }: { arg: SubmitFeedbackBody }) => client.submitFeedback(arg),
     config,
   );
 }

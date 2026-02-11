@@ -64,6 +64,7 @@ generators:
     scaffold:
       # package_name: my-api-client
       # repository: https://github.com/you/your-repo
+      # existing_repo: false   # set to true to skip all scaffold files (package.json, tsconfig, etc.)
       formatter: biome        # biome | false
       test_runner: vitest     # vitest | false
       bundler: tsdown         # tsdown | false
@@ -145,12 +146,15 @@ The `generators` map configures which generators to run and their options. Each 
 | `scaffold.formatter` | `string` or `false` | `biome` (TS) / `ruff` (Python) | Code formatter — set to `false` to disable |
 | `scaffold.test_runner` | `string` or `false` | `vitest` (TS) / `pytest` (Python) | Test runner — set to `false` to disable test generation |
 | `scaffold.bundler` | `string` or `false` | `tsdown` | Bundler config (TypeScript only) — set to `false` to disable |
+| `scaffold.existing_repo` | `bool` | `false` | Set to `true` to skip all scaffold files (package.json, tsconfig, biome, tsdown) and only emit a root `index.ts` re-export |
 
 ### Layout modes
 
-- **bundled** — Everything in a single file (e.g., `index.ts` or `main.py`)
-- **modular** — Separate files per concern (e.g., `types.ts`, `client.ts`, `sse.ts`, `index.ts`)
-- **split** — Separate files per operation group (e.g., `pets.ts`, `users.ts`, `orders.ts`)
+- **bundled** — Everything in a single file (e.g., `src/index.ts` or `main.py`)
+- **modular** — Separate files per concern (e.g., `src/types.ts`, `src/client.ts`, `src/sse.ts`, `src/index.ts`)
+- **split** — Separate files per operation group (e.g., `src/pets.ts`, `src/users.ts`, `src/orders.ts`)
+
+For TypeScript generators, source files are placed in a `src/` subdirectory to match the tsconfig.json (`rootDir: "src"`, `include: ["src"]`) and tsdown.config.ts (`entry: ["src/index.ts"]`) scaffold configuration. Scaffold files (`package.json`, `tsconfig.json`, `biome.json`, `tsdown.config.ts`) remain at the output root.
 
 When using `split` layout, specify `split_by`:
 - `operation` — One file per operation

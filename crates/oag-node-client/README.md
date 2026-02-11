@@ -9,25 +9,27 @@ Takes an `IrSpec` from `oag-core` and produces a fully typed API client with zer
 This generator supports three layout modes:
 
 ### bundled
-Everything in a single file: `index.ts`
+Everything in a single file: `src/index.ts`
 
 ### modular (default)
 Separate files per concern:
 
 | File | Description |
 |------|-------------|
-| `types.ts` | All interfaces, enums, type aliases, and discriminated unions |
-| `client.ts` | `ApiClient` class with typed methods for every operation |
-| `sse.ts` | SSE streaming utilities (`streamSse` function, `SSEError`, `SSEOptions`) |
-| `index.ts` | Barrel exports |
+| `src/types.ts` | All interfaces, enums, type aliases, and discriminated unions |
+| `src/client.ts` | `ApiClient` class with typed methods for every operation |
+| `src/sse.ts` | SSE streaming utilities (`streamSse` function, `SSEError`, `SSEOptions`) |
+| `src/index.ts` | Barrel exports |
 
 ### split
 Separate files per operation group (by tag, operation, or route prefix). For example, when splitting by tag:
-- `pets.ts` — All operations tagged with "pets"
-- `users.ts` — All operations tagged with "users"
-- `index.ts` — Barrel exports
+- `src/pets.ts` — All operations tagged with "pets"
+- `src/users.ts` — All operations tagged with "users"
+- `src/index.ts` — Barrel exports
 
-When scaffold generation is enabled (default), these are also created:
+Source files are placed in a `src/` subdirectory to match the tsconfig.json (`rootDir: "src"`) and tsdown.config.ts (`entry: ["src/index.ts"]`) scaffold configuration.
+
+When scaffold generation is enabled (default), these are also created at the output root:
 
 | File | Description |
 |------|-------------|
@@ -35,7 +37,7 @@ When scaffold generation is enabled (default), these are also created:
 | `tsconfig.json` | TypeScript compiler configuration |
 | `biome.json` | Biome formatter and linter config (optional, `scaffold.formatter`) |
 | `tsdown.config.ts` | tsdown bundler config (optional, `scaffold.bundler`) |
-| `client.test.ts` | vitest tests for `ApiClient` (optional, `scaffold.test_runner`) |
+| `src/client.test.ts` | vitest tests for `ApiClient` (optional, `scaffold.test_runner`) |
 
 When `scaffold.test_runner` is enabled (default), `package.json` includes vitest as a dev dependency and a `"test": "vitest run"` script. The generated tests cover:
 
@@ -50,7 +52,8 @@ When `scaffold.test_runner` is enabled (default), `package.json` includes vitest
 - **SSE streaming** — Server-Sent Events are exposed as `AsyncGenerator` functions
 - **Request interceptor** — the `ApiClient` accepts an optional interceptor for auth headers, logging, etc.
 - **Full type safety** — every parameter, request body, and response is typed
-- **JSDoc comments** — generated from spec descriptions (disable with `no_jsdoc: true`)
+- **JSDoc comments** — generated from spec descriptions (disable with `no_jsdoc: true`); special characters like `*/` are escaped to avoid breaking comment blocks
+- **Existing repo mode** — set `scaffold.existing_repo: true` to skip all scaffold files (package.json, tsconfig, biome, tsdown) and only emit a root `index.ts` re-export alongside the `src/` source files
 
 ## Depends on
 

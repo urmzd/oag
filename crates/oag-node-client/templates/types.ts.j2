@@ -2,12 +2,12 @@
 {% for schema in schemas %}
 {% if schema.kind == "object" %}
 {% if schema.description %}
-/** {{ schema.description }} */
+/** {{ schema.description | escape_jsdoc }} */
 {% endif %}
 export interface {{ schema.name }} {
 {% for field in schema.fields %}
 {% if field.description %}
-  /** {{ field.description }} */
+  /** {{ field.description | escape_jsdoc }} */
 {% endif %}
   {{ field.original_name }}{% if not field.required %}?{% endif %}: {{ field.type }};
 {% endfor %}
@@ -18,19 +18,19 @@ export interface {{ schema.name }} {
 
 {% elif schema.kind == "enum" %}
 {% if schema.description %}
-/** {{ schema.description }} */
+/** {{ schema.description | escape_jsdoc }} */
 {% endif %}
 export type {{ schema.name }} = {{ schema.variants | join(" | ") }};
 
 {% elif schema.kind == "alias" %}
 {% if schema.description %}
-/** {{ schema.description }} */
+/** {{ schema.description | escape_jsdoc }} */
 {% endif %}
 export type {{ schema.name }} = {{ schema.target }};
 
 {% elif schema.kind == "union" %}
 {% if schema.description %}
-/** {{ schema.description }} */
+/** {{ schema.description | escape_jsdoc }} */
 {% endif %}
 export type {{ schema.name }} = {{ schema.variants | join(" | ") }};
 

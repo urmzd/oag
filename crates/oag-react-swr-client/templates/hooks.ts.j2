@@ -12,9 +12,9 @@ import type {
 
 {% if hook.kind == "query" %}
 {% if hook.description %}
-/** {{ hook.description }} */
+/** {{ hook.description | escape_jsdoc }} */
 {% endif %}
-export function {{ hook.hook_name }}({{ hook.params_signature }}, config?: SWRConfiguration<{{ hook.return_type }}>) {
+export function {{ hook.hook_name }}({% if hook.params_signature %}{{ hook.params_signature }}, {% endif %}config?: SWRConfiguration<{{ hook.return_type }}>) {
   const client = useApiClient();
   return useSWR<{{ hook.return_type }}>(
     {{ hook.swr_key }},
@@ -24,9 +24,9 @@ export function {{ hook.hook_name }}({{ hook.params_signature }}, config?: SWRCo
 }
 {% elif hook.kind == "mutation" %}
 {% if hook.description %}
-/** {{ hook.description }} */
+/** {{ hook.description | escape_jsdoc }} */
 {% endif %}
-export function {{ hook.hook_name }}({{ hook.path_params_signature }}config?: SWRMutationConfiguration<{{ hook.return_type }}, Error, string, {{ hook.body_type }}>) {
+export function {{ hook.hook_name }}({% if hook.path_params_signature %}{{ hook.path_params_signature }}, {% endif %}config?: SWRMutationConfiguration<{{ hook.return_type }}, Error, string, {{ hook.body_type }}>) {
   const client = useApiClient();
   return useSWRMutation<{{ hook.return_type }}, Error, string, {{ hook.body_type }}>(
     {{ hook.swr_key }},
@@ -36,7 +36,7 @@ export function {{ hook.hook_name }}({{ hook.path_params_signature }}config?: SW
 }
 {% elif hook.kind == "sse" %}
 {% if hook.description %}
-/** {{ hook.description }} */
+/** {{ hook.description | escape_jsdoc }} */
 {% endif %}
 export function {{ hook.hook_name }}({{ hook.path_params_signature }}) {
   const client = useApiClient();

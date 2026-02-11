@@ -4,9 +4,15 @@ use minijinja::{Environment, context};
 use oag_core::ir::{HttpMethod, IrOperation, IrParameterLocation, IrReturnType, IrSpec, IrType};
 use oag_node_client::type_mapper::ir_type_to_ts;
 
+/// Escape `*/` sequences that would prematurely close JSDoc comment blocks.
+fn escape_jsdoc(value: String) -> String {
+    value.replace("*/", "*\\/")
+}
+
 /// Emit `hooks.ts` — React hooks wrapping the API client.
 pub fn emit_hooks(ir: &IrSpec) -> String {
     let mut env = Environment::new();
+    env.add_filter("escape_jsdoc", escape_jsdoc);
     env.add_template("hooks.ts.j2", include_str!("../../templates/hooks.ts.j2"))
         .expect("template should be valid");
     let tmpl = env.get_template("hooks.ts.j2").unwrap();
@@ -170,7 +176,7 @@ fn build_query_params(op: &IrOperation) -> (String, String, String) {
     let swr_key = if key_parts.is_empty() {
         format!("\"{}\"", op.path)
     } else {
-        format!("[\"{}\" , {}] as const", op.path, key_parts.join(", "))
+        format!("[\"{}\", {}] as const", op.path, key_parts.join(", "))
     };
 
     let params_sig = sig_parts.join(", ");
@@ -187,7 +193,7 @@ fn build_mutation_params(op: &IrOperation) -> (String, String, String) {
     for param in &op.parameters {
         if param.location == IrParameterLocation::Path {
             let ts = ir_type_to_ts(&param.param_type);
-            sig_parts.push(format!("{}: {}, ", param.name.camel_case, ts));
+            sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
             key_parts.push(param.name.camel_case.clone());
             call_parts.push(param.name.camel_case.clone());
         }
@@ -198,11 +204,11 @@ fn build_mutation_params(op: &IrOperation) -> (String, String, String) {
         call_parts.push("arg".to_string());
     }
 
-    let path_params_sig = sig_parts.join("");
+    let path_params_sig = sig_parts.join(", ");
     let swr_key = if key_parts.is_empty() {
         format!("\"{}\"", op.path)
     } else {
-        format!("[\"{}\" , {}] as const", op.path, key_parts.join(", "))
+        format!("[\"{}\", {}] as const", op.path, key_parts.join(", "))
     };
     let call_args = call_parts.join(", ");
 
@@ -217,7 +223,7 @@ fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
     for param in &op.parameters {
         if param.location == IrParameterLocation::Path {
             let ts = ir_type_to_ts(&param.param_type);
-            path_sig_parts.push(format!("{}: {}, ", param.name.camel_case, ts));
+            path_sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
             deps_parts.push(format!(", {}", param.name.camel_case));
             stream_call_parts.push(param.name.camel_case.clone());
         }
@@ -231,7 +237,7 @@ fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
         String::new()
     };
 
-    let path_params_sig = path_sig_parts.join("");
+    let path_params_sig = path_sig_parts.join(", ");
     let stream_call_args = stream_call_parts.join(", ");
     let deps = deps_parts.join("");
 

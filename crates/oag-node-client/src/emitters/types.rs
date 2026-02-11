@@ -3,9 +3,15 @@ use oag_core::ir::{IrObjectSchema, IrReturnType, IrSchema, IrSpec};
 
 use crate::type_mapper::ir_type_to_ts;
 
+/// Escape `*/` sequences that would prematurely close JSDoc comment blocks.
+fn escape_jsdoc(value: String) -> String {
+    value.replace("*/", "*\\/")
+}
+
 /// Emit `types.ts` containing all interfaces, enums, aliases, and SSE event union types.
 pub fn emit_types(ir: &IrSpec) -> String {
     let mut env = Environment::new();
+    env.add_filter("escape_jsdoc", escape_jsdoc);
     env.add_template("types.ts.j2", include_str!("../../templates/types.ts.j2"))
         .expect("template should be valid");
     let tmpl = env.get_template("types.ts.j2").unwrap();

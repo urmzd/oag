@@ -3,9 +3,15 @@ use oag_core::ir::{HttpMethod, IrOperation, IrParameterLocation, IrReturnType, I
 
 use crate::type_mapper::ir_type_to_python;
 
+/// Escape triple-quote sequences that would prematurely close Python docstrings.
+fn escape_docstring(value: String) -> String {
+    value.replace("\"\"\"", "\\\"\\\"\\\"")
+}
+
 /// Emit `routes.py` — FastAPI router with stub endpoints.
 pub fn emit_routes(ir: &IrSpec) -> String {
     let mut env = Environment::new();
+    env.add_filter("escape_docstring", escape_docstring);
     env.add_template("routes.py.j2", include_str!("../../templates/routes.py.j2"))
         .expect("template should be valid");
     let tmpl = env.get_template("routes.py.j2").unwrap();

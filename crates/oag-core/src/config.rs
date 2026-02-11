@@ -396,6 +396,7 @@ generators:
     scaffold:
       # package_name: my-api-client
       # repository: https://github.com/you/your-repo
+      # existing_repo: false   # set to true to skip all scaffold files (package.json, tsconfig, etc.)
       formatter: biome        # biome | false
       test_runner: vitest     # vitest | false
       bundler: tsdown         # tsdown | false

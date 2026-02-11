@@ -37,7 +37,7 @@ async def {{ op.name }}(
 {% endif %}
 ) -> {{ op.return_type }}:
 {% if op.summary %}
-    """{{ op.summary }}"""
+    """{{ op.summary | escape_docstring }}"""
 {% endif %}
     raise NotImplementedError
 
@@ -60,7 +60,7 @@ async def {{ op.name }}(
 {% endif %}
 ) -> None:
 {% if op.summary %}
-    """{{ op.summary }}"""
+    """{{ op.summary | escape_docstring }}"""
 {% endif %}
     raise NotImplementedError
 
@@ -83,7 +83,7 @@ async def {{ op.name }}(
 {% endif %}
 ) -> StreamingResponse:
 {% if op.summary %}
-    """{{ op.summary }}"""
+    """{{ op.summary | escape_docstring }}"""
 {% endif %}
     # TODO: implement SSE streaming logic
     # Return: sse_response(your_async_generator)

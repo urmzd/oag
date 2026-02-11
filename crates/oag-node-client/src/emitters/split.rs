@@ -18,26 +18,26 @@ pub fn emit_split(ir: &IrSpec, no_jsdoc: bool, split_by: SplitBy) -> Vec<Generat
 
     // Centralized types
     files.push(GeneratedFile {
-        path: "types.ts".to_string(),
+        path: "src/types.ts".to_string(),
         content: emitters::types::emit_types(ir),
     });
 
     // SSE runtime
     files.push(GeneratedFile {
-        path: "sse.ts".to_string(),
+        path: "src/sse.ts".to_string(),
         content: emitters::sse::emit_sse(),
     });
 
     // Client base — full client class
     files.push(GeneratedFile {
-        path: "client.ts".to_string(),
+        path: "src/client.ts".to_string(),
         content: emitters::client::emit_client(ir, no_jsdoc),
     });
 
     // Per-group files — re-export from client for the group's operations
     let mut group_names = Vec::new();
     for group in &groups {
-        let group_file_name = format!("{}.ts", group.name.snake_case);
+        let group_file_name = format!("src/{}.ts", group.name.snake_case);
         let content = emit_group_file(ir, group);
         group_names.push(group.name.snake_case.clone());
         files.push(GeneratedFile {
@@ -48,7 +48,7 @@ pub fn emit_split(ir: &IrSpec, no_jsdoc: bool, split_by: SplitBy) -> Vec<Generat
 
     // Index barrel
     files.push(GeneratedFile {
-        path: "index.ts".to_string(),
+        path: "src/index.ts".to_string(),
         content: emit_split_index(&group_names),
     });
 

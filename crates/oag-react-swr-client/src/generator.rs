@@ -25,15 +25,15 @@ impl CodeGenerator for ReactSwrClientGenerator {
         let no_jsdoc = config.no_jsdoc.unwrap_or(false);
         let mut files = vec![
             GeneratedFile {
-                path: "types.ts".to_string(),
+                path: "src/types.ts".to_string(),
                 content: oag_node_client::emitters::types::emit_types(ir),
             },
             GeneratedFile {
-                path: "sse.ts".to_string(),
+                path: "src/sse.ts".to_string(),
                 content: oag_node_client::emitters::sse::emit_sse(),
             },
             GeneratedFile {
-                path: "client.ts".to_string(),
+                path: "src/client.ts".to_string(),
                 content: oag_node_client::emitters::client::emit_client(ir, no_jsdoc),
             },
         ];
@@ -43,11 +43,11 @@ impl CodeGenerator for ReactSwrClientGenerator {
 
             if scaffold.test_runner.is_some() {
                 files.push(GeneratedFile {
-                    path: "client.test.ts".to_string(),
+                    path: "src/client.test.ts".to_string(),
                     content: oag_node_client::emitters::tests::emit_client_tests(ir),
                 });
                 files.push(GeneratedFile {
-                    path: "hooks.test.ts".to_string(),
+                    path: "src/hooks.test.ts".to_string(),
                     content: emitters::tests::emit_hooks_tests(ir),
                 });
             }
@@ -55,18 +55,18 @@ impl CodeGenerator for ReactSwrClientGenerator {
 
         // Add React-specific files
         files.push(GeneratedFile {
-            path: "hooks.ts".to_string(),
+            path: "src/hooks.ts".to_string(),
             content: emitters::hooks::emit_hooks(ir),
         });
 
         files.push(GeneratedFile {
-            path: "provider.ts".to_string(),
+            path: "src/provider.ts".to_string(),
             content: emitters::provider::emit_provider(),
         });
 
         // Add React index.ts (includes hooks + provider exports)
         files.push(GeneratedFile {
-            path: "index.ts".to_string(),
+            path: "src/index.ts".to_string(),
             content: emitters::index::emit_index(),
         });
 
