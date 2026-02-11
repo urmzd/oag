@@ -1,0 +1,47 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/urmzd/openapi-generator"
+authors = ["urmzd"]
+homepage = "https://github.com/urmzd/openapi-generator"
+
+[workspace.dependencies]
+# Internal crates
+oag-core = { path = "crates/oag-core", version = "0.1.0" }
+oag-typescript = { path = "crates/oag-typescript", version = "0.1.0" }
+oag-react = { path = "crates/oag-react", version = "0.1.0" }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml_ng = "0.10"
+
+# Collections
+indexmap = { version = "2", features = ["serde"] }
+
+# Case conversion
+heck = "0.5"
+
+# Templating
+minijinja = "2"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging
+env_logger = "0.11"
+log = "0.4"
+
+# Testing
+insta = { version = "1", features = ["yaml"] }
+tempfile = "3"
