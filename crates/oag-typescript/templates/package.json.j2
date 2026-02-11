@@ -1,0 +1,39 @@
+{
+  "name": "{{ name }}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+{% if repository %}
+  "repository": {
+    "type": "git",
+    "url": "{{ repository }}"
+  },
+{% endif %}
+  "scripts": {
+    "build": "tsdown",
+{% if biome %}
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write .",
+{% endif %}
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+{% if react %}
+    "react": "^19.0.0",
+    "swr": "^2.2.0",
+{% endif %}
+  },
+  "devDependencies": {
+{% if biome %}
+    "@biomejs/biome": "^1.9.0",
+{% endif %}
+{% if react %}
+    "@types/react": "^19.0.0",
+{% endif %}
+    "tsdown": "^0.12.0",
+    "typescript": "^5.7.0"
+  }
+}

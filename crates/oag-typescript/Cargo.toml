@@ -1,0 +1,19 @@
+[package]
+name = "oag-typescript"
+description = "TypeScript/Node client generator for oag"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+
+[dependencies]
+oag-core = { workspace = true }
+minijinja = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+serde_yaml_ng = { workspace = true }
