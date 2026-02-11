@@ -6,7 +6,7 @@ Extends the Node client generator with React-specific code: SWR hooks for data f
 
 ## Layout modes
 
-This generator supports the same three layout modes as `node-client`: **bundled**, **modular** (default), and **split**.
+This generator currently supports **modular** layout only.
 
 In modular mode, the generator produces everything from [`oag-node-client`](../oag-node-client/) plus:
 

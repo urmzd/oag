@@ -51,7 +51,7 @@ input: openapi.yaml
 naming:
   strategy: use_operation_id  # use_operation_id | use_route_based
   aliases: {}
-    # createChatCompletion: chat
+    # createChatCompletion: chat     # operationId → custom name
     # listModels: models
 
 generators:
@@ -199,9 +199,7 @@ Working examples with generated output are in the [`examples/`](examples/) direc
 - **[`petstore`](examples/petstore/)** — Node client and React client generated from the Petstore 3.2 spec
 - **[`sse-chat`](examples/sse-chat/)** — Node client and React hooks with SSE streaming for a chat API
 
-Each example has its own `.urmzd.oag.yaml` and a `generated/` directory with separate subdirectories for each generator:
-- `generated/node/` — TypeScript/Node client
-- `generated/react/` — React/SWR hooks
+Each example has its own `.urmzd.oag.yaml` configuring generators with separate output directories (e.g. `generated/node` and `generated/react`).
 
 Regenerate them with:
 

@@ -1,8 +1,9 @@
 use std::fs;
 use std::process::Command;
 
+use oag_core::config::GeneratorConfig;
 use oag_core::{parse, transform, CodeGenerator};
-use oag_react::{ReactConfig, ReactGenerator};
+use oag_react_swr_client::ReactSwrClientGenerator;
 
 const SSE_CHAT: &str = include_str!("../../crates/oag-core/tests/fixtures/sse-chat.yaml");
 
@@ -12,8 +13,8 @@ fn generated_react_compiles() {
     let spec = parse::from_yaml(SSE_CHAT).unwrap();
     let ir = transform::transform(&spec).unwrap();
 
-    let config = ReactConfig::default();
-    let files = ReactGenerator.generate(&ir, &config).unwrap();
+    let config = GeneratorConfig::default();
+    let files = ReactSwrClientGenerator.generate(&ir, &config).unwrap();
 
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path();

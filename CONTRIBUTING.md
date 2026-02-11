@@ -26,7 +26,6 @@ This installs git hooks and adds the `clippy` and `rustfmt` components.
 | `just fmt` | Format all code |
 | `just lint` | Run clippy with `-D warnings` |
 | `just test` | Run all workspace tests (excluding integration tests) |
-| `just test-all` | Run all tests including integration tests (requires test servers) |
 | `just build` | Build all crates |
 | `just run <args>` | Run the CLI (e.g. `just run generate -i spec.yaml`) |
 | `just examples` | Rebuild the example output in `examples/` |

@@ -15,13 +15,14 @@ This is the foundation crate — every other `oag` crate depends on it.
 
 ## Transform pipeline
 
-The spec-to-IR transform runs in five phases:
+The spec-to-IR transform runs in six phases:
 
 1. **Resolve refs** — inline all `$ref` pointers so the spec is self-contained
 2. **Schemas** — convert OpenAPI schema objects into `IrSchema` variants (object, enum, alias, union)
 3. **Operations** — convert each path + method into an `IrOperation` with typed parameters, request body, and return type
 4. **Modules** — group operations by their first tag into `IrModule`
 5. **Info** — extract title, description, version, and server URLs
+6. **Promote inline objects** — lift anonymous inline object schemas to named top-level schemas for stronger type safety
 
 ## Key types
 

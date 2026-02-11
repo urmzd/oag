@@ -24,7 +24,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate client code from an OpenAPI spec
+    /// Generate code from an OpenAPI spec
     Generate {
         /// Path to the OpenAPI spec file (YAML or JSON)
         #[arg(short, long)]

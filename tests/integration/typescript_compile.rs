@@ -1,8 +1,9 @@
 use std::fs;
 use std::process::Command;
 
+use oag_core::config::GeneratorConfig;
 use oag_core::{parse, transform, CodeGenerator};
-use oag_typescript::{TypeScriptConfig, TypeScriptGenerator};
+use oag_node_client::NodeClientGenerator;
 
 const SSE_CHAT: &str = include_str!("../../crates/oag-core/tests/fixtures/sse-chat.yaml");
 
@@ -12,8 +13,8 @@ fn generated_typescript_compiles() {
     let spec = parse::from_yaml(SSE_CHAT).unwrap();
     let ir = transform::transform(&spec).unwrap();
 
-    let config = TypeScriptConfig::default();
-    let files = TypeScriptGenerator.generate(&ir, &config).unwrap();
+    let config = GeneratorConfig::default();
+    let files = NodeClientGenerator.generate(&ir, &config).unwrap();
 
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path();

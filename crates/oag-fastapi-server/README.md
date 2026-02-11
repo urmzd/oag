@@ -4,15 +4,9 @@ Python FastAPI server generator for OpenAPI 3.x specs.
 
 Takes an `IrSpec` from `oag-core` and produces FastAPI route stubs with Pydantic v2 models.
 
-## Layout modes
+## Layout
 
-This generator supports three layout modes:
-
-### bundled
-Everything in a single file: `main.py`
-
-### modular (default)
-Separate files per concern:
+This generator currently supports **modular** layout only. It produces separate files per concern:
 
 | File | Description |
 |------|-------------|
@@ -20,12 +14,6 @@ Separate files per concern:
 | `routes.py` | FastAPI route stubs with proper type annotations |
 | `sse.py` | Server-Sent Events utilities using `StreamingResponse` |
 | `main.py` | FastAPI app entry point |
-
-### split
-Separate files per operation group (by tag, operation, or route prefix). For example, when splitting by tag:
-- `pets.py` — All operations tagged with "pets"
-- `users.py` — All operations tagged with "users"
-- `main.py` — FastAPI app that imports all routes
 
 When scaffold generation is enabled (default), these are also created:
 
@@ -64,7 +52,7 @@ async def list_pets(
     List all pets
     """
     # TODO: Implement this endpoint
-    raise HTTPException(status_code=501, detail="Not implemented")
+    raise NotImplementedError
 ```
 
 For SSE endpoints (detected by `text/event-stream` content type), the generator produces:

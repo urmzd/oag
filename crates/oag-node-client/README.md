@@ -33,11 +33,11 @@ When scaffold generation is enabled (default), these are also created:
 |------|-------------|
 | `package.json` | npm package with name derived from the spec title |
 | `tsconfig.json` | TypeScript compiler configuration |
-| `biome.json` | Biome formatter and linter config (optional, `scaffold.biome`) |
-| `tsdown.config.ts` | tsdown bundler config (optional, `scaffold.tsdown`) |
-| `client.test.ts` | vitest tests for `ApiClient` (optional, `scaffold.tests`) |
+| `biome.json` | Biome formatter and linter config (optional, `scaffold.formatter`) |
+| `tsdown.config.ts` | tsdown bundler config (optional, `scaffold.bundler`) |
+| `client.test.ts` | vitest tests for `ApiClient` (optional, `scaffold.test_runner`) |
 
-When `scaffold.tests` is enabled (default), `package.json` includes vitest as a dev dependency and a `"test": "vitest run"` script. The generated tests cover:
+When `scaffold.test_runner` is enabled (default), `package.json` includes vitest as a dev dependency and a `"test": "vitest run"` script. The generated tests cover:
 
 - Client instantiation (with config, custom headers, custom fetch)
 - Per-operation: method existence, correct HTTP method and URL, request body handling, error throwing
