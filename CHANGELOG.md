@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0 (2026-02-11)
+
+### Features
+
+- promote inline objects to named schemas for stronger type safety ([9704f53](https://github.com/urmzd/openapi-generator/commit/9704f535f9926618ff9b9607553eb456605a6aff))
+
+### Bug Fixes
+
+- apply cargo fmt to fix CI formatting check ([ae3e350](https://github.com/urmzd/openapi-generator/commit/ae3e35052d7ac19c8c75076cf61b63ca7e0b3a1b))
+
+### Refactoring
+
+- rename crates, add fastapi-server generator, and update core IR ([a29139a](https://github.com/urmzd/openapi-generator/commit/a29139ab47cd1df3040078bccad97b19a87e2b06))
+
+### Miscellaneous
+
+- update semantic-release action to v1 ([d23a5c6](https://github.com/urmzd/openapi-generator/commit/d23a5c6220c5af53c7322b3842fd6b00fbad8e22))
+- update Cargo.toml license to Apache-2.0 ([1e96962](https://github.com/urmzd/openapi-generator/commit/1e969628b94459b0596d15a81f41f7ada0a5d7e7))
+- license under Apache 2.0 ([70926f4](https://github.com/urmzd/openapi-generator/commit/70926f41f28677a776f02c04ab6f842bf8d92375))
+
+
 ## 0.1.1 (2026-02-11)
 
 ### Bug Fixes
