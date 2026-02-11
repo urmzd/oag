@@ -1,4 +1,5 @@
 pub mod name_normalizer;
+pub mod promote_inline;
 pub mod schema_resolver;
 pub mod spec_to_ir;
 pub mod sse_detector;

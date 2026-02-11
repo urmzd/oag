@@ -12,6 +12,7 @@ use crate::parse::request_body::RequestBodyOrRef;
 use crate::parse::spec::OpenApiSpec;
 
 use super::name_normalizer::{normalize_name, route_to_name};
+use super::promote_inline::promote_inline_objects;
 use super::schema_resolver::{schema_or_ref_to_ir_schema, schema_or_ref_to_ir_type};
 use super::sse_detector::detect_return_type;
 
@@ -61,13 +62,18 @@ pub fn transform_with_options(
         })
         .collect();
 
-    Ok(IrSpec {
+    let mut ir = IrSpec {
         info,
         servers,
         schemas,
         operations,
         modules,
-    })
+    };
+
+    // Phase 6: Promote inline objects to named schemas
+    promote_inline_objects(&mut ir);
+
+    Ok(ir)
 }
 
 fn resolve_schemas(spec: &OpenApiSpec) -> Result<Vec<IrSchema>, TransformError> {
