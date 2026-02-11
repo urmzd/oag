@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 (2026-02-11)
+
+### Bug Fixes
+
+- cross-validate and fix all documentation after crate rename ([12a9684](https://github.com/urmzd/openapi-generator/commit/12a96847d7f5bfcb2630cd88f6c0aac9d4ea78b0))
+- update docs and CI configs to reflect crate renames and new scaffold schema ([b7ba88d](https://github.com/urmzd/openapi-generator/commit/b7ba88dbb886b61358f74d0a7b096acc1de352e3))
+
+
 ## 0.2.0 (2026-02-11)
 
 ### Features
