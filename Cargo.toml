@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/urmzd/openapi-generator"
@@ -12,10 +12,10 @@ homepage = "https://github.com/urmzd/openapi-generator"
 
 [workspace.dependencies]
 # Internal crates
-oag-core = { path = "crates/oag-core", version = "0.4.0" }
-oag-node-client = { path = "crates/oag-node-client", version = "0.4.0" }
-oag-react-swr-client = { path = "crates/oag-react-swr-client", version = "0.4.0" }
-oag-fastapi-server = { path = "crates/oag-fastapi-server", version = "0.4.0" }
+oag-core = { path = "crates/oag-core", version = "0.4.1" }
+oag-node-client = { path = "crates/oag-node-client", version = "0.4.1" }
+oag-react-swr-client = { path = "crates/oag-react-swr-client", version = "0.4.1" }
+oag-fastapi-server = { path = "crates/oag-fastapi-server", version = "0.4.1" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

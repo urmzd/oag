@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 (2026-02-11)
+
+### Bug Fixes
+
+- correct SWR mutation key types, fix SSE dedup, and add compile-check integration tests ([eae8680](https://github.com/urmzd/openapi-generator/commit/eae8680115caa44f4c7beb5b3a6b3c4ca42ab6d3))
+- move default-config.yaml into oag-core crate for cargo publish ([eb0bfc1](https://github.com/urmzd/openapi-generator/commit/eb0bfc165955e1cc11d0d406d61151cc8c341238))
+
+
 ## 0.4.0 (2026-02-11)
 
 ### Features
