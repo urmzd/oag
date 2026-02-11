@@ -1,6 +1,6 @@
 use oag_core::config::{GeneratorConfig, GeneratorId, OutputLayout, SplitBy, ToolSetting};
 use oag_core::ir::IrSpec;
-use oag_core::{CodeGenerator, GeneratedFile, GeneratorError};
+use oag_core::{CodeGenerator, GeneratedFile, GeneratorError, normalize_generated};
 
 use crate::emitters;
 use crate::emitters::scaffold::{NodeScaffoldConfig, ScaffoldOptions};
@@ -92,6 +92,9 @@ impl CodeGenerator for NodeClientGenerator {
             }
         }
 
+        for file in &mut files {
+            file.content = normalize_generated(&file.content);
+        }
         Ok(files)
     }
 }

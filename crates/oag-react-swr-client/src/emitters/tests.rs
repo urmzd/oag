@@ -4,6 +4,7 @@ use oag_core::ir::{IrOperation, IrReturnType, IrSpec};
 /// Emit `hooks.test.ts` — vitest smoke tests for React hook exports.
 pub fn emit_hooks_tests(ir: &IrSpec) -> String {
     let mut env = Environment::new();
+    env.set_trim_blocks(true);
     env.add_template(
         "hooks.test.ts.j2",
         include_str!("../../templates/hooks.test.ts.j2"),
@@ -11,7 +12,13 @@ pub fn emit_hooks_tests(ir: &IrSpec) -> String {
     .expect("template should be valid");
     let tmpl = env.get_template("hooks.test.ts.j2").unwrap();
 
-    let hook_names: Vec<String> = ir.operations.iter().flat_map(build_hook_names).collect();
+    let mut seen = std::collections::HashSet::new();
+    let hook_names: Vec<String> = ir
+        .operations
+        .iter()
+        .flat_map(build_hook_names)
+        .filter(|n| seen.insert(n.clone()))
+        .collect();
 
     tmpl.render(context! { hook_names => hook_names })
         .expect("render should succeed")

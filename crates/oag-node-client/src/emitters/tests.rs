@@ -6,6 +6,7 @@ use crate::type_mapper::ir_type_to_ts;
 /// Emit `client.test.ts` — vitest tests for the API client.
 pub fn emit_client_tests(ir: &IrSpec) -> String {
     let mut env = Environment::new();
+    env.set_trim_blocks(true);
     env.add_template(
         "client.test.ts.j2",
         include_str!("../../templates/client.test.ts.j2"),
@@ -13,14 +14,45 @@ pub fn emit_client_tests(ir: &IrSpec) -> String {
     .expect("template should be valid");
     let tmpl = env.get_template("client.test.ts.j2").unwrap();
 
-    // Collect type names referenced in mock values for imports
-    let type_imports: Vec<String> = collect_type_imports(ir);
-
+    let mut seen_methods = std::collections::HashSet::new();
+    let mut used_op_indices = std::collections::HashSet::new();
     let operations: Vec<minijinja::Value> = ir
         .operations
         .iter()
-        .flat_map(build_test_operation_contexts)
+        .enumerate()
+        .flat_map(|(idx, op)| {
+            build_test_operation_contexts(op)
+                .into_iter()
+                .map(move |ctx| (idx, ctx))
+        })
+        .filter(|(idx, op)| {
+            let name = op
+                .get_attr("method_name")
+                .ok()
+                .and_then(|v| v.as_str().map(String::from));
+            match name {
+                Some(n) => {
+                    if seen_methods.insert(n) {
+                        used_op_indices.insert(*idx);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                None => true,
+            }
+        })
+        .map(|(_, ctx)| ctx)
         .collect();
+
+    // Collect type names only from operations that survived dedup
+    let type_imports: Vec<String> = collect_type_imports(
+        ir.operations
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| used_op_indices.contains(i))
+            .map(|(_, op)| op),
+    );
 
     tmpl.render(context! {
         operations => operations,
@@ -29,11 +61,11 @@ pub fn emit_client_tests(ir: &IrSpec) -> String {
     .expect("render should succeed")
 }
 
-/// Collect unique type names used in mock values across all operations.
-fn collect_type_imports(ir: &IrSpec) -> Vec<String> {
+/// Collect unique type names used in mock values across surviving operations.
+fn collect_type_imports<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> Vec<String> {
     let mut names = std::collections::BTreeSet::new();
 
-    for op in &ir.operations {
+    for op in ops {
         // Request body refs
         if let Some(ref body) = op.request_body {
             collect_ref_names(&body.body_type, &mut names);

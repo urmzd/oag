@@ -93,6 +93,7 @@ pub fn emit_scaffold(options: &ScaffoldOptions) -> Vec<GeneratedFile> {
 
 fn emit_package_json(options: &ScaffoldOptions) -> String {
     let mut env = Environment::new();
+    env.set_trim_blocks(true);
     env.add_template(
         "package.json.j2",
         include_str!("../../templates/package.json.j2"),

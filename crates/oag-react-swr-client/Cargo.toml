@@ -18,3 +18,5 @@ log = { workspace = true }
 [dev-dependencies]
 insta = { workspace = true }
 serde_yaml_ng = { workspace = true }
+tempfile = { workspace = true }
+serde_json = { workspace = true }

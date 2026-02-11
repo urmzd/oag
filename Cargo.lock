@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "oag-cli"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "oag-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "heck",
  "indexmap",
@@ -377,7 +377,7 @@ dependencies = [
 
 [[package]]
 name = "oag-fastapi-server"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "heck",
  "insta",
@@ -392,7 +392,7 @@ dependencies = [
 
 [[package]]
 name = "oag-node-client"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "insta",
  "log",
@@ -401,19 +401,22 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml_ng",
+ "tempfile",
  "thiserror",
 ]
 
 [[package]]
 name = "oag-react-swr-client"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "insta",
  "log",
  "minijinja",
  "oag-core",
  "oag-node-client",
+ "serde_json",
  "serde_yaml_ng",
+ "tempfile",
  "thiserror",
 ]
 

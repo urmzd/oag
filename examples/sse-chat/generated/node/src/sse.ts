@@ -21,8 +21,10 @@ export interface SSEOptions {
 }
 
 /** Request interceptor type. */
-type RequestInterceptor = (request: { url: string; init: RequestInit }) =>
-  { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>;
+type RequestInterceptor = (request: {
+  url: string;
+  init: RequestInit;
+}) => { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>;
 
 /**
  * Create an async generator that yields parsed SSE events from a fetch response.

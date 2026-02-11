@@ -1,6 +1,6 @@
 use oag_core::config::{GeneratorConfig, GeneratorId};
 use oag_core::ir::IrSpec;
-use oag_core::{CodeGenerator, GeneratedFile, GeneratorError};
+use oag_core::{CodeGenerator, GeneratedFile, GeneratorError, normalize_generated};
 use oag_node_client::NodeClientGenerator;
 use oag_node_client::emitters::source_path;
 
@@ -72,6 +72,9 @@ impl CodeGenerator for ReactSwrClientGenerator {
             content: emitters::index::emit_index(),
         });
 
+        for file in &mut files {
+            file.content = normalize_generated(&file.content);
+        }
         Ok(files)
     }
 }

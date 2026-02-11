@@ -4,7 +4,9 @@ import type {
   {{ type_name }},
 {% endfor %}
 } from "./types";
-import { streamSse, type SSEOptions } from "./sse";
+{% if has_sse %}
+import { type SSEOptions, streamSse } from "./sse";
+{% endif %}
 
 /** Options for API requests. */
 export interface RequestOptions {

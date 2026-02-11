@@ -34,6 +34,9 @@ publish:
     cargo publish -p oag-fastapi-server --dry-run
     cargo publish -p oag-cli --dry-run
 
+test-integration:
+    cargo test --workspace -- --ignored
+
 examples: install
     cd examples/petstore && ../../target/release/oag generate
     cd examples/sse-chat && ../../target/release/oag generate

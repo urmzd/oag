@@ -13,22 +13,62 @@ fn escape_jsdoc(value: String) -> String {
 /// Emit `client.ts` — the API client class with REST and SSE methods.
 pub fn emit_client(ir: &IrSpec, _no_jsdoc: bool) -> String {
     let mut env = Environment::new();
+    env.set_trim_blocks(true);
     env.add_filter("escape_jsdoc", escape_jsdoc);
     env.add_template("client.ts.j2", include_str!("../../templates/client.ts.j2"))
         .expect("template should be valid");
     let tmpl = env.get_template("client.ts.j2").unwrap();
 
-    let imported_types = collect_imported_types(ir);
+    // Build and deduplicate operations, tracking which source ops survived.
+    let mut seen_methods = HashSet::new();
+    let mut used_op_indices = HashSet::new();
     let operations: Vec<minijinja::Value> = ir
         .operations
         .iter()
-        .flat_map(build_operation_contexts)
+        .enumerate()
+        .flat_map(|(idx, op)| {
+            build_operation_contexts(op)
+                .into_iter()
+                .map(move |ctx| (idx, ctx))
+        })
+        .filter(|(idx, ctx)| {
+            let name = ctx
+                .get_attr("method_name")
+                .ok()
+                .and_then(|v| v.as_str().map(String::from));
+            match name {
+                Some(n) => {
+                    if seen_methods.insert(n) {
+                        used_op_indices.insert(*idx);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                None => true,
+            }
+        })
+        .map(|(_, ctx)| ctx)
         .collect();
+
+    // Only collect types from operations that contributed surviving methods.
+    let imported_types = collect_imported_types(
+        ir.operations
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| used_op_indices.contains(i))
+            .map(|(_, op)| op),
+    );
+
+    let has_sse = operations
+        .iter()
+        .any(|op| op.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("sse")));
 
     tmpl.render(context! {
         title => ir.info.title.clone(),
         imported_types => imported_types,
         operations => operations,
+        has_sse => has_sse,
         no_jsdoc => _no_jsdoc,
     })
     .expect("render should succeed")
@@ -213,10 +253,10 @@ fn build_params_raw(
     )
 }
 
-fn collect_imported_types(ir: &IrSpec) -> Vec<String> {
+fn collect_imported_types<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> Vec<String> {
     let mut types = HashSet::new();
 
-    for op in &ir.operations {
+    for op in ops {
         collect_types_from_return(&op.return_type, &mut types);
 
         if let Some(ref body) = op.request_body {
@@ -244,9 +284,8 @@ fn collect_types_from_return(ret: &IrReturnType, types: &mut HashSet<String>) {
             } else {
                 collect_types_from_ir_type(&sse.event_type, types);
             }
-            for v in &sse.variants {
-                collect_types_from_ir_type(v, types);
-            }
+            // SSE variant types are only used in type definitions (types.ts),
+            // not in client method signatures — skip them here.
             if let Some(ref json) = sse.json_response {
                 collect_types_from_ir_type(&json.response_type, types);
             }

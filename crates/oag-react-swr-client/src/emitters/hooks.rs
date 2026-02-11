@@ -12,17 +12,65 @@ fn escape_jsdoc(value: String) -> String {
 /// Emit `hooks.ts` — React hooks wrapping the API client.
 pub fn emit_hooks(ir: &IrSpec) -> String {
     let mut env = Environment::new();
+    env.set_trim_blocks(true);
     env.add_filter("escape_jsdoc", escape_jsdoc);
     env.add_template("hooks.ts.j2", include_str!("../../templates/hooks.ts.j2"))
         .expect("template should be valid");
     let tmpl = env.get_template("hooks.ts.j2").unwrap();
 
-    let imported_types = collect_imported_types(ir);
-    let hooks: Vec<minijinja::Value> = ir.operations.iter().flat_map(build_hook_contexts).collect();
+    let mut seen_hooks = HashSet::new();
+    let mut used_op_indices = HashSet::new();
+    let hooks: Vec<minijinja::Value> = ir
+        .operations
+        .iter()
+        .enumerate()
+        .flat_map(|(idx, op)| {
+            build_hook_contexts(op)
+                .into_iter()
+                .map(move |ctx| (idx, ctx))
+        })
+        .filter(|(idx, h)| {
+            let name = h
+                .get_attr("hook_name")
+                .ok()
+                .and_then(|v| v.as_str().map(String::from));
+            match name {
+                Some(n) => {
+                    if seen_hooks.insert(n) {
+                        used_op_indices.insert(*idx);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                None => true,
+            }
+        })
+        .map(|(_, ctx)| ctx)
+        .collect();
+    let imported_types = collect_imported_types(
+        ir.operations
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| used_op_indices.contains(i))
+            .map(|(_, op)| op),
+    );
+    let has_queries = hooks
+        .iter()
+        .any(|h| h.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("query")));
+    let has_mutations = hooks
+        .iter()
+        .any(|h| h.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("mutation")));
+    let has_sse = hooks
+        .iter()
+        .any(|h| h.get_attr("kind").ok().is_some_and(|v| v.as_str() == Some("sse")));
 
     tmpl.render(context! {
         imported_types => imported_types,
         hooks => hooks,
+        has_queries => has_queries,
+        has_mutations => has_mutations,
+        has_sse => has_sse,
     })
     .expect("render should succeed")
 }
@@ -52,21 +100,24 @@ fn build_hook_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
                 IrReturnType::Standard(r) => ir_type_to_ts(&r.response_type),
                 _ => "void".to_string(),
             };
+            let has_body = op.request_body.is_some();
             let body_type = op
                 .request_body
                 .as_ref()
                 .map(|b| ir_type_to_ts(&b.body_type))
                 .unwrap_or_else(|| "void".to_string());
 
-            let (path_params_sig, swr_key, call_args) = build_mutation_params(op);
+            let (path_params_sig, swr_key, call_args, swr_key_type) = build_mutation_params(op);
             results.push(context! {
                 kind => "mutation",
                 hook_name => format!("use{}", op.name.pascal_case),
                 method_name => op.name.camel_case.clone(),
                 path_params_signature => path_params_sig,
                 return_type => return_type,
+                has_body => has_body,
                 body_type => body_type,
                 swr_key => swr_key,
+                swr_key_type => swr_key_type,
                 call_args => call_args,
                 description => op.summary.clone().or(op.description.clone()),
             });
@@ -121,20 +172,23 @@ fn build_hook_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
                         });
                     }
                     _ => {
+                        let has_body = op.request_body.is_some();
                         let body_type = op
                             .request_body
                             .as_ref()
                             .map(|b| ir_type_to_ts(&b.body_type))
                             .unwrap_or_else(|| "void".to_string());
-                        let (path_params_sig, swr_key, call_args) = build_mutation_params(op);
+                        let (path_params_sig, swr_key, call_args, swr_key_type) = build_mutation_params(op);
                         results.push(context! {
                             kind => "mutation",
                             hook_name => format!("use{}", op.name.pascal_case),
                             method_name => op.name.camel_case.clone(),
                             path_params_signature => path_params_sig,
                             return_type => return_type,
+                            has_body => has_body,
                             body_type => body_type,
                             swr_key => swr_key,
+                            swr_key_type => swr_key_type,
                             call_args => call_args,
                             description => op.summary.clone().or(op.description.clone()),
                         });
@@ -185,10 +239,11 @@ fn build_query_params(op: &IrOperation) -> (String, String, String) {
     (params_sig, swr_key, call_args)
 }
 
-fn build_mutation_params(op: &IrOperation) -> (String, String, String) {
+fn build_mutation_params(op: &IrOperation) -> (String, String, String, String) {
     let mut sig_parts = Vec::new();
     let mut key_parts = Vec::new();
     let mut call_parts = Vec::new();
+    let mut key_type_parts = Vec::new();
 
     for param in &op.parameters {
         if param.location == IrParameterLocation::Path {
@@ -196,6 +251,7 @@ fn build_mutation_params(op: &IrOperation) -> (String, String, String) {
             sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
             key_parts.push(param.name.camel_case.clone());
             call_parts.push(param.name.camel_case.clone());
+            key_type_parts.push(ts);
         }
     }
 
@@ -210,9 +266,14 @@ fn build_mutation_params(op: &IrOperation) -> (String, String, String) {
     } else {
         format!("[\"{}\", {}] as const", op.path, key_parts.join(", "))
     };
+    let swr_key_type = if key_type_parts.is_empty() {
+        "string".to_string()
+    } else {
+        format!("readonly [string, {}]", key_type_parts.join(", "))
+    };
     let call_args = call_parts.join(", ");
 
-    (path_params_sig, swr_key, call_args)
+    (path_params_sig, swr_key, call_args, swr_key_type)
 }
 
 fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
@@ -244,10 +305,10 @@ fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
     (path_params_sig, trigger_params, stream_call_args, deps)
 }
 
-fn collect_imported_types(ir: &IrSpec) -> Vec<String> {
+fn collect_imported_types<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> Vec<String> {
     let mut types = HashSet::new();
 
-    for op in &ir.operations {
+    for op in ops {
         match &op.return_type {
             IrReturnType::Standard(resp) => {
                 collect_refs(&resp.response_type, &mut types);
