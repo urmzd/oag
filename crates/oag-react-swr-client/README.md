@@ -18,7 +18,7 @@ In modular mode, the generator produces everything from [`oag-node-client`](../o
 | `src/client.test.ts` | vitest tests for `ApiClient` (optional, `scaffold.test_runner`) |
 | `src/hooks.test.tsx` | vitest smoke tests verifying each hook is exported (optional, `scaffold.test_runner`) |
 
-Source files are placed in a `src/` subdirectory to match the tsconfig.json and tsdown.config.ts scaffold configuration. Scaffold files (`package.json`, `tsconfig.json`, etc.) remain at the output root.
+Source files are placed in a configurable subdirectory (default `src/`) controlled by the `source_dir` generator option. Scaffold files (`package.json`, `tsconfig.json`, etc.) remain at the output root.
 
 ## Hook types
 

@@ -61,6 +61,7 @@ generators:
     # split_by: tag           # operation | tag | route (only for split layout)
     # base_url: https://api.example.com
     # no_jsdoc: false
+    # source_dir: src         # subdirectory for source files ("src", "lib", or "" for root)
     scaffold:
       # package_name: my-api-client
       # repository: https://github.com/you/your-repo
@@ -141,6 +142,7 @@ The `generators` map configures which generators to run and their options. Each 
 | `split_by` | `string` | `tag` | Only for `split` layout: `operation`, `tag`, or `route` |
 | `base_url` | `string` | *(from spec servers)* | Override the API base URL (TypeScript generators only) |
 | `no_jsdoc` | `bool` | `false` | Disable JSDoc comments (TypeScript generators only) |
+| `source_dir` | `string` | `"src"` | Subdirectory for generated source files — set to `""` to place files at the output root (TypeScript generators only) |
 | `scaffold.package_name` | `string` | *(from spec title)* | Custom package name (TypeScript: npm, Python: pyproject.toml) |
 | `scaffold.repository` | `string` | | Repository URL for package metadata |
 | `scaffold.formatter` | `string` or `false` | `biome` (TS) / `ruff` (Python) | Code formatter — set to `false` to disable |
@@ -154,7 +156,7 @@ The `generators` map configures which generators to run and their options. Each 
 - **modular** — Separate files per concern (e.g., `src/types.ts`, `src/client.ts`, `src/sse.ts`, `src/index.ts`)
 - **split** — Separate files per operation group (e.g., `src/pets.ts`, `src/users.ts`, `src/orders.ts`)
 
-For TypeScript generators, source files are placed in a `src/` subdirectory to match the tsconfig.json (`rootDir: "src"`, `include: ["src"]`) and tsdown.config.ts (`entry: ["src/index.ts"]`) scaffold configuration. Scaffold files (`package.json`, `tsconfig.json`, `biome.json`, `tsdown.config.ts`) remain at the output root.
+For TypeScript generators, source files are placed in a `src/` subdirectory by default (configurable via `source_dir`). This matches the scaffold's tsconfig.json (`rootDir`, `include`) and tsdown.config.ts (`entry`) — all of which adapt automatically to the configured `source_dir`. Set `source_dir: ""` to place files directly at the output root. Scaffold files (`package.json`, `tsconfig.json`, `biome.json`, `tsdown.config.ts`) always remain at the output root.
 
 When using `split` layout, specify `split_by`:
 - `operation` — One file per operation

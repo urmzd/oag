@@ -27,7 +27,7 @@ Separate files per operation group (by tag, operation, or route prefix). For exa
 - `src/users.ts` — All operations tagged with "users"
 - `src/index.ts` — Barrel exports
 
-Source files are placed in a `src/` subdirectory to match the tsconfig.json (`rootDir: "src"`) and tsdown.config.ts (`entry: ["src/index.ts"]`) scaffold configuration.
+Source files are placed in a configurable subdirectory (default `src/`) controlled by the `source_dir` generator option. The scaffold's tsconfig.json and tsdown.config.ts adapt automatically. Set `source_dir: ""` to place files at the output root.
 
 When scaffold generation is enabled (default), these are also created at the output root:
 
@@ -53,7 +53,7 @@ When `scaffold.test_runner` is enabled (default), `package.json` includes vitest
 - **Request interceptor** — the `ApiClient` accepts an optional interceptor for auth headers, logging, etc.
 - **Full type safety** — every parameter, request body, and response is typed
 - **JSDoc comments** — generated from spec descriptions (disable with `no_jsdoc: true`); special characters like `*/` are escaped to avoid breaking comment blocks
-- **Existing repo mode** — set `scaffold.existing_repo: true` to skip all scaffold files (package.json, tsconfig, biome, tsdown) and only emit a root `index.ts` re-export alongside the `src/` source files
+- **Existing repo mode** — set `scaffold.existing_repo: true` to skip all scaffold files (package.json, tsconfig, biome, tsdown) and only emit a root `index.{ts,tsx}` re-export alongside the source files
 
 ## Depends on
 
