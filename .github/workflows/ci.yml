@@ -58,9 +58,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: charmbracelet/setup-vhs@v1
       - run: cargo build --release -p oag-cli
-      - run: vhs doc/demo.tape
+      - name: Install ttyd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ttyd
+      - name: Install VHS
+        run: go install github.com/charmbracelet/vhs@latest
+      - name: Record demo
+        run: vhs doc/demo.tape
       - uses: actions/upload-artifact@v4
         with:
           name: demo-gif
