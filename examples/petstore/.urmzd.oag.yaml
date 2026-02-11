@@ -1,0 +1,21 @@
+# oag configuration — Petstore example
+# Generates a TypeScript client from the Petstore OpenAPI 3.2 spec.
+input: ../../crates/oag-core/tests/fixtures/petstore-3.2.yaml
+output: generated
+target: typescript
+
+naming:
+  strategy: use_operation_id
+  aliases: {}
+
+output_options:
+  layout: single
+  index: true
+  biome: true
+  tsdown: true
+  package_name: "@examples/petstore-client"
+  repository: https://github.com/urmzd/openapi-generator
+
+client:
+  base_url: https://petstore.example.com/api
+  no_jsdoc: false

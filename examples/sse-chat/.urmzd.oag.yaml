@@ -1,0 +1,22 @@
+# oag configuration — SSE Chat example
+# Generates a React + TypeScript client with SSE streaming hooks
+# from the AI Chat API OpenAPI 3.2 spec.
+input: ../../crates/oag-core/tests/fixtures/sse-chat.yaml
+output: generated
+target: react
+
+naming:
+  strategy: use_operation_id
+  aliases: {}
+
+output_options:
+  layout: single
+  index: true
+  biome: true
+  tsdown: true
+  package_name: "@examples/sse-chat-client"
+  repository: https://github.com/urmzd/openapi-generator
+
+client:
+  base_url: https://api.example.com/v1
+  no_jsdoc: false
