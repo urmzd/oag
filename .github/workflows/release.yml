@@ -68,61 +68,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git identity
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build sr
-        run: cargo install sr-cli --locked || cargo build --release -p sr-cli 2>/dev/null || true
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Run sr release
-        id: sr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Flatten artifact directories
         run: |
-          OUTPUT=$(sr release 2>&1) && RC=0 || RC=$?
-          echo "$OUTPUT"
-          if [ $RC -eq 0 ]; then
-            echo "released=true" >> "$GITHUB_OUTPUT"
-            TAG=$(git describe --tags --abbrev=0)
-            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-          elif echo "$OUTPUT" | grep -q "no releasable commits"; then
-            echo "No releasable commits — skipping release"
-            echo "released=false" >> "$GITHUB_OUTPUT"
-          else
-            exit $RC
-          fi
-
-      - name: Update floating major version tag
-        if: steps.sr.outputs.released == 'true'
-        run: |
-          MAJOR=$(echo "${{ steps.sr.outputs.version }}" | cut -d. -f1)
-          git tag -f "v${MAJOR}" HEAD
-          git push origin "v${MAJOR}" --force
-
-      - name: Upload binaries to release
-        if: steps.sr.outputs.released == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=$(git describe --tags --abbrev=0)
-
+          mkdir -p release-assets
           for dir in artifacts/oag-*/; do
             TARGET=$(basename "$dir")
-            cp "$dir/oag" "$TARGET"
-            chmod +x "$TARGET"
-            gh release upload "$TAG" "$TARGET" --clobber
+            cp "$dir/oag" "release-assets/$TARGET"
           done
+          chmod +x release-assets/*
+
+      - name: Release
+        id: sr
+        uses: urmzd/semantic-release@v0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "release-assets/*"
 
       - name: Publish to crates.io
         if: steps.sr.outputs.released == 'true'
