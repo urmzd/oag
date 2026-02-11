@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-02-11)
+
+### Bug Fixes
+
+- remove hooks, switch to semantic-release action ([a907524](https://github.com/urmzd/openapi-generator/commit/a9075240360bd5d20900d754a60e62cf94ce5709))
+
+
 ## 0.1.0 (2026-02-11)
 
 ### Features

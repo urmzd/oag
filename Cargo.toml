@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/urmzd/openapi-generator"
@@ -12,9 +12,9 @@ homepage = "https://github.com/urmzd/openapi-generator"
 
 [workspace.dependencies]
 # Internal crates
-oag-core = { path = "crates/oag-core", version = "0.1.0" }
-oag-typescript = { path = "crates/oag-typescript", version = "0.1.0" }
-oag-react = { path = "crates/oag-react", version = "0.1.0" }
+oag-core = { path = "crates/oag-core", version = "0.1.1" }
+oag-typescript = { path = "crates/oag-typescript", version = "0.1.1" }
+oag-react = { path = "crates/oag-react", version = "0.1.1" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
