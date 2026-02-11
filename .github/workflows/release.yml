@@ -96,8 +96,10 @@ jobs:
         run: |
           cargo publish -p oag-core --allow-dirty
           sleep 30
-          cargo publish -p oag-typescript --allow-dirty
+          cargo publish -p oag-node-client --allow-dirty
           sleep 30
-          cargo publish -p oag-react --allow-dirty
+          cargo publish -p oag-react-swr-client --allow-dirty
+          sleep 30
+          cargo publish -p oag-fastapi-server --allow-dirty
           sleep 30
           cargo publish -p oag-cli --allow-dirty

@@ -33,8 +33,9 @@ types:
 
 version_files:
   - crates/oag-core/Cargo.toml
-  - crates/oag-typescript/Cargo.toml
-  - crates/oag-react/Cargo.toml
+  - crates/oag-node-client/Cargo.toml
+  - crates/oag-react-swr-client/Cargo.toml
+  - crates/oag-fastapi-server/Cargo.toml
   - crates/oag-cli/Cargo.toml
   - Cargo.toml
 

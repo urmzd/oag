@@ -2,7 +2,7 @@
 
 Command-line interface for `oag`.
 
-Installs a single binary called `oag` that parses OpenAPI specs and generates typed client code.
+Installs a single binary called `oag` that parses OpenAPI specs and generates typed code (clients and servers).
 
 ## Install
 
@@ -14,7 +14,7 @@ cargo install oag-cli
 
 | Command | Description |
 |---------|-------------|
-| `oag generate` | Generate client code from an OpenAPI spec |
+| `oag generate` | Generate code from an OpenAPI spec |
 | `oag validate` | Validate an OpenAPI spec and report errors |
 | `oag inspect` | Dump the parsed intermediate representation (YAML or JSON) |
 | `oag init` | Create a `.urmzd.oag.yaml` config file in the current directory |

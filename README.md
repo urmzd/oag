@@ -16,8 +16,8 @@ OpenAPI 3.2 shipped but most generators haven't caught up. When you need to glue
 - **React/SWR hooks** for queries, mutations, and SSE streaming
 - **Python FastAPI server** with Pydantic v2 models
 - First-class Server-Sent Events support via `AsyncGenerator` (TS) and `StreamingResponse` (Python)
-- **Test generation** — pytest tests for FastAPI, vitest tests for TypeScript/React (opt-out via `scaffold.tests: false`)
-- Scaffolds Biome + tsdown configuration for TypeScript projects
+- **Test generation** — pytest tests for FastAPI, vitest tests for TypeScript/React (opt-out via `scaffold.test_runner: false`)
+- Scaffolds Biome + tsdown configuration for TypeScript projects, Ruff for Python
 - Configurable naming strategies and operation aliases
 - Three layout modes per generator: bundled, modular, or split
 
@@ -58,26 +58,30 @@ generators:
   node-client:
     output: src/generated/node
     layout: modular           # bundled | modular | split
-    # split_by: tag           # operation | tag | route (only for split)
+    # split_by: tag           # operation | tag | route (only for split layout)
     # base_url: https://api.example.com
     # no_jsdoc: false
     scaffold:
       # package_name: my-api-client
       # repository: https://github.com/you/your-repo
-      biome: true
-      tsdown: true
-      tests: true              # generate test files + dev dependencies
+      formatter: biome        # biome | false
+      test_runner: vitest     # vitest | false
+      bundler: tsdown         # tsdown | false
 
   # react-swr-client:
   #   output: src/generated/react
   #   layout: modular
   #   scaffold:
-  #     biome: true
-  #     tsdown: true
+  #     formatter: biome
+  #     test_runner: vitest
+  #     bundler: tsdown
 
   # fastapi-server:
   #   output: src/generated/server
   #   layout: modular
+  #   scaffold:
+  #     formatter: ruff       # ruff | false
+  #     test_runner: pytest   # pytest | false
 ```
 
 Generate code:
@@ -92,13 +96,13 @@ This will generate code for all configured generators. You can override the inpu
 oag generate -i other-spec.yaml
 ```
 
-**Note**: The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported for backward compatibility.
+**Note**: The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported for backward compatibility and automatically converted.
 
 ## CLI reference
 
 | Command | Description |
 |---------|-------------|
-| `generate` | Generate client code from an OpenAPI spec |
+| `generate` | Generate code from an OpenAPI spec |
 | `validate` | Validate an OpenAPI spec and report errors |
 | `inspect` | Dump the parsed intermediate representation (YAML or JSON) |
 | `init` | Create a `.urmzd.oag.yaml` config file |
@@ -138,9 +142,9 @@ The `generators` map configures which generators to run and their options. Each 
 | `no_jsdoc` | `bool` | `false` | Disable JSDoc comments (TypeScript generators only) |
 | `scaffold.package_name` | `string` | *(from spec title)* | Custom package name (TypeScript: npm, Python: pyproject.toml) |
 | `scaffold.repository` | `string` | | Repository URL for package metadata |
-| `scaffold.biome` | `bool` | `true` | Generate `biome.json` and auto-format output (TypeScript only) |
-| `scaffold.tsdown` | `bool` | `true` | Generate `tsdown.config.ts` (TypeScript only) |
-| `scaffold.tests` | `bool` | `true` | Generate test files and dev dependencies (vitest for TS, pytest for Python) |
+| `scaffold.formatter` | `string` or `false` | `biome` (TS) / `ruff` (Python) | Code formatter — set to `false` to disable |
+| `scaffold.test_runner` | `string` or `false` | `vitest` (TS) / `pytest` (Python) | Test runner — set to `false` to disable test generation |
+| `scaffold.bundler` | `string` or `false` | `tsdown` | Bundler config (TypeScript only) — set to `false` to disable |
 
 ### Layout modes
 

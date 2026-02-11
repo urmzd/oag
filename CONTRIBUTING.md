@@ -5,7 +5,7 @@ Thanks for your interest in contributing to `oag`.
 ## Prerequisites
 
 - **Rust** (edition 2024) — install via [rustup](https://rustup.rs/)
-- **Node.js 20+** — needed for integration compile tests
+- **Node.js 20+** *(optional)* — only needed for `#[ignore]`-marked integration compile tests
 - **[just](https://github.com/casey/just)** — command runner
 
 ## Setup
