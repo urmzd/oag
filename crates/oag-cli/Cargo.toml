@@ -1,0 +1,26 @@
+[package]
+name = "oag-cli"
+description = "CLI for the oag OpenAPI code generator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "oag"
+path = "src/main.rs"
+
+[dependencies]
+oag-core = { workspace = true }
+oag-typescript = { workspace = true }
+oag-react = { workspace = true }
+clap = { workspace = true }
+clap_complete = { workspace = true }
+anyhow = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+indexmap = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml_ng = { workspace = true }
