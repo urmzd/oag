@@ -84,7 +84,7 @@ jobs:
 
       - name: Release
         id: sr
-        uses: urmzd/semantic-release@v0
+        uses: urmzd/semantic-release@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "release-assets/*"
