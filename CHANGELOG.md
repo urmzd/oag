@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 (2026-02-11)
+
+### Bug Fixes
+
+- move source files to src/, fix hook commas, add JSDoc escaping, and add existing_repo mode ([b9abe68](https://github.com/urmzd/openapi-generator/commit/b9abe6882ea5fae7040609e30c9a607182246a54))
+
+
 ## 0.2.1 (2026-02-11)
 
 ### Bug Fixes
