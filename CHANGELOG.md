@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (2026-02-11)
+
+### Features
+
+- make source_dir configurable on GeneratorConfig (default "src") ([1b185b3](https://github.com/urmzd/openapi-generator/commit/1b185b373f93a2781ecd65cff4e818dc28d298ae))
+
+
 ## 0.2.2 (2026-02-11)
 
 ### Bug Fixes
