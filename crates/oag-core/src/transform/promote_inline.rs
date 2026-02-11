@@ -25,8 +25,7 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
         if let IrSchema::Object(obj) = schema {
             let context = obj.name.pascal_case.clone();
             for field in &mut obj.fields {
-                let field_context =
-                    format!("{}{}", context, field.name.pascal_case);
+                let field_context = format!("{}{}", context, field.name.pascal_case);
                 promote_type(
                     &field_context,
                     &mut field.field_type,
@@ -54,19 +53,9 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
             }
             crate::ir::IrReturnType::Sse(sse) => {
                 let ctx = format!("{}Event", op_pascal);
-                promote_type(
-                    &ctx,
-                    &mut sse.event_type,
-                    &mut new_schemas,
-                    &mut used_names,
-                );
+                promote_type(&ctx, &mut sse.event_type, &mut new_schemas, &mut used_names);
                 for variant in &mut sse.variants {
-                    promote_type(
-                        &ctx,
-                        variant,
-                        &mut new_schemas,
-                        &mut used_names,
-                    );
+                    promote_type(&ctx, variant, &mut new_schemas, &mut used_names);
                 }
                 if let Some(ref mut json_resp) = sse.json_response {
                     let json_ctx = format!("{}Response", op_pascal);
@@ -84,12 +73,7 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
         // Request body
         if let Some(ref mut body) = op.request_body {
             let ctx = format!("{}Body", op_pascal);
-            promote_type(
-                &ctx,
-                &mut body.body_type,
-                &mut new_schemas,
-                &mut used_names,
-            );
+            promote_type(&ctx, &mut body.body_type, &mut new_schemas, &mut used_names);
         }
 
         // Parameters
@@ -136,14 +120,8 @@ fn promote_type(
             // Recurse into each field's type
             let schema_name = name.clone();
             for field in &mut ir_fields {
-                let field_ctx =
-                    format!("{}{}", schema_name, field.name.pascal_case);
-                promote_type(
-                    &field_ctx,
-                    &mut field.field_type,
-                    new_schemas,
-                    used_names,
-                );
+                let field_ctx = format!("{}{}", schema_name, field.name.pascal_case);
+                promote_type(&field_ctx, &mut field.field_type, new_schemas, used_names);
             }
 
             new_schemas.push(IrSchema::Object(IrObjectSchema {
@@ -306,9 +284,11 @@ mod tests {
                 fields: vec![IrField {
                     name: normalize_name("items"),
                     original_name: "items".to_string(),
-                    field_type: IrType::Array(Box::new(IrType::Object(vec![
-                        ("id".to_string(), IrType::Integer, true),
-                    ]))),
+                    field_type: IrType::Array(Box::new(IrType::Object(vec![(
+                        "id".to_string(),
+                        IrType::Integer,
+                        true,
+                    )]))),
                     required: true,
                     description: None,
                     read_only: false,
@@ -443,9 +423,7 @@ mod tests {
                 tags: vec![],
                 parameters: vec![],
                 request_body: Some(IrRequestBody {
-                    body_type: IrType::Object(vec![
-                        ("name".to_string(), IrType::String, true),
-                    ]),
+                    body_type: IrType::Object(vec![("name".to_string(), IrType::String, true)]),
                     required: true,
                     content_type: "application/json".to_string(),
                     description: None,

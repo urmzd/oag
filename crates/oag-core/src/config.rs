@@ -563,10 +563,7 @@ output_options:
 
     #[test]
     fn test_tool_setting_resolve() {
-        assert_eq!(
-            ToolSetting::resolve(None, "biome"),
-            Some("biome")
-        );
+        assert_eq!(ToolSetting::resolve(None, "biome"), Some("biome"));
         assert_eq!(
             ToolSetting::resolve(Some(&ToolSetting::Named("ruff".into())), "biome"),
             Some("ruff")

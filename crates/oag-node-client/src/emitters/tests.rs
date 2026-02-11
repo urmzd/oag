@@ -77,7 +77,12 @@ fn build_test_operation_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
     match &op.return_type {
         IrReturnType::Standard(resp) => {
             let return_type = ir_type_to_ts(&resp.response_type);
-            results.push(build_test_context(op, "standard", &op.name.camel_case, &return_type));
+            results.push(build_test_context(
+                op,
+                "standard",
+                &op.name.camel_case,
+                &return_type,
+            ));
         }
         IrReturnType::Void => {
             results.push(build_test_context(op, "void", &op.name.camel_case, "void"));

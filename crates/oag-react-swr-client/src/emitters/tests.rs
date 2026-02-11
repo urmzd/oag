@@ -11,11 +11,7 @@ pub fn emit_hooks_tests(ir: &IrSpec) -> String {
     .expect("template should be valid");
     let tmpl = env.get_template("hooks.test.ts.j2").unwrap();
 
-    let hook_names: Vec<String> = ir
-        .operations
-        .iter()
-        .flat_map(build_hook_names)
-        .collect();
+    let hook_names: Vec<String> = ir.operations.iter().flat_map(build_hook_names).collect();
 
     tmpl.render(context! { hook_names => hook_names })
         .expect("render should succeed")

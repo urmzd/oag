@@ -21,12 +21,10 @@ impl NodeClientGenerator {
             name: ir.info.title.clone(),
             package_name: scaffold.package_name,
             repository: scaffold.repository,
-            formatter: ToolSetting::resolve(scaffold.formatter.as_ref(), "biome")
-                .map(String::from),
+            formatter: ToolSetting::resolve(scaffold.formatter.as_ref(), "biome").map(String::from),
             test_runner: ToolSetting::resolve(scaffold.test_runner.as_ref(), "vitest")
                 .map(String::from),
-            bundler: ToolSetting::resolve(scaffold.bundler.as_ref(), "tsdown")
-                .map(String::from),
+            bundler: ToolSetting::resolve(scaffold.bundler.as_ref(), "tsdown").map(String::from),
             react,
         })
     }

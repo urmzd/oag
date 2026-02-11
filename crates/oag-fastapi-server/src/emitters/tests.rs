@@ -1,6 +1,6 @@
 use minijinja::{Environment, context};
-use oag_core::ir::{HttpMethod, IrOperation, IrParameterLocation, IrReturnType, IrSpec, IrType};
 use oag_core::GeneratedFile;
+use oag_core::ir::{HttpMethod, IrOperation, IrParameterLocation, IrReturnType, IrSpec, IrType};
 
 /// Emit `conftest.py` + `test_routes.py` for pytest.
 pub fn emit_tests(ir: &IrSpec) -> Vec<GeneratedFile> {
@@ -184,7 +184,10 @@ mod tests {
         assert_eq!(mock_value_python(&IrType::String), "\"test\"");
         assert_eq!(mock_value_python(&IrType::Integer), "1");
         assert_eq!(mock_value_python(&IrType::Boolean), "True");
-        assert_eq!(mock_value_python(&IrType::Array(Box::new(IrType::String))), "[]");
+        assert_eq!(
+            mock_value_python(&IrType::Array(Box::new(IrType::String))),
+            "[]"
+        );
         assert_eq!(
             mock_value_python(&IrType::Ref("Pet".to_string())),
             "Pet.model_construct()"
