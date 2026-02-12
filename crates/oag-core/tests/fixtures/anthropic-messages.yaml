@@ -1,0 +1,678 @@
+openapi: "3.2.0"
+info:
+  title: Anthropic Messages API
+  description: A comprehensive Messages API modeled after Anthropic's API, exercising advanced OpenAPI features.
+  version: "2024-01-01"
+servers:
+  - url: https://api.anthropic.com
+    description: Production server
+tags:
+  - name: messages
+    description: Create and manage messages
+  - name: models
+    description: List and inspect available models
+  - name: tokens
+    description: Token counting utilities
+  - name: batches
+    description: Batch operations
+
+paths:
+  /v1/messages:
+    post:
+      operationId: createMessage
+      summary: Create a message
+      description: Send a structured message and receive a response. Supports both JSON and SSE streaming.
+      tags: [messages]
+      parameters:
+        - $ref: "#/components/parameters/AnthropicVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequest"
+      responses:
+        "200":
+          description: Message response (JSON or SSE stream)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+            text/event-stream:
+              itemSchema:
+                oneOf:
+                  - $ref: "#/components/schemas/MessageStartEvent"
+                  - $ref: "#/components/schemas/ContentBlockStartEvent"
+                  - $ref: "#/components/schemas/ContentBlockDeltaEvent"
+                  - $ref: "#/components/schemas/ContentBlockStopEvent"
+                  - $ref: "#/components/schemas/MessageDeltaEvent"
+                  - $ref: "#/components/schemas/MessageStopEvent"
+                  - $ref: "#/components/schemas/PingEvent"
+                  - $ref: "#/components/schemas/ErrorEvent"
+                discriminator:
+                  propertyName: type
+                  mapping:
+                    message_start: "#/components/schemas/MessageStartEvent"
+                    content_block_start: "#/components/schemas/ContentBlockStartEvent"
+                    content_block_delta: "#/components/schemas/ContentBlockDeltaEvent"
+                    content_block_stop: "#/components/schemas/ContentBlockStopEvent"
+                    message_delta: "#/components/schemas/MessageDeltaEvent"
+                    message_stop: "#/components/schemas/MessageStopEvent"
+                    ping: "#/components/schemas/PingEvent"
+                    error: "#/components/schemas/ErrorEvent"
+
+  /v1/messages/count_tokens:
+    post:
+      operationId: countTokens
+      summary: Count tokens in a message
+      tags: [tokens, messages]
+      parameters:
+        - $ref: "#/components/parameters/AnthropicVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CountTokensRequest"
+      responses:
+        "200":
+          description: Token count result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountTokensResponse"
+
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: List available models
+      tags: [models]
+      parameters:
+        - $ref: "#/components/parameters/AnthropicVersion"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of models to return.
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: after_id
+          in: query
+          required: false
+          description: Cursor for pagination.
+          schema:
+            type: string
+        - name: before_id
+          in: query
+          required: false
+          description: Cursor for reverse pagination.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A paginated list of models
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
+
+  /v1/models/{model_id}:
+    get:
+      operationId: getModel
+      summary: Get details of a specific model
+      tags: [models]
+      parameters:
+        - $ref: "#/components/parameters/AnthropicVersion"
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Model details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelInfo"
+
+  /v1/messages/batches/{batch_id}:
+    delete:
+      operationId: cancelBatch
+      summary: Cancel a message batch
+      tags: [batches]
+      parameters:
+        - $ref: "#/components/parameters/AnthropicVersion"
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^msgbatch_[a-zA-Z0-9]{24}$"
+      responses:
+        "204":
+          description: Batch cancelled successfully
+
+components:
+  parameters:
+    AnthropicVersion:
+      name: anthropic-version
+      in: header
+      required: true
+      description: The version of the Anthropic API to use.
+      schema:
+        type: string
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    # --- Enums ---
+
+    StopReason:
+      type: string
+      enum: [end_turn, max_tokens, stop_sequence, tool_use]
+
+    Role:
+      type: string
+      enum: [user, assistant]
+
+    ModelId:
+      type: string
+      enum:
+        - claude-sonnet-4-20250514
+        - claude-haiku-4-20250414
+        - claude-opus-4-20250514
+
+    # --- Discriminated Unions ---
+
+    ContentBlock:
+      oneOf:
+        - $ref: "#/components/schemas/TextBlock"
+        - $ref: "#/components/schemas/ImageBlock"
+        - $ref: "#/components/schemas/ToolUseBlock"
+        - $ref: "#/components/schemas/ToolResultBlock"
+      discriminator:
+        propertyName: type
+        mapping:
+          text: "#/components/schemas/TextBlock"
+          image: "#/components/schemas/ImageBlock"
+          tool_use: "#/components/schemas/ToolUseBlock"
+          tool_result: "#/components/schemas/ToolResultBlock"
+
+    Source:
+      oneOf:
+        - $ref: "#/components/schemas/ImageSource"
+        - $ref: "#/components/schemas/UrlSource"
+      discriminator:
+        propertyName: type
+        mapping:
+          base64: "#/components/schemas/ImageSource"
+          url: "#/components/schemas/UrlSource"
+
+    ToolChoice:
+      oneOf:
+        - $ref: "#/components/schemas/ToolChoiceAuto"
+        - $ref: "#/components/schemas/ToolChoiceAny"
+        - $ref: "#/components/schemas/ToolChoiceTool"
+      discriminator:
+        propertyName: type
+        mapping:
+          auto: "#/components/schemas/ToolChoiceAuto"
+          any: "#/components/schemas/ToolChoiceAny"
+          tool: "#/components/schemas/ToolChoiceTool"
+
+    StreamDelta:
+      oneOf:
+        - $ref: "#/components/schemas/TextDelta"
+        - $ref: "#/components/schemas/InputJsonDelta"
+      discriminator:
+        propertyName: type
+        mapping:
+          text_delta: "#/components/schemas/TextDelta"
+          input_json_delta: "#/components/schemas/InputJsonDelta"
+
+    # --- anyOf (no discriminator) ---
+
+    ToolResultContent:
+      anyOf:
+        - $ref: "#/components/schemas/TextBlock"
+        - $ref: "#/components/schemas/ImageBlock"
+
+    # --- Content Block Variants ---
+
+    TextBlock:
+      type: object
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: text
+        text:
+          type: string
+
+    ImageBlock:
+      type: object
+      required: [type, source]
+      properties:
+        type:
+          type: string
+          const: image
+        source:
+          $ref: "#/components/schemas/Source"
+
+    ToolUseBlock:
+      type: object
+      required: [type, id, name, input]
+      properties:
+        type:
+          type: string
+          const: tool_use
+        id:
+          type: string
+          pattern: "^toolu_[a-zA-Z0-9]{24}$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        input:
+          type: object
+          additionalProperties: true
+
+    ToolResultBlock:
+      type: object
+      required: [type, tool_use_id]
+      properties:
+        type:
+          type: string
+          const: tool_result
+        tool_use_id:
+          type: string
+          pattern: "^toolu_[a-zA-Z0-9]{24}$"
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolResultContent"
+        is_error:
+          type: boolean
+          default: false
+
+    # --- Source Variants ---
+
+    ImageSource:
+      type: object
+      required: [type, media_type, data]
+      properties:
+        type:
+          type: string
+          const: base64
+        media_type:
+          type: string
+          enum: [image/jpeg, image/png, image/gif, image/webp]
+        data:
+          type: string
+          format: byte
+
+    UrlSource:
+      type: object
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          const: url
+        url:
+          type: string
+          format: uri
+
+    # --- ToolChoice Variants ---
+
+    ToolChoiceAuto:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: auto
+        disable_parallel_tool_use:
+          type: boolean
+
+    ToolChoiceAny:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: any
+        disable_parallel_tool_use:
+          type: boolean
+
+    ToolChoiceTool:
+      type: object
+      required: [type, name]
+      properties:
+        type:
+          type: string
+          const: tool
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        disable_parallel_tool_use:
+          type: boolean
+
+    # --- Stream Delta Variants ---
+
+    TextDelta:
+      type: object
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: text_delta
+        text:
+          type: string
+
+    InputJsonDelta:
+      type: object
+      required: [type, partial_json]
+      properties:
+        type:
+          type: string
+          const: input_json_delta
+        partial_json:
+          type: string
+
+    # --- SSE Event Types (allOf composition with const type tags) ---
+
+    MessageStartEvent:
+      allOf:
+        - type: object
+          required: [type, message]
+          properties:
+            type:
+              type: string
+              const: message_start
+            message:
+              $ref: "#/components/schemas/MessageResponse"
+
+    ContentBlockStartEvent:
+      allOf:
+        - type: object
+          required: [type, index, content_block]
+          properties:
+            type:
+              type: string
+              const: content_block_start
+            index:
+              type: integer
+            content_block:
+              $ref: "#/components/schemas/ContentBlock"
+
+    ContentBlockDeltaEvent:
+      allOf:
+        - type: object
+          required: [type, index, delta]
+          properties:
+            type:
+              type: string
+              const: content_block_delta
+            index:
+              type: integer
+            delta:
+              $ref: "#/components/schemas/StreamDelta"
+
+    ContentBlockStopEvent:
+      allOf:
+        - type: object
+          required: [type, index]
+          properties:
+            type:
+              type: string
+              const: content_block_stop
+            index:
+              type: integer
+
+    MessageDeltaEvent:
+      allOf:
+        - type: object
+          required: [type, delta, usage]
+          properties:
+            type:
+              type: string
+              const: message_delta
+            delta:
+              type: object
+              properties:
+                stop_reason:
+                  type: ["string", "null"]
+                stop_sequence:
+                  type: ["string", "null"]
+            usage:
+              type: object
+              required: [output_tokens]
+              properties:
+                output_tokens:
+                  type: integer
+
+    MessageStopEvent:
+      allOf:
+        - type: object
+          required: [type]
+          properties:
+            type:
+              type: string
+              const: message_stop
+
+    PingEvent:
+      allOf:
+        - type: object
+          required: [type]
+          properties:
+            type:
+              type: string
+              const: ping
+
+    ErrorEvent:
+      allOf:
+        - type: object
+          required: [type, error]
+          properties:
+            type:
+              type: string
+              const: error
+            error:
+              type: object
+              required: [type, message]
+              properties:
+                type:
+                  type: string
+                message:
+                  type: string
+
+    # --- Request / Response Schemas ---
+
+    Message:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentBlock"
+
+    Metadata:
+      type: object
+      description: Free-form metadata as string key-value pairs.
+      properties:
+        user_id:
+          type: ["string", "null"]
+          description: An external identifier for the user.
+      additionalProperties:
+        type: string
+
+    ToolDefinition:
+      type: object
+      required: [name, input_schema]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        description:
+          type: string
+          maxLength: 4096
+        input_schema:
+          type: object
+          additionalProperties: true
+
+    CreateMessageRequest:
+      type: object
+      required: [model, messages, max_tokens]
+      properties:
+        model:
+          $ref: "#/components/schemas/ModelId"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+          minItems: 1
+        max_tokens:
+          type: integer
+          default: 4096
+          minimum: 1
+        temperature:
+          type: number
+          default: 1.0
+          minimum: 0
+          maximum: 1
+        stream:
+          type: boolean
+          default: false
+        stop_sequences:
+          type: array
+          items:
+            type: string
+        system:
+          type: string
+          description: System prompt.
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolDefinition"
+        tool_choice:
+          $ref: "#/components/schemas/ToolChoice"
+
+    MessageResponse:
+      type: object
+      required: [id, type, role, content, model, stop_reason, stop_sequence, usage]
+      properties:
+        id:
+          type: string
+          readOnly: true
+          pattern: "^msg_[a-zA-Z0-9]{24}$"
+        type:
+          type: string
+          const: message
+        role:
+          $ref: "#/components/schemas/Role"
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentBlock"
+        model:
+          $ref: "#/components/schemas/ModelId"
+        stop_reason:
+          type: ["string", "null"]
+        stop_sequence:
+          type: ["string", "null"]
+        usage:
+          $ref: "#/components/schemas/Usage"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Usage:
+      type: object
+      required: [input_tokens, output_tokens]
+      properties:
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+
+    CountTokensRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          $ref: "#/components/schemas/ModelId"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+          minItems: 1
+        system:
+          type: string
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolDefinition"
+
+    CountTokensResponse:
+      type: object
+      required: [input_tokens]
+      properties:
+        input_tokens:
+          type: integer
+
+    # --- Model Schemas ---
+
+    ModelInfo:
+      type: object
+      required: [id, display_name, type]
+      properties:
+        id:
+          type: string
+          readOnly: true
+        display_name:
+          type: string
+        type:
+          type: string
+          const: model
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    ModelListResponse:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelInfo"
+        has_more:
+          type: boolean
+        first_id:
+          type: ["string", "null"]
+        last_id:
+          type: ["string", "null"]
+
+security:
+  - apiKeyAuth: []
+  - bearerAuth: []

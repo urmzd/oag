@@ -7,6 +7,7 @@ use oag_node_client::NodeClientGenerator;
 
 const PETSTORE: &str = include_str!("../../oag-core/tests/fixtures/petstore-3.2.yaml");
 const SSE_CHAT: &str = include_str!("../../oag-core/tests/fixtures/sse-chat.yaml");
+const ANTHROPIC: &str = include_str!("../../oag-core/tests/fixtures/anthropic-messages.yaml");
 
 fn scaffold_config() -> GeneratorConfig {
     GeneratorConfig {
@@ -101,4 +102,10 @@ fn generated_typescript_petstore_compiles() {
 #[ignore] // Requires Node.js
 fn generated_typescript_sse_chat_compiles() {
     compile_typescript(SSE_CHAT);
+}
+
+#[test]
+#[ignore] // Requires Node.js
+fn generated_typescript_anthropic_compiles() {
+    compile_typescript(ANTHROPIC);
 }

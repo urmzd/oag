@@ -1,0 +1,28 @@
+input: ../../crates/oag-core/tests/fixtures/anthropic-messages.yaml
+
+naming:
+  strategy: use_operation_id
+  aliases: {}
+
+generators:
+  node-client:
+    output: generated/node
+    layout: modular
+    base_url: https://api.anthropic.com
+    scaffold:
+      package_name: "@examples/anthropic-messages-node-client"
+      repository: https://github.com/urmzd/openapi-generator
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
+
+  react-swr-client:
+    output: generated/react
+    layout: modular
+    base_url: https://api.anthropic.com
+    scaffold:
+      package_name: "@examples/anthropic-messages-react-client"
+      repository: https://github.com/urmzd/openapi-generator
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown

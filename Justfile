@@ -40,6 +40,7 @@ test-integration:
 examples: install
     cd examples/petstore && ../../target/release/oag generate
     cd examples/sse-chat && ../../target/release/oag generate
+    cd examples/anthropic-messages && ../../target/release/oag generate
 
 record:
     vhs doc/demo.tape
