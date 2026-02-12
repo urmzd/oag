@@ -57,7 +57,7 @@ export function {{ hook.hook_name }}({% if hook.path_params_signature %}{{ hook.
 {% endif %}
 export function {{ hook.hook_name }}({{ hook.path_params_signature }}) {
   const client = useApiClient();
-  const [events, setEvents] = useState<{{ hook.event_type }}[]>([]);
+  const [events, setEvents] = useState<{{ hook.event_type_array }}>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);

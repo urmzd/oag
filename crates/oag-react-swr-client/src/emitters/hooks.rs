@@ -135,6 +135,11 @@ fn build_hook_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
             } else {
                 ir_type_to_ts(&sse.event_type)
             };
+            let event_type_array = if event_type.contains('|') {
+                format!("({event_type})[]")
+            } else {
+                format!("{event_type}[]")
+            };
             let method_name = if sse.also_has_json {
                 format!("{}Stream", op.name.camel_case)
             } else {
@@ -154,6 +159,7 @@ fn build_hook_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
                 method_name => method_name,
                 path_params_signature => path_params_sig,
                 event_type => event_type,
+                event_type_array => event_type_array,
                 trigger_params => trigger_params,
                 stream_call_args => stream_call_args,
                 deps => deps,
