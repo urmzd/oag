@@ -168,11 +168,7 @@ fn parse_anthropic_sse_item_schema() {
             let item_schema = sse.item_schema.as_ref().unwrap();
             match item_schema {
                 oag_core::parse::schema::SchemaOrRef::Schema(s) => {
-                    assert_eq!(
-                        s.one_of.len(),
-                        8,
-                        "itemSchema should have 8 oneOf variants"
-                    );
+                    assert_eq!(s.one_of.len(), 8, "itemSchema should have 8 oneOf variants");
                     let disc = s
                         .discriminator
                         .as_ref()
