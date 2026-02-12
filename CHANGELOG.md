@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.3 (2026-02-12)
+
+### Bug Fixes
+
+- wire SSE query params, fix streaming hook params, and add discriminated union literals ([6ffc10a](https://github.com/urmzd/openapi-generator/commit/6ffc10a194d71b7854765ed6a2c33901c2a6ceb7))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([c5d39e4](https://github.com/urmzd/openapi-generator/commit/c5d39e4dde2354f6e595d33752c728f65eea09a4))
+
+
 ## 0.4.2 (2026-02-11)
 
 ### Bug Fixes
