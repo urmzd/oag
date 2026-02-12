@@ -156,7 +156,7 @@ fn build_void_op(op: &IrOperation) -> minijinja::Value {
 }
 
 fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minijinja::Value {
-    let (mut parts, path_params, _query, has_body, has_path_params, _has_query) =
+    let (mut parts, path_params, query_params_obj, has_body, has_path_params, has_query_params) =
         build_params_raw(op);
 
     // For SSE, use SSEOptions instead of RequestOptions
@@ -175,8 +175,10 @@ fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minij
         params_signature => params_sig,
         return_type => return_type,
         path_params => path_params,
+        query_params_obj => query_params_obj,
         has_body => has_body,
         has_path_params => has_path_params,
+        has_query_params => has_query_params,
         summary => op.summary.clone(),
         description => op.description.clone(),
         deprecated => op.deprecated,

@@ -124,7 +124,15 @@ export class ApiClient {
 {% else %}
     const path = "{{ op.path }}";
 {% endif %}
-    const url = `${this.baseUrl}${path}`;
+    let url = `${this.baseUrl}${path}`;
+{% if op.has_query_params %}
+    const _q = new URLSearchParams();
+    for (const [k, v] of Object.entries({ {{ op.query_params_obj }} })) {
+      if (v !== undefined && v !== null) _q.set(k, v);
+    }
+    const _qs = _q.toString();
+    if (_qs) url += `?${_qs}`;
+{% endif %}
     yield* streamSse<{{ op.return_type }}>(url, {
       method: "{{ op.http_method }}",
 {% if op.has_body %}

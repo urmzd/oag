@@ -297,6 +297,19 @@ fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
         }
     }
 
+    for param in &op.parameters {
+        if param.location == IrParameterLocation::Query {
+            let ts = ir_type_to_ts(&param.param_type);
+            if param.required {
+                path_sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
+            } else {
+                path_sig_parts.push(format!("{}?: {}", param.name.camel_case, ts));
+            }
+            deps_parts.push(format!(", {}", param.name.camel_case));
+            stream_call_parts.push(param.name.camel_case.clone());
+        }
+    }
+
     let trigger_params = if let Some(ref body) = op.request_body {
         let ts = ir_type_to_ts(&body.body_type);
         stream_call_parts.push("body".to_string());

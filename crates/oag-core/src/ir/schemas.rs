@@ -77,6 +77,7 @@ pub struct IrDiscriminator {
 #[derive(Debug, Clone, PartialEq)]
 pub enum IrType {
     String,
+    StringLiteral(String),
     Number,
     Integer,
     Boolean,

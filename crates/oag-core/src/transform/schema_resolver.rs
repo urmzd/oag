@@ -63,11 +63,30 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
 
     // Handle enum
     if !schema.enum_values.is_empty() {
-        return IrType::String; // string enum — the actual variants are in IrEnumSchema
+        let string_variants: Vec<String> = schema
+            .enum_values
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        if string_variants.len() == 1 {
+            return IrType::StringLiteral(string_variants.into_iter().next().unwrap());
+        }
+        if string_variants.len() > 1 {
+            return IrType::Union(
+                string_variants
+                    .into_iter()
+                    .map(IrType::StringLiteral)
+                    .collect(),
+            );
+        }
+        return IrType::String; // fallback for non-string enums
     }
 
     // Handle const
-    if schema.const_value.is_some() {
+    if let Some(ref val) = schema.const_value {
+        if let Some(s) = val.as_str() {
+            return IrType::StringLiteral(s.to_string());
+        }
         return IrType::String;
     }
 

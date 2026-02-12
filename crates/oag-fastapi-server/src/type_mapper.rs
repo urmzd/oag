@@ -4,6 +4,7 @@ use oag_core::ir::IrType;
 pub fn ir_type_to_python(ir_type: &IrType) -> String {
     match ir_type {
         IrType::String => "str".to_string(),
+        IrType::StringLiteral(s) => format!("Literal[\"{s}\"]"),
         IrType::Number => "float".to_string(),
         IrType::Integer => "int".to_string(),
         IrType::Boolean => "bool".to_string(),

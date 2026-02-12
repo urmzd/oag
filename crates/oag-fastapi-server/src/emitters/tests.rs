@@ -152,6 +152,7 @@ fn mock_path_value(ir_type: &IrType) -> String {
 fn mock_value_python(ir_type: &IrType) -> String {
     match ir_type {
         IrType::String | IrType::DateTime => "\"test\"".to_string(),
+        IrType::StringLiteral(s) => format!("\"{s}\""),
         IrType::Number | IrType::Integer => "1".to_string(),
         IrType::Boolean => "True".to_string(),
         IrType::Null | IrType::Void => "None".to_string(),
