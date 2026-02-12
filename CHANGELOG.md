@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1 (2026-02-12)
+
+### Bug Fixes
+
+- **oag-react-swr-client**: properly format union type arrays in SSE hooks ([a535285](https://github.com/urmzd/openapi-generator/commit/a53528596ecfa74f9bf80cdb14734215b1718b9f))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([b14761a](https://github.com/urmzd/openapi-generator/commit/b14761a9dad505e53d81de492480ff565f85cb50))
+
+
 ## 0.5.0 (2026-02-12)
 
 ### Features
