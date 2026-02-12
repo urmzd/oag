@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "oag-cli"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "oag-core"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "heck",
  "indexmap",
@@ -377,7 +377,7 @@ dependencies = [
 
 [[package]]
 name = "oag-fastapi-server"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "heck",
  "insta",
@@ -392,7 +392,7 @@ dependencies = [
 
 [[package]]
 name = "oag-node-client"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "insta",
  "log",
@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "oag-react-swr-client"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "insta",
  "log",
