@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0 (2026-02-12)
+
+### Features
+
+- add Anthropic Messages API fixture with advanced OpenAPI features ([cf0ac2f](https://github.com/urmzd/openapi-generator/commit/cf0ac2f94b23d4687ed4de0b2f31b2fc4f23e644))
+
+### Bug Fixes
+
+- use intersection types for mixed properties+additionalProperties, add petstore-polymorphic fixture, and run compile tests in CI ([e3d6f34](https://github.com/urmzd/openapi-generator/commit/e3d6f34c0c5a591f101ab025a0d3927ea15d7de1))
+- auto-format parse_tests.rs ([d15c55b](https://github.com/urmzd/openapi-generator/commit/d15c55b02d9b41dd0ed50c430624ea8c94c1a158))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([327e2a2](https://github.com/urmzd/openapi-generator/commit/327e2a2596914c62f0ae38da16949139020f74cf))
+
+
 ## 0.4.3 (2026-02-12)
 
 ### Bug Fixes
