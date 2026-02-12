@@ -9,6 +9,7 @@ const PETSTORE: &str = include_str!("../../oag-core/tests/fixtures/petstore-3.2.
 const SSE_CHAT: &str = include_str!("../../oag-core/tests/fixtures/sse-chat.yaml");
 const ANTHROPIC: &str = include_str!("../../oag-core/tests/fixtures/anthropic-messages.yaml");
 const PETSTORE_POLY: &str = include_str!("../../oag-core/tests/fixtures/petstore-polymorphic.yaml");
+const MIXED: &str = include_str!("../../oag-core/tests/fixtures/mixed-endpoints.yaml");
 
 fn scaffold_config() -> GeneratorConfig {
     GeneratorConfig {
@@ -111,4 +112,9 @@ fn generated_typescript_anthropic_compiles() {
 #[test]
 fn generated_typescript_petstore_polymorphic_compiles() {
     compile_typescript(PETSTORE_POLY);
+}
+
+#[test]
+fn generated_typescript_mixed_compiles() {
+    compile_typescript(MIXED);
 }

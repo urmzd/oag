@@ -83,6 +83,15 @@ paths:
     get:
       operationId: streamEvents
       summary: Stream real-time events
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Event stream
