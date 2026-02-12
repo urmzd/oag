@@ -6,6 +6,7 @@ const SSE_CHAT: &str = include_str!("fixtures/sse-chat.yaml");
 const PETSTORE: &str = include_str!("fixtures/petstore-3.2.yaml");
 const MIXED: &str = include_str!("fixtures/mixed-endpoints.yaml");
 const ANTHROPIC: &str = include_str!("fixtures/anthropic-messages.yaml");
+const PETSTORE_POLY: &str = include_str!("fixtures/petstore-polymorphic.yaml");
 
 #[test]
 fn transform_sse_chat() {
@@ -358,4 +359,123 @@ fn transform_anthropic_messages() {
         "should have at least 3 modules (messages, models, and tokens or batches), got {}",
         ir.modules.len()
     );
+}
+
+#[test]
+fn transform_petstore_polymorphic() {
+    let spec = parse::from_yaml(PETSTORE_POLY).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+
+    assert_eq!(ir.info.title, "Petstore (Polymorphic)");
+
+    // --- Pet: discriminated union with 2 variants ---
+    let pet = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Pet")
+        .expect("should have Pet schema");
+    match pet {
+        IrSchema::Union(u) => {
+            assert_eq!(u.variants.len(), 2, "Pet should have 2 variants");
+            let disc = u.discriminator.as_ref().expect("should have discriminator");
+            assert_eq!(disc.property_name, "petType");
+            assert_eq!(disc.mapping.len(), 2);
+        }
+        _ => panic!("Pet should be a Union"),
+    }
+
+    // --- Cat: object with const petType ---
+    let cat = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Cat")
+        .expect("should have Cat schema");
+    match cat {
+        IrSchema::Object(obj) => {
+            let pet_type_field = obj
+                .fields
+                .iter()
+                .find(|f| f.original_name == "petType")
+                .expect("Cat should have petType field");
+            assert_eq!(
+                pet_type_field.field_type,
+                IrType::StringLiteral("cat".to_string()),
+                "Cat.petType should be StringLiteral(\"cat\")"
+            );
+            assert!(
+                obj.fields.iter().any(|f| f.original_name == "huntingSkill"),
+                "Cat should have huntingSkill field"
+            );
+        }
+        _ => panic!("Cat should be an Object"),
+    }
+
+    // --- Dog: object with const petType ---
+    let dog = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Dog")
+        .expect("should have Dog schema");
+    match dog {
+        IrSchema::Object(obj) => {
+            let pet_type_field = obj
+                .fields
+                .iter()
+                .find(|f| f.original_name == "petType")
+                .expect("Dog should have petType field");
+            assert_eq!(
+                pet_type_field.field_type,
+                IrType::StringLiteral("dog".to_string()),
+                "Dog.petType should be StringLiteral(\"dog\")"
+            );
+        }
+        _ => panic!("Dog should be an Object"),
+    }
+
+    // --- ExtendedErrorModel: allOf merged into Object ---
+    let ext_err = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "ExtendedErrorModel")
+        .expect("should have ExtendedErrorModel schema");
+    match ext_err {
+        IrSchema::Object(obj) => {
+            assert!(
+                obj.fields.iter().any(|f| f.original_name == "message"),
+                "should have message field from ErrorModel"
+            );
+            assert!(
+                obj.fields.iter().any(|f| f.original_name == "code"),
+                "should have code field from ErrorModel"
+            );
+            assert!(
+                obj.fields.iter().any(|f| f.original_name == "rootCause"),
+                "should have rootCause field from extension"
+            );
+        }
+        _ => panic!("ExtendedErrorModel should be an Object (merged allOf)"),
+    }
+
+    // --- Operations ---
+    assert!(!ir.operations.is_empty());
+    let list_op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "listPets")
+        .expect("should have listPets");
+    assert_eq!(list_op.parameters.len(), 1); // limit
+
+    let create_op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "createPet")
+        .expect("should have createPet");
+    assert!(create_op.request_body.is_some());
+
+    let get_op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "getPet")
+        .expect("should have getPet");
+    assert_eq!(get_op.parameters.len(), 1); // petId
 }

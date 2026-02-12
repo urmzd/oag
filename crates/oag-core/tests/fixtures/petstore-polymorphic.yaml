@@ -1,0 +1,180 @@
+openapi: "3.2.0"
+info:
+  title: Petstore (Polymorphic)
+  description: >-
+    A Petstore API exercising polymorphism patterns from the OpenAPI 3.2
+    specification: oneOf with discriminator and mapping (section 4.24.8.8),
+    allOf inheritance with discriminator (section 4.24.8.9), and allOf
+    composition (section 4.24.8.6).
+  version: "1.0.0"
+servers:
+  - url: https://petstore.example.com/v2
+    description: Production server
+
+tags:
+  - name: pets
+    description: Pet operations
+
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      tags: [pets]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of pets to return.
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+    post:
+      operationId: createPet
+      summary: Create a pet
+      tags: [pets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Pet"
+      responses:
+        "201":
+          description: Pet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      summary: Get a pet by ID
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A single pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+
+components:
+  securitySchemes:
+    petstore_auth:
+      type: oAuth2
+      flows:
+        implicit:
+          authorizationUrl: https://petstore.example.com/oauth/authorize
+          scopes:
+            write:pets: Modify pets in your account
+            read:pets: Read your pets
+    api_key:
+      type: apiKey
+      in: header
+      name: api_key
+
+  schemas:
+    # --- oneOf + discriminator + mapping (spec section 4.24.8.8) ---
+
+    Pet:
+      oneOf:
+        - $ref: "#/components/schemas/Cat"
+        - $ref: "#/components/schemas/Dog"
+      discriminator:
+        propertyName: petType
+        mapping:
+          cat: "#/components/schemas/Cat"
+          dog: "#/components/schemas/Dog"
+
+    Cat:
+      type: object
+      required: [petType, name, huntingSkill]
+      properties:
+        petType:
+          type: string
+          const: cat
+        name:
+          type: string
+        huntingSkill:
+          type: string
+          enum: [clueless, lazy, adventurous, aggressive]
+
+    Dog:
+      type: object
+      required: [petType, name]
+      properties:
+        petType:
+          type: string
+          const: dog
+        name:
+          type: string
+        packSize:
+          type: integer
+          default: 0
+          minimum: 0
+          description: The size of the pack the dog is from.
+
+    # --- allOf composition (spec section 4.24.8.6) ---
+
+    ErrorModel:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+        code:
+          type: integer
+          minimum: 100
+          maximum: 600
+
+    ExtendedErrorModel:
+      allOf:
+        - $ref: "#/components/schemas/ErrorModel"
+        - type: object
+          required: [rootCause]
+          properties:
+            rootCause:
+              type: string
+
+security:
+  - petstore_auth:
+      - write:pets
+      - read:pets
+  - api_key: []

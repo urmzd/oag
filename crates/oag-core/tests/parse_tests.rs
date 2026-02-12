@@ -4,6 +4,7 @@ const SSE_CHAT: &str = include_str!("fixtures/sse-chat.yaml");
 const PETSTORE: &str = include_str!("fixtures/petstore-3.2.yaml");
 const MIXED: &str = include_str!("fixtures/mixed-endpoints.yaml");
 const ANTHROPIC: &str = include_str!("fixtures/anthropic-messages.yaml");
+const PETSTORE_POLY: &str = include_str!("fixtures/petstore-polymorphic.yaml");
 
 #[test]
 fn parse_sse_chat_yaml() {
@@ -154,6 +155,59 @@ fn parse_anthropic_discriminator() {
         }
         _ => panic!("expected inline schema for ContentBlock"),
     }
+}
+
+#[test]
+fn parse_petstore_polymorphic() {
+    let spec = parse::from_yaml(PETSTORE_POLY).expect("should parse petstore-polymorphic.yaml");
+    assert_eq!(spec.openapi, "3.2.0");
+    assert_eq!(spec.info.title, "Petstore (Polymorphic)");
+    assert_eq!(spec.paths.len(), 2);
+
+    let components = spec.components.as_ref().expect("should have components");
+    // Pet, Cat, Dog, ErrorModel, ExtendedErrorModel
+    assert_eq!(
+        components.schemas.len(),
+        5,
+        "should have 5 schemas, got {}",
+        components.schemas.len()
+    );
+
+    // Pet should be oneOf with discriminator
+    let pet = components.schemas.get("Pet").unwrap();
+    match pet {
+        oag_core::parse::schema::SchemaOrRef::Schema(s) => {
+            assert_eq!(s.one_of.len(), 2, "Pet should have 2 oneOf variants");
+            let disc = s.discriminator.as_ref().expect("should have discriminator");
+            assert_eq!(disc.property_name, "petType");
+            assert_eq!(disc.mapping.len(), 2);
+        }
+        _ => panic!("expected inline schema for Pet"),
+    }
+
+    // ExtendedErrorModel should use allOf
+    let ext_err = components.schemas.get("ExtendedErrorModel").unwrap();
+    match ext_err {
+        oag_core::parse::schema::SchemaOrRef::Schema(s) => {
+            assert_eq!(
+                s.all_of.len(),
+                2,
+                "ExtendedErrorModel should have 2 allOf entries"
+            );
+        }
+        _ => panic!("expected inline schema for ExtendedErrorModel"),
+    }
+
+    // Security schemes
+    let security_schemes = &components.security_schemes;
+    assert!(
+        security_schemes.contains_key("petstore_auth"),
+        "should have petstore_auth"
+    );
+    assert!(
+        security_schemes.contains_key("api_key"),
+        "should have api_key"
+    );
 }
 
 #[test]

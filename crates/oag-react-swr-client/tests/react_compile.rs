@@ -8,6 +8,7 @@ use oag_react_swr_client::ReactSwrClientGenerator;
 const PETSTORE: &str = include_str!("../../oag-core/tests/fixtures/petstore-3.2.yaml");
 const SSE_CHAT: &str = include_str!("../../oag-core/tests/fixtures/sse-chat.yaml");
 const ANTHROPIC: &str = include_str!("../../oag-core/tests/fixtures/anthropic-messages.yaml");
+const PETSTORE_POLY: &str = include_str!("../../oag-core/tests/fixtures/petstore-polymorphic.yaml");
 
 fn scaffold_config() -> GeneratorConfig {
     GeneratorConfig {
@@ -93,19 +94,21 @@ fn compile_react(yaml: &str) {
 }
 
 #[test]
-#[ignore] // Requires Node.js
 fn generated_react_petstore_compiles() {
     compile_react(PETSTORE);
 }
 
 #[test]
-#[ignore] // Requires Node.js — also has known duplicate-identifier issue in SSE dual endpoints
 fn generated_react_sse_chat_compiles() {
     compile_react(SSE_CHAT);
 }
 
 #[test]
-#[ignore] // Requires Node.js
 fn generated_react_anthropic_compiles() {
     compile_react(ANTHROPIC);
+}
+
+#[test]
+fn generated_react_petstore_polymorphic_compiles() {
+    compile_react(PETSTORE_POLY);
 }

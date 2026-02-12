@@ -1,0 +1,30 @@
+# oag configuration — Petstore Polymorphic example
+# Generates both a Node client and React/SWR client from the Petstore Polymorphic OpenAPI 3.2 spec.
+input: ../../crates/oag-core/tests/fixtures/petstore-polymorphic.yaml
+
+naming:
+  strategy: use_operation_id
+  aliases: {}
+
+generators:
+  node-client:
+    output: generated/node
+    layout: modular
+    base_url: https://petstore.example.com/v2
+    scaffold:
+      package_name: "@examples/petstore-polymorphic-node-client"
+      repository: https://github.com/urmzd/openapi-generator
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
+
+  react-swr-client:
+    output: generated/react
+    layout: modular
+    base_url: https://petstore.example.com/v2
+    scaffold:
+      package_name: "@examples/petstore-polymorphic-react-client"
+      repository: https://github.com/urmzd/openapi-generator
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown

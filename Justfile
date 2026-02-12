@@ -35,12 +35,13 @@ publish:
     cargo publish -p oag-cli --dry-run
 
 test-integration:
-    cargo test --workspace -- --ignored
+    cargo test --workspace
 
 examples: install
     cd examples/petstore && ../../target/release/oag generate
     cd examples/sse-chat && ../../target/release/oag generate
     cd examples/anthropic-messages && ../../target/release/oag generate
+    cd examples/petstore-polymorphic && ../../target/release/oag generate
 
 record:
     vhs doc/demo.tape
