@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1 (2026-02-13)
+
+### Bug Fixes
+
+- resolve 5 code generator bugs found in audit ([fe58045](https://github.com/urmzd/openapi-generator/commit/fe58045c2ac749b585a266fae815949d6b92dfbb))
+
+### Miscellaneous
+
+- fix rustfmt formatting in singularize function ([7cc03db](https://github.com/urmzd/openapi-generator/commit/7cc03dbf6dfd40ca08cac47652759caabeaf29c7))
+- sync Cargo.lock [skip ci] ([1df9e88](https://github.com/urmzd/openapi-generator/commit/1df9e88e54b592af606cfad5a375b4330e4e5097))
+
+
 ## 0.6.0 (2026-02-13)
 
 ### Features
