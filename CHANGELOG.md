@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0 (2026-02-13)
+
+### Features
+
+- add pre-commit hook and fix formatting ([855bec1](https://github.com/urmzd/openapi-generator/commit/855bec1a6f4a51c350d32b5cd6ec4d6d74306431))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([a0eaa3b](https://github.com/urmzd/openapi-generator/commit/a0eaa3bfce7cfe2e18f15868b6f5458a6e2861eb))
+
+
 ## 0.6.1 (2026-02-13)
 
 ### Bug Fixes
