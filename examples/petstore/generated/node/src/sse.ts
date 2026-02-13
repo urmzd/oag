@@ -5,6 +5,8 @@ export class SSEError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
+    public readonly statusText?: string,
+    public readonly body?: unknown,
     public readonly response?: Response,
   ) {
     super(message);
@@ -58,9 +60,18 @@ export async function* streamSse<T>(
   const response = await fetch(req.url, req.init);
 
   if (!response.ok) {
+    let body: unknown;
+    try {
+      const text = await response.text();
+      body = text ? JSON.parse(text) : undefined;
+    } catch {
+      // body remains undefined if not valid JSON
+    }
     const error = new SSEError(
       `SSE request failed: ${response.status} ${response.statusText}`,
       response.status,
+      response.statusText,
+      body,
       response,
     );
     options?.onError?.(error);

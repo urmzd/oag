@@ -3,14 +3,14 @@ export interface Pet {
   id: string;
   name: string;
   tag?: string;
-  status: string;
+  status: "available" | "pending" | "sold";
   category?: PetCategory;
 }
 
 export interface NewPet {
   name: string;
   tag?: string;
-  status?: string;
+  status?: "available" | "pending" | "sold";
   category?: NewPetCategory;
 }
 
@@ -40,7 +40,7 @@ export interface ListPetsResponseItem {
   id: string;
   name: string;
   tag?: string;
-  status: string;
+  status: "available" | "pending" | "sold";
   category?: ListPetsResponseItemCategory;
 }
 
@@ -53,7 +53,7 @@ export interface CreatePetResponse {
   id: string;
   name: string;
   tag?: string;
-  status: string;
+  status: "available" | "pending" | "sold";
   category?: CreatePetResponseCategory;
 }
 
@@ -65,7 +65,7 @@ export interface CreatePetBodyCategory {
 export interface CreatePetBody {
   name: string;
   tag?: string;
-  status?: string;
+  status?: "available" | "pending" | "sold";
   category?: CreatePetBodyCategory;
 }
 
@@ -78,7 +78,7 @@ export interface GetPetResponse {
   id: string;
   name: string;
   tag?: string;
-  status: string;
+  status: "available" | "pending" | "sold";
   category?: GetPetResponseCategory;
 }
 
@@ -91,7 +91,7 @@ export interface UpdatePetResponse {
   id: string;
   name: string;
   tag?: string;
-  status: string;
+  status: "available" | "pending" | "sold";
   category?: UpdatePetResponseCategory;
 }
 
@@ -103,6 +103,6 @@ export interface UpdatePetBodyCategory {
 export interface UpdatePetBody {
   name: string;
   tag?: string;
-  status?: string;
+  status?: "available" | "pending" | "sold";
   category?: UpdatePetBodyCategory;
 }

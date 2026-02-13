@@ -14,7 +14,7 @@ import type {
 /** List all pets */
 export function useListPets(
   limit?: number,
-  status?: string,
+  status?: "available" | "pending" | "sold",
   config?: SWRConfiguration<ListPetsResponseItem[]>,
 ) {
   const client = useApiClient();

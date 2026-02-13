@@ -25,6 +25,19 @@ export interface ClientConfig {
   }) => { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>;
 }
 
+/** Error thrown when an API request returns a non-OK status. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly statusText: string,
+    public readonly body?: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 /** API client for Petstore. */
 export class ApiClient {
   private readonly baseUrl: string;
@@ -42,7 +55,7 @@ export class ApiClient {
   private async request<T>(
     method: string,
     path: string,
-    options?: RequestOptions & { body?: unknown; query?: Record<string, string> },
+    options?: RequestOptions & { body?: unknown; query?: Record<string, string | undefined> },
   ): Promise<T> {
     let url = `${this.baseUrl}${path}`;
     if (options?.query) {
@@ -77,7 +90,19 @@ export class ApiClient {
     const response = await this.fetchFn(req.url, req.init);
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      let body: unknown;
+      try {
+        const text = await response.text();
+        body = text ? JSON.parse(text) : undefined;
+      } catch {
+        // body remains undefined if not valid JSON
+      }
+      throw new ApiError(
+        `API request failed: ${response.status} ${response.statusText}`,
+        response.status,
+        response.statusText,
+        body,
+      );
     }
 
     if (response.status === 204) {
@@ -90,12 +115,15 @@ export class ApiClient {
   /** List all pets */
   async listPets(
     limit?: number,
-    status?: string,
+    status?: "available" | "pending" | "sold",
     options?: RequestOptions,
   ): Promise<ListPetsResponseItem[]> {
     const path = "/pets";
     return this.request<ListPetsResponseItem[]>("GET", path, {
-      query: { limit: String(limit), status: String(status) },
+      query: {
+        limit: limit != null ? String(limit) : undefined,
+        status: status != null ? String(status) : undefined,
+      },
       ...options,
     });
   }
