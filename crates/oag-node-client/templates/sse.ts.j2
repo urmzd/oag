@@ -36,6 +36,7 @@ export async function* streamSse<T>(
   init: RequestInit & { headers?: Record<string, string> },
   options?: SSEOptions,
   requestInterceptor?: RequestInterceptor,
+  fetchFn: typeof globalThis.fetch = globalThis.fetch.bind(globalThis),
 ): AsyncGenerator<T, void, undefined> {
   let req = {
     url,
@@ -43,7 +44,7 @@ export async function* streamSse<T>(
       ...init,
       headers: {
         Accept: "text/event-stream",
-        "Content-Type": "application/json",
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
         ...init.headers,
         ...options?.headers,
       },
@@ -55,15 +56,17 @@ export async function* streamSse<T>(
     req = await requestInterceptor(req);
   }
 
-  const response = await fetch(req.url, req.init);
+  const response = await fetchFn(req.url, req.init);
 
   if (!response.ok) {
     let body: unknown;
-    try {
-      const text = await response.text();
-      body = text ? JSON.parse(text) : undefined;
-    } catch {
-      // body remains undefined if not valid JSON
+    const text = await response.text();
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
     }
     const error = new SSEError(
       `SSE request failed: ${response.status} ${response.statusText}`,

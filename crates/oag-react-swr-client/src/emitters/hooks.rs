@@ -215,30 +215,36 @@ fn build_hook_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
 }
 
 fn build_query_params(op: &IrOperation) -> (String, String, String) {
-    let mut sig_parts = Vec::new();
+    let mut required_sig = Vec::new();
+    let mut optional_sig = Vec::new();
+    let mut required_call = Vec::new();
+    let mut optional_call = Vec::new();
     let mut key_parts = Vec::new();
-    let mut call_parts = Vec::new();
 
     for param in &op.parameters {
-        if param.location == IrParameterLocation::Path {
-            let ts = ir_type_to_ts(&param.param_type);
-            sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
-            key_parts.push(param.name.camel_case.clone());
-            call_parts.push(param.name.camel_case.clone());
-        }
-    }
-    for param in &op.parameters {
-        if param.location == IrParameterLocation::Query {
-            let ts = ir_type_to_ts(&param.param_type);
-            if param.required {
-                sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
-            } else {
-                sig_parts.push(format!("{}?: {}", param.name.camel_case, ts));
+        match param.location {
+            IrParameterLocation::Path
+            | IrParameterLocation::Query
+            | IrParameterLocation::Header => {
+                let ts = ir_type_to_ts(&param.param_type);
+                let is_required = param.required || param.location == IrParameterLocation::Path;
+                if is_required {
+                    required_sig.push(format!("{}: {}", param.name.camel_case, ts));
+                    required_call.push(param.name.camel_case.clone());
+                } else {
+                    optional_sig.push(format!("{}?: {}", param.name.camel_case, ts));
+                    optional_call.push(param.name.camel_case.clone());
+                }
+                key_parts.push(param.name.camel_case.clone());
             }
-            key_parts.push(param.name.camel_case.clone());
-            call_parts.push(param.name.camel_case.clone());
+            _ => {}
         }
     }
+
+    let mut sig_parts = required_sig;
+    sig_parts.extend(optional_sig);
+    let mut call_parts = required_call;
+    call_parts.extend(optional_call);
 
     let swr_key = if key_parts.is_empty() {
         format!("\"{}\"", op.path)
@@ -253,20 +259,38 @@ fn build_query_params(op: &IrOperation) -> (String, String, String) {
 }
 
 fn build_mutation_params(op: &IrOperation) -> (String, String, String, String) {
-    let mut sig_parts = Vec::new();
+    let mut required_sig = Vec::new();
+    let mut optional_sig = Vec::new();
+    let mut required_call = Vec::new();
+    let mut optional_call = Vec::new();
     let mut key_parts = Vec::new();
-    let mut call_parts = Vec::new();
     let mut key_type_parts = Vec::new();
 
     for param in &op.parameters {
-        if param.location == IrParameterLocation::Path {
-            let ts = ir_type_to_ts(&param.param_type);
-            sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
-            key_parts.push(param.name.camel_case.clone());
-            call_parts.push(param.name.camel_case.clone());
-            key_type_parts.push(ts);
+        match param.location {
+            IrParameterLocation::Path
+            | IrParameterLocation::Query
+            | IrParameterLocation::Header => {
+                let ts = ir_type_to_ts(&param.param_type);
+                let is_required = param.required || param.location == IrParameterLocation::Path;
+                if is_required {
+                    required_sig.push(format!("{}: {}", param.name.camel_case, ts));
+                    required_call.push(param.name.camel_case.clone());
+                } else {
+                    optional_sig.push(format!("{}?: {}", param.name.camel_case, ts));
+                    optional_call.push(param.name.camel_case.clone());
+                }
+                key_parts.push(param.name.camel_case.clone());
+                key_type_parts.push(ts);
+            }
+            _ => {}
         }
     }
+
+    let mut sig_parts = required_sig;
+    sig_parts.extend(optional_sig);
+    let mut call_parts = required_call;
+    call_parts.extend(optional_call);
 
     // For mutation, the body comes from arg
     if op.request_body.is_some() {
@@ -290,31 +314,36 @@ fn build_mutation_params(op: &IrOperation) -> (String, String, String, String) {
 }
 
 fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
-    let mut path_sig_parts = Vec::new();
+    let mut required_sig = Vec::new();
+    let mut optional_sig = Vec::new();
+    let mut required_call = Vec::new();
+    let mut optional_call = Vec::new();
     let mut deps_parts = Vec::new();
-    let mut stream_call_parts = Vec::new();
 
     for param in &op.parameters {
-        if param.location == IrParameterLocation::Path {
-            let ts = ir_type_to_ts(&param.param_type);
-            path_sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
-            deps_parts.push(format!(", {}", param.name.camel_case));
-            stream_call_parts.push(param.name.camel_case.clone());
-        }
-    }
-
-    for param in &op.parameters {
-        if param.location == IrParameterLocation::Query {
-            let ts = ir_type_to_ts(&param.param_type);
-            if param.required {
-                path_sig_parts.push(format!("{}: {}", param.name.camel_case, ts));
-            } else {
-                path_sig_parts.push(format!("{}?: {}", param.name.camel_case, ts));
+        match param.location {
+            IrParameterLocation::Path
+            | IrParameterLocation::Query
+            | IrParameterLocation::Header => {
+                let ts = ir_type_to_ts(&param.param_type);
+                let is_required = param.required || param.location == IrParameterLocation::Path;
+                if is_required {
+                    required_sig.push(format!("{}: {}", param.name.camel_case, ts));
+                    required_call.push(param.name.camel_case.clone());
+                } else {
+                    optional_sig.push(format!("{}?: {}", param.name.camel_case, ts));
+                    optional_call.push(param.name.camel_case.clone());
+                }
+                deps_parts.push(format!(", {}", param.name.camel_case));
             }
-            deps_parts.push(format!(", {}", param.name.camel_case));
-            stream_call_parts.push(param.name.camel_case.clone());
+            _ => {}
         }
     }
+
+    let mut sig_parts = required_sig;
+    sig_parts.extend(optional_sig);
+    let mut stream_call_parts = required_call;
+    stream_call_parts.extend(optional_call);
 
     let trigger_params = if let Some(ref body) = op.request_body {
         let ts = ir_type_to_ts(&body.body_type);
@@ -328,7 +357,7 @@ fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
         String::new()
     };
 
-    let path_params_sig = path_sig_parts.join(", ");
+    let path_params_sig = sig_parts.join(", ");
     let stream_call_args = stream_call_parts.join(", ");
     let deps = deps_parts.join("");
 

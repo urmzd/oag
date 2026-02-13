@@ -112,21 +112,23 @@ fn build_operation_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
 }
 
 fn build_standard_op(op: &IrOperation, return_type: &str) -> minijinja::Value {
-    let (params_sig, path_params, query_params_obj, has_body, has_path_params, has_query_params) =
-        build_params(op);
+    let result = build_params(op);
 
     context! {
         kind => "standard",
         method_name => op.name.camel_case.clone(),
         http_method => op.method.as_str(),
         path => op.path.clone(),
-        params_signature => params_sig,
+        params_signature => result.parts.join(", "),
         return_type => return_type,
-        path_params => path_params,
-        query_params_obj => query_params_obj,
-        has_body => has_body,
-        has_path_params => has_path_params,
-        has_query_params => has_query_params,
+        path_params => result.path_params,
+        query_params_obj => result.query_params_obj,
+        header_params_obj => result.header_params_obj,
+        has_body => result.has_body,
+        body_content_type => result.body_content_type.clone(),
+        has_path_params => result.has_path_params,
+        has_query_params => result.has_query_params,
+        has_header_params => result.has_header_params,
         summary => op.summary.clone(),
         description => op.description.clone(),
         deprecated => op.deprecated,
@@ -134,21 +136,23 @@ fn build_standard_op(op: &IrOperation, return_type: &str) -> minijinja::Value {
 }
 
 fn build_void_op(op: &IrOperation) -> minijinja::Value {
-    let (params_sig, path_params, query_params_obj, has_body, has_path_params, has_query_params) =
-        build_params(op);
+    let result = build_params(op);
 
     context! {
         kind => "void",
         method_name => op.name.camel_case.clone(),
         http_method => op.method.as_str(),
         path => op.path.clone(),
-        params_signature => params_sig,
+        params_signature => result.parts.join(", "),
         return_type => "void",
-        path_params => path_params,
-        query_params_obj => query_params_obj,
-        has_body => has_body,
-        has_path_params => has_path_params,
-        has_query_params => has_query_params,
+        path_params => result.path_params,
+        query_params_obj => result.query_params_obj,
+        header_params_obj => result.header_params_obj,
+        has_body => result.has_body,
+        body_content_type => result.body_content_type.clone(),
+        has_path_params => result.has_path_params,
+        has_query_params => result.has_query_params,
+        has_header_params => result.has_header_params,
         summary => op.summary.clone(),
         description => op.description.clone(),
         deprecated => op.deprecated,
@@ -156,16 +160,15 @@ fn build_void_op(op: &IrOperation) -> minijinja::Value {
 }
 
 fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minijinja::Value {
-    let (mut parts, path_params, query_params_obj, has_body, has_path_params, has_query_params) =
-        build_params_raw(op);
+    let mut result = build_params_raw(op);
 
     // For SSE, use SSEOptions instead of RequestOptions
-    if let Some(last) = parts.last_mut()
+    if let Some(last) = result.parts.last_mut()
         && last.starts_with("options?")
     {
         *last = "options?: SSEOptions".to_string();
     }
-    let params_sig = parts.join(", ");
+    let params_sig = result.parts.join(", ");
 
     context! {
         kind => "sse",
@@ -174,107 +177,117 @@ fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minij
         path => op.path.clone(),
         params_signature => params_sig,
         return_type => return_type,
-        path_params => path_params,
-        query_params_obj => query_params_obj,
-        has_body => has_body,
-        has_path_params => has_path_params,
-        has_query_params => has_query_params,
+        path_params => result.path_params,
+        query_params_obj => result.query_params_obj,
+        header_params_obj => result.header_params_obj,
+        has_body => result.has_body,
+        body_content_type => result.body_content_type.clone(),
+        has_path_params => result.has_path_params,
+        has_query_params => result.has_query_params,
+        has_header_params => result.has_header_params,
         summary => op.summary.clone(),
         description => op.description.clone(),
         deprecated => op.deprecated,
     }
 }
 
-fn build_params(op: &IrOperation) -> (String, Vec<minijinja::Value>, String, bool, bool, bool) {
-    let (parts, path_params, query_params_obj, has_body, has_path_params, has_query_params) =
-        build_params_raw(op);
-    (
-        parts.join(", "),
-        path_params,
-        query_params_obj,
-        has_body,
-        has_path_params,
-        has_query_params,
-    )
+struct ParamsResult {
+    parts: Vec<String>,
+    path_params: Vec<minijinja::Value>,
+    query_params_obj: String,
+    header_params_obj: String,
+    has_body: bool,
+    body_content_type: String,
+    has_path_params: bool,
+    has_query_params: bool,
+    has_header_params: bool,
 }
 
-fn build_params_raw(
-    op: &IrOperation,
-) -> (Vec<String>, Vec<minijinja::Value>, String, bool, bool, bool) {
-    let mut parts = Vec::new();
+fn build_params(op: &IrOperation) -> ParamsResult {
+    build_params_raw(op)
+}
+
+fn build_params_raw(op: &IrOperation) -> ParamsResult {
+    let mut required_parts = Vec::new();
+    let mut optional_parts = Vec::new();
     let mut path_params = Vec::new();
     let mut query_parts = Vec::new();
+    let mut header_parts = Vec::new();
 
     for param in &op.parameters {
-        if param.location == IrParameterLocation::Path {
-            let ts_type = ir_type_to_ts(&param.param_type);
-            parts.push(format!("{}: {}", param.name.camel_case, ts_type));
-            path_params.push(context! {
-                name => param.name.camel_case.clone(),
-                original_name => param.original_name.clone(),
-            });
-        }
-    }
-
-    for param in &op.parameters {
-        if param.location == IrParameterLocation::Query {
-            let ts_type = ir_type_to_ts(&param.param_type);
-            if param.required {
-                parts.push(format!("{}: {}", param.name.camel_case, ts_type));
-            } else {
-                parts.push(format!("{}?: {}", param.name.camel_case, ts_type));
+        let ts_type = ir_type_to_ts(&param.param_type);
+        match param.location {
+            IrParameterLocation::Path => {
+                required_parts.push(format!("{}: {}", param.name.camel_case, ts_type));
+                path_params.push(context! {
+                    name => param.name.camel_case.clone(),
+                    original_name => param.original_name.clone(),
+                });
             }
-            let is_array = matches!(param.param_type, IrType::Array(_));
-            if param.required {
-                if is_array {
-                    query_parts.push(format!(
-                        "{}: {}.map(String)",
-                        param.original_name, param.name.camel_case
-                    ));
+            IrParameterLocation::Query => {
+                if param.required {
+                    required_parts.push(format!("{}: {}", param.name.camel_case, ts_type));
                 } else {
-                    query_parts.push(format!(
-                        "{}: String({})",
-                        param.original_name, param.name.camel_case
-                    ));
+                    optional_parts.push(format!("{}?: {}", param.name.camel_case, ts_type));
                 }
-            } else if is_array {
                 query_parts.push(format!(
-                    "{}: {} != null ? {}.map(String) : undefined",
-                    param.original_name, param.name.camel_case, param.name.camel_case
-                ));
-            } else {
-                query_parts.push(format!(
-                    "{}: {} != null ? String({}) : undefined",
-                    param.original_name, param.name.camel_case, param.name.camel_case
+                    "\"{}\": {}",
+                    param.original_name, param.name.camel_case
                 ));
             }
+            IrParameterLocation::Header => {
+                if param.required {
+                    required_parts.push(format!("{}: {}", param.name.camel_case, ts_type));
+                } else {
+                    optional_parts.push(format!("{}?: {}", param.name.camel_case, ts_type));
+                }
+                header_parts.push(format!(
+                    "\"{}\": {}",
+                    param.original_name, param.name.camel_case
+                ));
+            }
+            _ => {}
         }
     }
 
     let has_body = op.request_body.is_some();
+    let body_content_type = op
+        .request_body
+        .as_ref()
+        .map(|b| b.content_type.clone())
+        .unwrap_or_else(|| "application/json".to_string());
+
     if let Some(ref body) = op.request_body {
         let ts_type = ir_type_to_ts(&body.body_type);
         if body.required {
-            parts.push(format!("body: {ts_type}"));
+            required_parts.push(format!("body: {ts_type}"));
         } else {
-            parts.push(format!("body?: {ts_type}"));
+            optional_parts.push(format!("body?: {ts_type}"));
         }
     }
 
-    parts.push("options?: RequestOptions".to_string());
+    optional_parts.push("options?: RequestOptions".to_string());
+
+    let mut parts = required_parts;
+    parts.extend(optional_parts);
 
     let has_path_params = !path_params.is_empty();
     let has_query_params = !query_parts.is_empty();
+    let has_header_params = !header_parts.is_empty();
     let query_params_obj = query_parts.join(", ");
+    let header_params_obj = header_parts.join(", ");
 
-    (
+    ParamsResult {
         parts,
         path_params,
         query_params_obj,
+        header_params_obj,
         has_body,
+        body_content_type,
         has_path_params,
         has_query_params,
-    )
+        has_header_params,
+    }
 }
 
 fn collect_imported_types<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> Vec<String> {

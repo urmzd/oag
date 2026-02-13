@@ -53,7 +53,11 @@ export class ApiClient {
   private async request<T>(
     method: string,
     path: string,
-    options?: RequestOptions & { body?: unknown; query?: Record<string, string | string[] | undefined> },
+    options?: RequestOptions & {
+      body?: unknown;
+      query?: Record<string, unknown>;
+      contentType?: string;
+    },
   ): Promise<T> {
     let url = `${this.baseUrl}${path}`;
     if (options?.query) {
@@ -62,10 +66,10 @@ export class ApiClient {
         if (value !== undefined && value !== null) {
           if (Array.isArray(value)) {
             for (const v of value) {
-              params.append(key, v);
+              params.append(key, String(v));
             }
           } else {
-            params.set(key, value);
+            params.set(key, String(value));
           }
         }
       }
@@ -73,16 +77,22 @@ export class ApiClient {
       if (qs) url += `?${qs}`;
     }
 
+    const hasBody = options?.body !== undefined;
+    const contentType = options?.contentType ?? "application/json";
     let req = {
       url,
       init: {
         method,
         headers: {
-          "Content-Type": "application/json",
+          ...(hasBody ? { "Content-Type": contentType } : {}),
           ...this.headers,
           ...options?.headers,
         } as Record<string, string>,
-        body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+        body: hasBody
+          ? contentType === "application/json"
+            ? JSON.stringify(options.body)
+            : options.body as BodyInit
+          : undefined,
         signal: options?.signal,
       } as RequestInit,
     };
@@ -95,11 +105,13 @@ export class ApiClient {
 
     if (!response.ok) {
       let body: unknown;
-      try {
-        const text = await response.text();
-        body = text ? JSON.parse(text) : undefined;
-      } catch {
-        // body remains undefined if not valid JSON
+      const text = await response.text();
+      if (text) {
+        try {
+          body = JSON.parse(text);
+        } catch {
+          body = text;
+        }
       }
       throw new ApiError(
         `API request failed: ${response.status} ${response.statusText}`,
@@ -113,7 +125,8 @@ export class ApiClient {
       return undefined as T;
     }
 
-    return response.json() as Promise<T>;
+    const text = await response.text();
+    return text ? JSON.parse(text) as T : undefined as T;
   }
 {% for op in operations %}
 
@@ -135,14 +148,26 @@ export class ApiClient {
 {% else %}
     const path = "{{ op.path }}";
 {% endif %}
+{% if op.has_header_params %}
+    const _hdr: Record<string, string> = {};
+    for (const [k, v] of Object.entries({ {{ op.header_params_obj }} })) {
+      if (v !== undefined && v !== null) _hdr[k] = String(v);
+    }
+{% endif %}
     return this.request<{{ op.return_type }}>("{{ op.http_method }}", path, {
 {% if op.has_body %}
       body,
+      contentType: "{{ op.body_content_type }}",
 {% endif %}
 {% if op.has_query_params %}
       query: { {{ op.query_params_obj }} },
 {% endif %}
+{% if op.has_header_params %}
+      signal: options?.signal,
+      headers: { ..._hdr, ...options?.headers },
+{% else %}
       ...options,
+{% endif %}
     });
   }
 {% elif op.kind == "sse" %}
@@ -162,23 +187,37 @@ export class ApiClient {
       if (v !== undefined && v !== null) {
         if (Array.isArray(v)) {
           for (const item of v) {
-            _q.append(k, item);
+            _q.append(k, String(item));
           }
         } else {
-          _q.set(k, v);
+          _q.set(k, String(v));
         }
       }
     }
     const _qs = _q.toString();
     if (_qs) url += `?${_qs}`;
 {% endif %}
+{% if op.has_header_params %}
+    const _hdr: Record<string, string> = {};
+    for (const [k, v] of Object.entries({ {{ op.header_params_obj }} })) {
+      if (v !== undefined && v !== null) _hdr[k] = String(v);
+    }
+{% endif %}
     yield* streamSse<{{ op.return_type }}>(url, {
       method: "{{ op.http_method }}",
 {% if op.has_body %}
+{% if op.body_content_type == "application/json" %}
       body: JSON.stringify(body),
+{% else %}
+      body: body as BodyInit,
 {% endif %}
+{% endif %}
+{% if op.has_header_params %}
+      headers: { ...this.headers, ..._hdr, ...options?.headers },
+{% else %}
       headers: { ...this.headers, ...options?.headers },
-    }, options, this.requestInterceptor);
+{% endif %}
+    }, options, this.requestInterceptor, this.fetchFn);
   }
 {% elif op.kind == "void" %}
   async {{ op.method_name }}({{ op.params_signature }}): Promise<void> {
@@ -190,14 +229,26 @@ export class ApiClient {
 {% else %}
     const path = "{{ op.path }}";
 {% endif %}
+{% if op.has_header_params %}
+    const _hdr: Record<string, string> = {};
+    for (const [k, v] of Object.entries({ {{ op.header_params_obj }} })) {
+      if (v !== undefined && v !== null) _hdr[k] = String(v);
+    }
+{% endif %}
     await this.request<void>("{{ op.http_method }}", path, {
 {% if op.has_body %}
       body,
+      contentType: "{{ op.body_content_type }}",
 {% endif %}
 {% if op.has_query_params %}
       query: { {{ op.query_params_obj }} },
 {% endif %}
+{% if op.has_header_params %}
+      signal: options?.signal,
+      headers: { ..._hdr, ...options?.headers },
+{% else %}
       ...options,
+{% endif %}
     });
   }
 {% endif %}
