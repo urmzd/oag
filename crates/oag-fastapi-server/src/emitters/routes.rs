@@ -195,7 +195,7 @@ fn collect_refs(ir_type: &IrType, imports: &mut std::collections::HashSet<String
             imports.insert(name.clone());
         }
         IrType::Array(inner) | IrType::Map(inner) => collect_refs(inner, imports),
-        IrType::Union(variants) => {
+        IrType::Union(variants) | IrType::Intersection(variants) => {
             for v in variants {
                 collect_refs(v, imports);
             }

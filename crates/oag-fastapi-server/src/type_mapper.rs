@@ -33,6 +33,16 @@ pub fn ir_type_to_python(ir_type: &IrType) -> String {
             let variant_strs: Vec<String> = variants.iter().map(ir_type_to_python).collect();
             variant_strs.join(" | ")
         }
+        IrType::Intersection(parts) => {
+            // Python doesn't have a native intersection type; use the first part as a fallback
+            if parts.len() == 1 {
+                ir_type_to_python(&parts[0])
+            } else {
+                // Multiple inheritance: tuple of base classes
+                let part_strs: Vec<String> = parts.iter().map(ir_type_to_python).collect();
+                part_strs.join(", ")
+            }
+        }
     }
 }
 

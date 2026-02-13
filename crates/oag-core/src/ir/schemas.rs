@@ -87,6 +87,7 @@ pub enum IrType {
     Map(Box<IrType>),                    // Record<string, T>
     Ref(String),                         // reference to a named schema (PascalCase)
     Union(Vec<IrType>),
+    Intersection(Vec<IrType>),
     Any,
     Void,
     DateTime,

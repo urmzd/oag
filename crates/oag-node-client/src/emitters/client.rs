@@ -224,10 +224,23 @@ fn build_params_raw(
             } else {
                 parts.push(format!("{}?: {}", param.name.camel_case, ts_type));
             }
+            let is_array = matches!(param.param_type, IrType::Array(_));
             if param.required {
+                if is_array {
+                    query_parts.push(format!(
+                        "{}: {}.map(String)",
+                        param.original_name, param.name.camel_case
+                    ));
+                } else {
+                    query_parts.push(format!(
+                        "{}: String({})",
+                        param.original_name, param.name.camel_case
+                    ));
+                }
+            } else if is_array {
                 query_parts.push(format!(
-                    "{}: String({})",
-                    param.original_name, param.name.camel_case
+                    "{}: {} != null ? {}.map(String) : undefined",
+                    param.original_name, param.name.camel_case, param.name.camel_case
                 ));
             } else {
                 query_parts.push(format!(
@@ -311,7 +324,7 @@ fn collect_types_from_ir_type(ir_type: &IrType, types: &mut HashSet<String>) {
             types.insert(name.clone());
         }
         IrType::Array(inner) | IrType::Map(inner) => collect_types_from_ir_type(inner, types),
-        IrType::Union(variants) => {
+        IrType::Union(variants) | IrType::Intersection(variants) => {
             for v in variants {
                 collect_types_from_ir_type(v, types);
             }

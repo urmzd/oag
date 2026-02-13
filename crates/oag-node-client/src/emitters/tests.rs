@@ -94,7 +94,7 @@ fn collect_ref_names(ir_type: &IrType, names: &mut std::collections::BTreeSet<St
             names.insert(name.clone());
         }
         IrType::Array(inner) => collect_ref_names(inner, names),
-        IrType::Union(variants) => {
+        IrType::Union(variants) | IrType::Intersection(variants) => {
             for v in variants {
                 collect_ref_names(v, names);
             }
@@ -217,7 +217,7 @@ fn mock_value_ts(ir_type: &IrType) -> String {
         IrType::Object(_) | IrType::Map(_) | IrType::Any => "{}".to_string(),
         IrType::Ref(name) => format!("{{}} as {}", name),
         IrType::Binary => "new Blob()".to_string(),
-        IrType::Union(variants) => {
+        IrType::Union(variants) | IrType::Intersection(variants) => {
             if let Some(first) = variants.first() {
                 mock_value_ts(first)
             } else {

@@ -147,6 +147,12 @@ fn promote_type(
                 promote_type(&variant_ctx, variant, new_schemas, used_names);
             }
         }
+        IrType::Intersection(parts) => {
+            for (i, part) in parts.iter_mut().enumerate() {
+                let part_ctx = format!("{}Part{}", context_name, i + 1);
+                promote_type(&part_ctx, part, new_schemas, used_names);
+            }
+        }
         _ => {}
     }
 }

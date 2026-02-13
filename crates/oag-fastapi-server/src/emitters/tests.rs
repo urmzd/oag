@@ -160,7 +160,7 @@ fn mock_value_python(ir_type: &IrType) -> String {
         IrType::Ref(name) => format!("{}.model_construct()", name),
         IrType::Object(_) | IrType::Map(_) | IrType::Any => "{}".to_string(),
         IrType::Binary => "b\"test\"".to_string(),
-        IrType::Union(variants) => {
+        IrType::Union(variants) | IrType::Intersection(variants) => {
             if let Some(first) = variants.first() {
                 mock_value_python(first)
             } else {

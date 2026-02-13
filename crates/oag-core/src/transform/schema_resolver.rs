@@ -32,33 +32,35 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
         return IrType::Union(variants);
     }
     if !schema.all_of.is_empty() {
-        // For allOf, we merge into an inline object or return the single ref
         if schema.all_of.len() == 1 {
             return schema_or_ref_to_ir_type(&schema.all_of[0]);
         }
-        // Merge allOf properties
-        let mut merged_fields = Vec::new();
-        for sub in &schema.all_of {
-            match sub {
+        let parts: Vec<IrType> = schema
+            .all_of
+            .iter()
+            .map(|sub| match sub {
+                SchemaOrRef::Ref { .. } => schema_or_ref_to_ir_type(sub),
                 SchemaOrRef::Schema(s) => {
-                    for (name, prop) in &s.properties {
-                        let required = s.required.contains(name);
-                        merged_fields.push((
-                            name.clone(),
-                            schema_or_ref_to_ir_type(prop),
-                            required,
-                        ));
+                    if s.properties.is_empty() {
+                        schema_to_ir_type(s)
+                    } else {
+                        let fields: Vec<(String, IrType, bool)> = s
+                            .properties
+                            .iter()
+                            .map(|(name, prop)| {
+                                (
+                                    name.clone(),
+                                    schema_or_ref_to_ir_type(prop),
+                                    s.required.contains(name),
+                                )
+                            })
+                            .collect();
+                        IrType::Object(fields)
                     }
                 }
-                SchemaOrRef::Ref { .. } => {
-                    // If allOf contains refs, treat as first ref
-                    return schema_or_ref_to_ir_type(sub);
-                }
-            }
-        }
-        if !merged_fields.is_empty() {
-            return IrType::Object(merged_fields);
-        }
+            })
+            .collect();
+        return IrType::Intersection(parts);
     }
 
     // Handle enum
@@ -110,15 +112,36 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
         },
         Some(TypeSet::Multiple(types)) => {
             let non_null: Vec<_> = types.iter().filter(|t| **t != SchemaType::Null).collect();
+            let has_null = types.contains(&SchemaType::Null);
             if non_null.len() == 1 {
-                // Nullable type — we just return the non-null type
                 let single = Schema {
                     schema_type: Some(TypeSet::Single(non_null[0].clone())),
                     ..schema.clone()
                 };
-                schema_to_ir_type(&single)
+                let base = schema_to_ir_type(&single);
+                if has_null {
+                    IrType::Union(vec![base, IrType::Null])
+                } else {
+                    base
+                }
+            } else if non_null.is_empty() && has_null {
+                IrType::Null
             } else {
-                IrType::Any
+                // Multiple non-null types — build union of all
+                let mut variants: Vec<IrType> = non_null
+                    .iter()
+                    .map(|t| {
+                        let s = Schema {
+                            schema_type: Some(TypeSet::Single((*t).clone())),
+                            ..schema.clone()
+                        };
+                        schema_to_ir_type(&s)
+                    })
+                    .collect();
+                if has_null {
+                    variants.push(IrType::Null);
+                }
+                IrType::Union(variants)
             }
         }
         None => {
@@ -139,19 +162,12 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
 
 fn resolve_object_type(schema: &Schema) -> IrType {
     if schema.properties.is_empty() {
-        // Check for additionalProperties (Record/Map type)
         match &schema.additional_properties {
             Some(AdditionalProperties::Schema(s)) => {
                 IrType::Map(Box::new(schema_or_ref_to_ir_type(s)))
             }
-            Some(AdditionalProperties::Bool(true)) | None => {
-                if schema.properties.is_empty() && schema.additional_properties.is_some() {
-                    IrType::Map(Box::new(IrType::Any))
-                } else {
-                    IrType::Any
-                }
-            }
-            Some(AdditionalProperties::Bool(false)) => IrType::Any,
+            Some(AdditionalProperties::Bool(true)) => IrType::Map(Box::new(IrType::Any)),
+            Some(AdditionalProperties::Bool(false)) | None => IrType::Any,
         }
     } else {
         let fields: Vec<(String, IrType, bool)> = schema
@@ -226,8 +242,49 @@ pub fn schema_to_ir_schema(name: &str, schema: &Schema) -> Result<IrSchema, Tran
         }));
     }
 
-    // Check for allOf (merge into object)
+    // Check for allOf
     if !schema.all_of.is_empty() {
+        let has_refs = schema
+            .all_of
+            .iter()
+            .any(|s| matches!(s, SchemaOrRef::Ref { .. }));
+        if has_refs {
+            // Build intersection: refs stay as Ref, inline schemas become Objects
+            let mut parts: Vec<IrType> = schema
+                .all_of
+                .iter()
+                .map(|sub| match sub {
+                    SchemaOrRef::Ref { .. } => schema_or_ref_to_ir_type(sub),
+                    SchemaOrRef::Schema(s) => {
+                        let fields = build_fields(&s.properties, &s.required);
+                        if fields.is_empty() {
+                            schema_to_ir_type(s)
+                        } else {
+                            let inline_fields: Vec<(String, IrType, bool)> = fields
+                                .into_iter()
+                                .map(|f| (f.original_name, f.field_type, f.required))
+                                .collect();
+                            IrType::Object(inline_fields)
+                        }
+                    }
+                })
+                .collect();
+            // Add extra properties from the parent schema if any
+            if !schema.properties.is_empty() {
+                let extra_fields = build_fields(&schema.properties, &schema.required);
+                let inline_fields: Vec<(String, IrType, bool)> = extra_fields
+                    .into_iter()
+                    .map(|f| (f.original_name, f.field_type, f.required))
+                    .collect();
+                parts.push(IrType::Object(inline_fields));
+            }
+            return Ok(IrSchema::Alias(IrAliasSchema {
+                name: normalized,
+                description: schema.description.clone(),
+                target: IrType::Intersection(parts),
+            }));
+        }
+        // No refs — safe to flatten merge as before
         let merged = merge_all_of(&schema.all_of, &schema.properties, &schema.required);
         return Ok(IrSchema::Object(IrObjectSchema {
             name: normalized,

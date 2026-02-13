@@ -53,14 +53,20 @@ export class ApiClient {
   private async request<T>(
     method: string,
     path: string,
-    options?: RequestOptions & { body?: unknown; query?: Record<string, string | undefined> },
+    options?: RequestOptions & { body?: unknown; query?: Record<string, string | string[] | undefined> },
   ): Promise<T> {
     let url = `${this.baseUrl}${path}`;
     if (options?.query) {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(options.query)) {
         if (value !== undefined && value !== null) {
-          params.set(key, value);
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              params.append(key, v);
+            }
+          } else {
+            params.set(key, value);
+          }
         }
       }
       const qs = params.toString();
@@ -153,7 +159,15 @@ export class ApiClient {
 {% if op.has_query_params %}
     const _q = new URLSearchParams();
     for (const [k, v] of Object.entries({ {{ op.query_params_obj }} })) {
-      if (v !== undefined && v !== null) _q.set(k, v);
+      if (v !== undefined && v !== null) {
+        if (Array.isArray(v)) {
+          for (const item of v) {
+            _q.append(k, item);
+          }
+        } else {
+          _q.set(k, v);
+        }
+      }
     }
     const _qs = _q.toString();
     if (_qs) url += `?${_qs}`;

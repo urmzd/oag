@@ -319,7 +319,11 @@ fn build_sse_hook_params(op: &IrOperation) -> (String, String, String, String) {
     let trigger_params = if let Some(ref body) = op.request_body {
         let ts = ir_type_to_ts(&body.body_type);
         stream_call_parts.push("body".to_string());
-        format!("body: {}", ts)
+        if body.required {
+            format!("body: {}", ts)
+        } else {
+            format!("body?: {}", ts)
+        }
     } else {
         String::new()
     };
@@ -367,7 +371,7 @@ fn collect_refs(ir_type: &IrType, types: &mut HashSet<String>) {
             types.insert(name.clone());
         }
         IrType::Array(inner) | IrType::Map(inner) => collect_refs(inner, types),
-        IrType::Union(variants) => {
+        IrType::Union(variants) | IrType::Intersection(variants) => {
             for v in variants {
                 collect_refs(v, types);
             }

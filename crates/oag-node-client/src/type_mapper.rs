@@ -47,6 +47,10 @@ pub fn ir_type_to_ts(ir_type: &IrType) -> String {
             let variant_strs: Vec<String> = variants.iter().map(ir_type_to_ts).collect();
             variant_strs.join(" | ")
         }
+        IrType::Intersection(parts) => {
+            let part_strs: Vec<String> = parts.iter().map(ir_type_to_ts).collect();
+            part_strs.join(" & ")
+        }
     }
 }
 
