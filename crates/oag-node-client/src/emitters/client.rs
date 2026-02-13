@@ -224,10 +224,17 @@ fn build_params_raw(
             } else {
                 parts.push(format!("{}?: {}", param.name.camel_case, ts_type));
             }
-            query_parts.push(format!(
-                "{}: String({})",
-                param.original_name, param.name.camel_case
-            ));
+            if param.required {
+                query_parts.push(format!(
+                    "{}: String({})",
+                    param.original_name, param.name.camel_case
+                ));
+            } else {
+                query_parts.push(format!(
+                    "{}: {} != null ? String({}) : undefined",
+                    param.original_name, param.name.camel_case, param.name.camel_case
+                ));
+            }
         }
     }
 
