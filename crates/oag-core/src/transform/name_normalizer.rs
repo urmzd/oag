@@ -82,7 +82,11 @@ pub fn route_to_name(method: &str, path: &str) -> String {
 fn singularize(word: &str) -> String {
     if word.ends_with("ies") && word.len() > 3 {
         format!("{}y", &word[..word.len() - 3])
-    } else if word.ends_with("sses") || word.ends_with("ses") || word.ends_with("xes") || word.ends_with("zes") {
+    } else if word.ends_with("sses")
+        || word.ends_with("ses")
+        || word.ends_with("xes")
+        || word.ends_with("zes")
+    {
         word[..word.len() - 2].to_string()
     } else if word.ends_with('s') && !word.ends_with("ss") && word.len() > 1 {
         word[..word.len() - 1].to_string()
