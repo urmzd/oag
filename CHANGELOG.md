@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 (2026-02-13)
+
+### Features
+
+- add ApiError class with parsed body to generated clients ([55d5117](https://github.com/urmzd/openapi-generator/commit/55d5117dee75fe2ad691c0832aa39c0a7e29abb1))
+
+### Miscellaneous
+
+- regenerate petstore examples ([e444f5b](https://github.com/urmzd/openapi-generator/commit/e444f5bcb3c9d536ed4254364cc92e0d5f06929d))
+- add SSE + query params compile tests for mixed-endpoints fixture ([19490d7](https://github.com/urmzd/openapi-generator/commit/19490d73f46dcce8ef3e20e5b1704190058888ae))
+- sync Cargo.lock [skip ci] ([3cb5ba5](https://github.com/urmzd/openapi-generator/commit/3cb5ba5de00911bcaba81217cee2847bc384a081))
+
+
 ## 0.5.1 (2026-02-12)
 
 ### Bug Fixes
