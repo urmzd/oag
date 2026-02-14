@@ -433,6 +433,7 @@ mod tests {
                     required: true,
                     content_type: "application/json".to_string(),
                     description: None,
+                    encoding: None,
                 }),
                 return_type: IrReturnType::Void,
                 deprecated: false,

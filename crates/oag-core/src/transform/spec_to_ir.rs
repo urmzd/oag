@@ -220,11 +220,26 @@ fn resolve_request_body(body: &RequestBodyOrRef) -> Option<IrRequestBody> {
                 .map(schema_or_ref_to_ir_type)
                 .unwrap_or(IrType::Any);
 
+            let encoding = if mt.encoding.is_empty() {
+                None
+            } else {
+                Some(
+                    mt.encoding
+                        .iter()
+                        .map(|(field_name, enc)| IrFieldEncoding {
+                            field_name: field_name.clone(),
+                            content_type: enc.content_type.clone(),
+                        })
+                        .collect(),
+                )
+            };
+
             Some(IrRequestBody {
                 body_type,
                 required: rb.required,
                 content_type: content_type.clone(),
                 description: rb.description.clone(),
+                encoding,
             })
         }
         RequestBodyOrRef::Ref { .. } => None, // Should already be resolved

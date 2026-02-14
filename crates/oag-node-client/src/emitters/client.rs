@@ -111,6 +111,12 @@ fn build_operation_contexts(op: &IrOperation) -> Vec<minijinja::Value> {
     results
 }
 
+fn is_multipart_op(op: &IrOperation) -> bool {
+    op.request_body
+        .as_ref()
+        .is_some_and(|b| b.content_type == "multipart/form-data")
+}
+
 fn build_standard_op(op: &IrOperation, return_type: &str) -> minijinja::Value {
     let result = build_params(op);
 
@@ -126,6 +132,7 @@ fn build_standard_op(op: &IrOperation, return_type: &str) -> minijinja::Value {
         header_params_obj => result.header_params_obj,
         has_body => result.has_body,
         body_content_type => result.body_content_type.clone(),
+        is_multipart => is_multipart_op(op),
         has_path_params => result.has_path_params,
         has_query_params => result.has_query_params,
         has_header_params => result.has_header_params,
@@ -150,6 +157,7 @@ fn build_void_op(op: &IrOperation) -> minijinja::Value {
         header_params_obj => result.header_params_obj,
         has_body => result.has_body,
         body_content_type => result.body_content_type.clone(),
+        is_multipart => is_multipart_op(op),
         has_path_params => result.has_path_params,
         has_query_params => result.has_query_params,
         has_header_params => result.has_header_params,
@@ -182,6 +190,7 @@ fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minij
         header_params_obj => result.header_params_obj,
         has_body => result.has_body,
         body_content_type => result.body_content_type.clone(),
+        is_multipart => is_multipart_op(op),
         has_path_params => result.has_path_params,
         has_query_params => result.has_query_params,
         has_header_params => result.has_header_params,

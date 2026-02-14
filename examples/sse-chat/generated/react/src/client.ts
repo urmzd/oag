@@ -10,10 +10,39 @@ import type {
   SubmitFeedbackBody,
 } from "./types";
 
+/** Structured response wrapper exposing status, headers, and parsed data. */
+export interface ApiResponse<T> {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Headers;
+  data: T;
+}
+
+/** Configuration for retry behavior with exponential backoff. */
+export interface RetryConfig {
+  /** Maximum number of retry attempts. Default: 3 */
+  maxRetries?: number;
+  /** Initial delay in milliseconds before the first retry. Default: 1000 */
+  initialDelayMs?: number;
+  /** Maximum delay in milliseconds between retries. Default: 30000 */
+  maxDelayMs?: number;
+  /** Multiplier applied to the delay after each retry. Default: 2 */
+  backoffMultiplier?: number;
+  /** HTTP status codes that trigger a retry. Default: [408, 429, 500, 502, 503, 504] */
+  retryableStatusCodes?: number[];
+  /** Whether to retry on network errors (fetch throws). Default: true */
+  retryOnNetworkError?: boolean;
+}
+
 /** Options for API requests. */
 export interface RequestOptions {
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  /** Per-request retry configuration. Set to false to disable retries. */
+  retry?: RetryConfig | false;
+  /** Per-request timeout in milliseconds. */
+  timeout?: number;
 }
 
 /** Configuration for the API client. */
@@ -25,6 +54,103 @@ export interface ClientConfig {
     url: string;
     init: RequestInit;
   }) => { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>;
+  /** Client-level retry configuration. Set to false to disable retries. Default: enabled with defaults. */
+  retry?: RetryConfig | false;
+  /** Client-level timeout in milliseconds. */
+  timeout?: number;
+}
+
+/** Error thrown when an API request returns a non-OK status. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly statusText: string,
+    public readonly body?: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+const DEFAULT_RETRY_CONFIG: Required<RetryConfig> = {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 30000,
+  backoffMultiplier: 2,
+  retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+  retryOnNetworkError: true,
+};
+
+function mergeRetryConfig(
+  clientLevel?: RetryConfig | false,
+  requestLevel?: RetryConfig | false,
+): Required<RetryConfig> | false {
+  if (requestLevel === false) return false;
+  if (clientLevel === false && requestLevel === undefined) return false;
+  const base = clientLevel === false || clientLevel === undefined ? {} : clientLevel;
+  const override = requestLevel ?? {};
+  return { ...DEFAULT_RETRY_CONFIG, ...base, ...override };
+}
+
+function calculateBackoff(attempt: number, config: Required<RetryConfig>): number {
+  const delay = config.initialDelayMs * config.backoffMultiplier ** attempt;
+  const capped = Math.min(delay, config.maxDelayMs);
+  const jitter = capped * 0.25 * Math.random();
+  return capped + jitter;
+}
+
+function parseRetryAfter(headers: Headers): number | undefined {
+  const value = headers.get("retry-after");
+  if (value === null) return undefined;
+  const seconds = Number(value);
+  if (!Number.isNaN(seconds)) return seconds * 1000;
+  const date = Date.parse(value);
+  if (!Number.isNaN(date)) return Math.max(0, date - Date.now());
+  return undefined;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
+}
+
+function buildFormData(body: Record<string, unknown>): FormData {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(body)) {
+    if (value === undefined || value === null) continue;
+    if (value instanceof Blob) {
+      formData.append(key, value, value instanceof File ? value.name : undefined);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item instanceof Blob) {
+          formData.append(key, item, item instanceof File ? item.name : undefined);
+        } else if (typeof item === "object") {
+          formData.append(key, JSON.stringify(item));
+        } else {
+          formData.append(key, String(item));
+        }
+      }
+    } else if (typeof value === "object") {
+      formData.append(key, JSON.stringify(value));
+    } else {
+      formData.append(key, String(value));
+    }
+  }
+  return formData;
 }
 
 /** API client for AI Chat API. */
@@ -33,41 +159,74 @@ export class ApiClient {
   private readonly headers: Record<string, string>;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly requestInterceptor?: ClientConfig["requestInterceptor"];
+  private readonly retryConfig?: RetryConfig | false;
+  private readonly timeout?: number;
 
   constructor(config: ClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
     this.headers = config.headers ?? {};
     this.fetchFn = config.fetch ?? globalThis.fetch.bind(globalThis);
     this.requestInterceptor = config.requestInterceptor;
+    this.retryConfig = config.retry;
+    this.timeout = config.timeout;
   }
 
-  private async request<T>(
+  private async rawRequest<T>(
     method: string,
     path: string,
-    options?: RequestOptions & { body?: unknown; query?: Record<string, string> },
-  ): Promise<T> {
+    options?: RequestOptions & {
+      body?: unknown;
+      query?: Record<string, unknown>;
+      contentType?: string;
+      isMultipart?: boolean;
+    },
+  ): Promise<ApiResponse<T>> {
     let url = `${this.baseUrl}${path}`;
     if (options?.query) {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(options.query)) {
         if (value !== undefined && value !== null) {
-          params.set(key, value);
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              params.append(key, String(v));
+            }
+          } else {
+            params.set(key, String(value));
+          }
         }
       }
       const qs = params.toString();
       if (qs) url += `?${qs}`;
     }
 
+    const hasBody = options?.body !== undefined;
+    const isMultipart = options?.isMultipart === true;
+    const contentType = options?.contentType ?? "application/json";
+
+    let serializedBody: BodyInit | undefined;
+    if (hasBody) {
+      if (isMultipart) {
+        serializedBody = buildFormData(options!.body as Record<string, unknown>);
+      } else if (contentType === "application/json") {
+        serializedBody = JSON.stringify(options!.body);
+      } else {
+        serializedBody = options!.body as BodyInit;
+      }
+    }
+
+    // For multipart, do NOT set Content-Type — fetch sets it with the boundary automatically
+    const headers: Record<string, string> = {
+      ...(hasBody && !isMultipart ? { "Content-Type": contentType } : {}),
+      ...this.headers,
+      ...options?.headers,
+    };
+
     let req = {
       url,
       init: {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          ...this.headers,
-          ...options?.headers,
-        } as Record<string, string>,
-        body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+        headers,
+        body: serializedBody,
         signal: options?.signal,
       } as RequestInit,
     };
@@ -76,17 +235,108 @@ export class ApiClient {
       req = await this.requestInterceptor(req);
     }
 
+    // Build timeout signal if configured
+    const requestTimeout = options?.timeout ?? this.timeout;
+    let timeoutSignal: AbortSignal | undefined;
+    if (requestTimeout !== undefined) {
+      timeoutSignal = AbortSignal.timeout(requestTimeout);
+    }
+
+    // Combine user signal and timeout signal
+    const combinedSignal =
+      req.init.signal && timeoutSignal
+        ? AbortSignal.any([req.init.signal, timeoutSignal])
+        : (timeoutSignal ?? req.init.signal);
+
+    if (combinedSignal) {
+      req.init.signal = combinedSignal;
+    }
+
+    // Retry logic
+    const retryConfig = mergeRetryConfig(this.retryConfig, options?.retry);
+
+    if (retryConfig === false) {
+      return this.executeFetch<T>(req);
+    }
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
+      try {
+        const response = await this.executeFetch<T>(req);
+        if (response.ok || attempt === retryConfig.maxRetries) {
+          return response;
+        }
+        if (!retryConfig.retryableStatusCodes.includes(response.status)) {
+          return response;
+        }
+        const retryAfter = parseRetryAfter(response.headers);
+        const backoff = retryAfter ?? calculateBackoff(attempt, retryConfig);
+        await sleep(backoff, options?.signal);
+      } catch (error) {
+        lastError = error;
+        if (!retryConfig.retryOnNetworkError || attempt === retryConfig.maxRetries) {
+          throw error;
+        }
+        // Don't retry abort errors
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw error;
+        }
+        const backoff = calculateBackoff(attempt, retryConfig);
+        await sleep(backoff, options?.signal);
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async executeFetch<T>(req: { url: string; init: RequestInit }): Promise<ApiResponse<T>> {
     const response = await this.fetchFn(req.url, req.init);
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-    }
-
+    let data: T;
     if (response.status === 204) {
-      return undefined as T;
+      data = undefined as T;
+    } else {
+      const text = await response.text();
+      if (text) {
+        try {
+          data = JSON.parse(text) as T;
+        } catch {
+          data = text as T;
+        }
+      } else {
+        data = undefined as T;
+      }
     }
 
-    return response.json() as Promise<T>;
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data,
+    };
+  }
+
+  private async request<T>(
+    method: string,
+    path: string,
+    options?: RequestOptions & {
+      body?: unknown;
+      query?: Record<string, unknown>;
+      contentType?: string;
+      isMultipart?: boolean;
+    },
+  ): Promise<T> {
+    const response = await this.rawRequest<T>(method, path, options);
+    if (!response.ok) {
+      throw new ApiError(
+        `API request failed: ${response.status} ${response.statusText}`,
+        response.status,
+        response.statusText,
+        response.data,
+      );
+    }
+    return response.data;
   }
 
   /** List available models */
@@ -97,11 +347,29 @@ export class ApiClient {
     });
   }
 
+  async listModelsRaw(options?: RequestOptions): Promise<ApiResponse<ListModelsResponse>> {
+    const path = "/models";
+    return this.rawRequest<ListModelsResponse>("GET", path, {
+      ...options,
+    });
+  }
+
   /** Get a specific model */
   async getModel(modelId: string, options?: RequestOptions): Promise<GetModelResponse> {
     let path = "/models/{modelId}";
     path = path.replace("{modelId}", encodeURIComponent(String(modelId)));
     return this.request<GetModelResponse>("GET", path, {
+      ...options,
+    });
+  }
+
+  async getModelRaw(
+    modelId: string,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<GetModelResponse>> {
+    let path = "/models/{modelId}";
+    path = path.replace("{modelId}", encodeURIComponent(String(modelId)));
+    return this.rawRequest<GetModelResponse>("GET", path, {
       ...options,
     });
   }
@@ -122,6 +390,7 @@ export class ApiClient {
       },
       options,
       this.requestInterceptor,
+      this.fetchFn,
     );
   }
 
@@ -133,6 +402,19 @@ export class ApiClient {
     const path = "/chat/completions";
     return this.request<CreateChatCompletionResponse>("POST", path, {
       body,
+      contentType: "application/json",
+      ...options,
+    });
+  }
+
+  async createChatCompletionRaw(
+    body: CreateChatCompletionBody,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<CreateChatCompletionResponse>> {
+    const path = "/chat/completions";
+    return this.rawRequest<CreateChatCompletionResponse>("POST", path, {
+      body,
+      contentType: "application/json",
       ...options,
     });
   }
@@ -142,6 +424,19 @@ export class ApiClient {
     const path = "/chat/feedback";
     await this.request<void>("POST", path, {
       body,
+      contentType: "application/json",
+      ...options,
+    });
+  }
+
+  async submitFeedbackRaw(
+    body: SubmitFeedbackBody,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<void>> {
+    const path = "/chat/feedback";
+    return this.rawRequest<void>("POST", path, {
+      body,
+      contentType: "application/json",
       ...options,
     });
   }

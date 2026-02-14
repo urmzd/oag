@@ -171,18 +171,21 @@ fn build_test_context(
 }
 
 /// Build test call arguments for an operation.
+/// Uses a single pass over `op.parameters` to match the same order as `build_params_raw` in client.rs.
 fn build_test_call_args(op: &IrOperation) -> String {
     let mut args = Vec::new();
 
     for param in &op.parameters {
-        if param.location == IrParameterLocation::Path {
-            args.push(mock_value_ts(&param.param_type));
-        }
-    }
-
-    for param in &op.parameters {
-        if param.location == IrParameterLocation::Query && param.required {
-            args.push(mock_value_ts(&param.param_type));
+        match param.location {
+            IrParameterLocation::Path => {
+                args.push(mock_value_ts(&param.param_type));
+            }
+            IrParameterLocation::Query | IrParameterLocation::Header => {
+                if param.required {
+                    args.push(mock_value_ts(&param.param_type));
+                }
+            }
+            _ => {}
         }
     }
 

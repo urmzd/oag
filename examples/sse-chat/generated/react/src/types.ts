@@ -16,7 +16,7 @@ export interface ModelList {
 }
 
 export interface ChatMessage {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -39,7 +39,7 @@ export interface ChatCompletionResponse {
 export interface Choice {
   index: number;
   message: ChoiceMessage;
-  finishReason: string;
+  finishReason: "stop" | "length" | "content_filter";
 }
 
 export interface Usage {
@@ -74,19 +74,19 @@ export interface ModelListDataItem {
 }
 
 export interface ChatCompletionRequestMessagesItem {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
 export interface ChatCompletionResponseChoicesItemMessage {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
 export interface ChatCompletionResponseChoicesItem {
   index: number;
   message: ChatCompletionResponseChoicesItemMessage;
-  finishReason: string;
+  finishReason: "stop" | "length" | "content_filter";
 }
 
 export interface ChatCompletionResponseUsage {
@@ -96,7 +96,7 @@ export interface ChatCompletionResponseUsage {
 }
 
 export interface ChoiceMessage {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -108,7 +108,7 @@ export interface ChatCompletionChunkChoicesItemDelta {
 export interface ChatCompletionChunkChoicesItem {
   index: number;
   delta: ChatCompletionChunkChoicesItemDelta;
-  finishReason?: string;
+  finishReason?: "stop" | "length" | "content_filter";
 }
 
 export interface ChatCompletionDoneUsage {
@@ -145,7 +145,7 @@ export interface CreateChatCompletionEventVariant1ChoicesItemDelta {
 export interface CreateChatCompletionEventVariant1ChoicesItem {
   index: number;
   delta: CreateChatCompletionEventVariant1ChoicesItemDelta;
-  finishReason?: string;
+  finishReason?: "stop" | "length" | "content_filter";
 }
 
 export interface CreateChatCompletionEventVariant1 {
@@ -173,7 +173,7 @@ export interface CreateChatCompletionEventChoicesItemDelta {
 export interface CreateChatCompletionEventChoicesItem {
   index: number;
   delta: CreateChatCompletionEventChoicesItemDelta;
-  finishReason?: string;
+  finishReason?: "stop" | "length" | "content_filter";
 }
 
 export interface CreateChatCompletionEvent {
@@ -194,14 +194,14 @@ export interface CreateChatCompletionEvent2 {
 }
 
 export interface CreateChatCompletionResponseChoicesItemMessage {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
 export interface CreateChatCompletionResponseChoicesItem {
   index: number;
   message: CreateChatCompletionResponseChoicesItemMessage;
-  finishReason: string;
+  finishReason: "stop" | "length" | "content_filter";
 }
 
 export interface CreateChatCompletionResponseUsage {
@@ -218,7 +218,7 @@ export interface CreateChatCompletionResponse {
 }
 
 export interface CreateChatCompletionBodyMessagesItem {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -238,7 +238,7 @@ export interface CreateChatCompletionStreamEventVariant1ChoicesItemDelta {
 export interface CreateChatCompletionStreamEventVariant1ChoicesItem {
   index: number;
   delta: CreateChatCompletionStreamEventVariant1ChoicesItemDelta;
-  finishReason?: string;
+  finishReason?: "stop" | "length" | "content_filter";
 }
 
 export interface CreateChatCompletionStreamEventVariant1 {
@@ -266,7 +266,7 @@ export interface CreateChatCompletionStreamEventChoicesItemDelta {
 export interface CreateChatCompletionStreamEventChoicesItem {
   index: number;
   delta: CreateChatCompletionStreamEventChoicesItemDelta;
-  finishReason?: string;
+  finishReason?: "stop" | "length" | "content_filter";
 }
 
 export interface CreateChatCompletionStreamEvent {
@@ -287,7 +287,7 @@ export interface CreateChatCompletionStreamEvent2 {
 }
 
 export interface CreateChatCompletionStreamBodyMessagesItem {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 

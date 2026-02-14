@@ -97,6 +97,13 @@ pub enum IrParameterLocation {
     Cookie,
 }
 
+/// Encoding metadata for a single field in a multipart request body.
+#[derive(Debug, Clone)]
+pub struct IrFieldEncoding {
+    pub field_name: String,
+    pub content_type: Option<String>,
+}
+
 /// A resolved request body.
 #[derive(Debug, Clone)]
 pub struct IrRequestBody {
@@ -104,4 +111,5 @@ pub struct IrRequestBody {
     pub required: bool,
     pub content_type: String,
     pub description: Option<String>,
+    pub encoding: Option<Vec<IrFieldEncoding>>,
 }

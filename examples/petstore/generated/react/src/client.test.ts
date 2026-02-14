@@ -16,6 +16,7 @@ function createMockFetch(status = 200, body: unknown = {}) {
     ok: status >= 200 && status < 300,
     status,
     statusText: status === 200 ? "OK" : "Error",
+    headers: new Headers(),
     json: () => Promise.resolve(body),
     text: () => Promise.resolve(JSON.stringify(body)),
     body: null,
@@ -26,6 +27,7 @@ function createClient(fetchFn?: typeof globalThis.fetch): ApiClient {
   const config: ClientConfig = {
     baseUrl: "https://api.test.com",
     fetch: fetchFn ?? createMockFetch(),
+    retry: false,
   };
   return new ApiClient(config);
 }
@@ -75,6 +77,31 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("listPetsRaw", () => {
+    it("method exists", () => {
+      const client = createClient();
+      expect(typeof client.listPetsRaw).toBe("function");
+    });
+
+    it("returns ApiResponse with ok, status, headers, data", async () => {
+      const mockFetch = createMockFetch(200, []);
+      const client = createClient(mockFetch);
+      const response = await client.listPetsRaw();
+      expect(response.ok).toBe(true);
+      expect(response.status).toBe(200);
+      expect(response.headers).toBeInstanceOf(Headers);
+      expect(response.data).toBeDefined();
+    });
+
+    it("does not throw on non-OK response", async () => {
+      const mockFetch = createMockFetch(500);
+      const client = createClient(mockFetch);
+      const response = await client.listPetsRaw();
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(500);
+    });
+  });
+
   describe("createPet", () => {
     it("method exists", () => {
       const client = createClient();
@@ -106,6 +133,31 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("createPetRaw", () => {
+    it("method exists", () => {
+      const client = createClient();
+      expect(typeof client.createPetRaw).toBe("function");
+    });
+
+    it("returns ApiResponse with ok, status, headers, data", async () => {
+      const mockFetch = createMockFetch(200, {} as CreatePetResponse);
+      const client = createClient(mockFetch);
+      const response = await client.createPetRaw({} as CreatePetBody);
+      expect(response.ok).toBe(true);
+      expect(response.status).toBe(200);
+      expect(response.headers).toBeInstanceOf(Headers);
+      expect(response.data).toBeDefined();
+    });
+
+    it("does not throw on non-OK response", async () => {
+      const mockFetch = createMockFetch(500);
+      const client = createClient(mockFetch);
+      const response = await client.createPetRaw({} as CreatePetBody);
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(500);
+    });
+  });
+
   describe("getPet", () => {
     it("method exists", () => {
       const client = createClient();
@@ -126,6 +178,31 @@ describe("ApiClient", () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
       await expect(client.getPet("test")).rejects.toThrow(ApiError);
+    });
+  });
+
+  describe("getPetRaw", () => {
+    it("method exists", () => {
+      const client = createClient();
+      expect(typeof client.getPetRaw).toBe("function");
+    });
+
+    it("returns ApiResponse with ok, status, headers, data", async () => {
+      const mockFetch = createMockFetch(200, {} as GetPetResponse);
+      const client = createClient(mockFetch);
+      const response = await client.getPetRaw("test");
+      expect(response.ok).toBe(true);
+      expect(response.status).toBe(200);
+      expect(response.headers).toBeInstanceOf(Headers);
+      expect(response.data).toBeDefined();
+    });
+
+    it("does not throw on non-OK response", async () => {
+      const mockFetch = createMockFetch(500);
+      const client = createClient(mockFetch);
+      const response = await client.getPetRaw("test");
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(500);
     });
   });
 
@@ -160,6 +237,31 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("updatePetRaw", () => {
+    it("method exists", () => {
+      const client = createClient();
+      expect(typeof client.updatePetRaw).toBe("function");
+    });
+
+    it("returns ApiResponse with ok, status, headers, data", async () => {
+      const mockFetch = createMockFetch(200, {} as UpdatePetResponse);
+      const client = createClient(mockFetch);
+      const response = await client.updatePetRaw("test", {} as UpdatePetBody);
+      expect(response.ok).toBe(true);
+      expect(response.status).toBe(200);
+      expect(response.headers).toBeInstanceOf(Headers);
+      expect(response.data).toBeDefined();
+    });
+
+    it("does not throw on non-OK response", async () => {
+      const mockFetch = createMockFetch(500);
+      const client = createClient(mockFetch);
+      const response = await client.updatePetRaw("test", {} as UpdatePetBody);
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(500);
+    });
+  });
+
   describe("deletePet", () => {
     it("method exists", () => {
       const client = createClient();
@@ -184,6 +286,30 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("deletePetRaw", () => {
+    it("method exists", () => {
+      const client = createClient();
+      expect(typeof client.deletePetRaw).toBe("function");
+    });
+
+    it("returns ApiResponse with ok, status, headers", async () => {
+      const mockFetch = createMockFetch(204);
+      const client = createClient(mockFetch);
+      const response = await client.deletePetRaw("test");
+      expect(response.ok).toBe(true);
+      expect(response.status).toBe(204);
+      expect(response.headers).toBeInstanceOf(Headers);
+    });
+
+    it("does not throw on non-OK response", async () => {
+      const mockFetch = createMockFetch(500);
+      const client = createClient(mockFetch);
+      const response = await client.deletePetRaw("test");
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(500);
+    });
+  });
+
   describe("getInventory", () => {
     it("method exists", () => {
       const client = createClient();
@@ -204,6 +330,67 @@ describe("ApiClient", () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
       await expect(client.getInventory()).rejects.toThrow(ApiError);
+    });
+  });
+
+  describe("getInventoryRaw", () => {
+    it("method exists", () => {
+      const client = createClient();
+      expect(typeof client.getInventoryRaw).toBe("function");
+    });
+
+    it("returns ApiResponse with ok, status, headers, data", async () => {
+      const mockFetch = createMockFetch(200, {} as Record<string, number>);
+      const client = createClient(mockFetch);
+      const response = await client.getInventoryRaw();
+      expect(response.ok).toBe(true);
+      expect(response.status).toBe(200);
+      expect(response.headers).toBeInstanceOf(Headers);
+      expect(response.data).toBeDefined();
+    });
+
+    it("does not throw on non-OK response", async () => {
+      const mockFetch = createMockFetch(500);
+      const client = createClient(mockFetch);
+      const response = await client.getInventoryRaw();
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("retry", () => {
+    it("retries on retryable status codes", async () => {
+      const failResponse = {
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        headers: new Headers(),
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve("{}"),
+        body: null,
+      } as unknown as Response;
+      const successResponse = {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
+        json: () => Promise.resolve({ success: true }),
+        text: () => Promise.resolve(JSON.stringify({ success: true })),
+        body: null,
+      } as unknown as Response;
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(failResponse)
+        .mockResolvedValueOnce(successResponse);
+
+      const config: ClientConfig = {
+        baseUrl: "https://api.test.com",
+        fetch: mockFetch,
+        retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
+      };
+      const client = new ApiClient(config);
+      await client.listPets();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });

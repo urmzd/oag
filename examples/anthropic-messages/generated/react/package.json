@@ -1,0 +1,31 @@
+{
+  "name": "@examples/anthropic-messages-react-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/urmzd/openapi-generator"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "swr": "^2.2.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@types/react": "^19.0.0",
+    "tsdown": "^0.12.0",
+    "vitest": "^3.0.0",
+    "typescript": "^5.7.0"
+  }
+}
