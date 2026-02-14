@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 (2026-02-14)
+
+### Features
+
+- add multipart uploads, retry with backoff, and ApiResponse wrapper ([d3f4a78](https://github.com/urmzd/openapi-generator/commit/d3f4a78d13cf2b3af84bf061a0512ebb9b02f7fe))
+
+### Miscellaneous
+
+- gitignore package-lock.json files in generated examples ([eb9d9fd](https://github.com/urmzd/openapi-generator/commit/eb9d9fd92a858b09bbed397fe918746b52342c0a))
+- sync Cargo.lock [skip ci] ([b59f88b](https://github.com/urmzd/openapi-generator/commit/b59f88b3296b5e1718cfb1ee7b7ac3e0f9cf500d))
+
+
 ## 0.7.0 (2026-02-13)
 
 ### Features
