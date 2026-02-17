@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0 (2026-02-17)
+
+### Features
+
+- use musl targets for static Linux binaries ([f4fbb14](https://github.com/urmzd/openapi-generator/commit/f4fbb1407e690959c7ef885aa61347e595531aa1))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([e036fff](https://github.com/urmzd/openapi-generator/commit/e036fff93d4f0f870dd2d19795be6f98d385888b))
+
+
 ## 0.8.0 (2026-02-14)
 
 ### Features
