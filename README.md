@@ -23,19 +23,31 @@ OpenAPI 3.2 shipped but most generators haven't caught up. When you need to glue
 
 ## Quick start
 
-Install from crates.io:
+Install with a single command (Linux/macOS):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/urmzd/openapi-generator/main/install.sh | sh
+```
+
+Or install from crates.io (requires Rust):
 
 ```sh
 cargo install oag-cli
 ```
 
-Or build from source:
+Windows users can download binaries directly from the
+[latest release](https://github.com/urmzd/openapi-generator/releases/latest).
+
+<details>
+<summary>Build from source</summary>
 
 ```sh
 git clone https://github.com/urmzd/openapi-generator.git
 cd openapi-generator
 cargo install --path crates/oag-cli
 ```
+
+</details>
 
 Initialize a config file:
 

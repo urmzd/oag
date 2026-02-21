@@ -492,27 +492,25 @@ fn transform_petstore_polymorphic() {
         .find(|s| s.name().pascal_case == "ExtendedErrorModel")
         .expect("should have ExtendedErrorModel schema");
     match ext_err {
-        IrSchema::Alias(alias) => {
-            match &alias.target {
-                IrType::Intersection(parts) => {
-                    assert_eq!(parts.len(), 2, "should have 2 intersection parts");
-                    assert!(
-                        matches!(&parts[0], IrType::Ref(name) if name == "ErrorModel"),
-                        "first part should be Ref(ErrorModel)"
-                    );
-                    match &parts[1] {
-                        IrType::Object(fields) => {
-                            assert!(
-                                fields.iter().any(|(name, _, _)| name == "rootCause"),
-                                "should have rootCause field from extension"
-                            );
-                        }
-                        _ => panic!("second part should be Object"),
+        IrSchema::Alias(alias) => match &alias.target {
+            IrType::Intersection(parts) => {
+                assert_eq!(parts.len(), 2, "should have 2 intersection parts");
+                assert!(
+                    matches!(&parts[0], IrType::Ref(name) if name == "ErrorModel"),
+                    "first part should be Ref(ErrorModel)"
+                );
+                match &parts[1] {
+                    IrType::Object(fields) => {
+                        assert!(
+                            fields.iter().any(|(name, _, _)| name == "rootCause"),
+                            "should have rootCause field from extension"
+                        );
                     }
+                    _ => panic!("second part should be Object"),
                 }
-                _ => panic!("ExtendedErrorModel target should be Intersection"),
             }
-        }
+            _ => panic!("ExtendedErrorModel target should be Intersection"),
+        },
         _ => panic!("ExtendedErrorModel should be an Alias (allOf with $ref)"),
     }
 

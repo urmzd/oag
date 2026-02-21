@@ -40,6 +40,9 @@ jobs:
           - target: aarch64-apple-darwin
             runner: macos-15
             cross: false
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            cross: false
     steps:
       - uses: actions/checkout@v4
 
@@ -66,12 +69,13 @@ jobs:
           else
             cargo build --release --target ${{ matrix.target }} -p oag-cli
           fi
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: oag-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/oag
+          path: target/${{ matrix.target }}/release/oag${{ contains(matrix.target, 'windows') && '.exe' || '' }}
 
   release:
     name: Release
@@ -97,9 +101,13 @@ jobs:
           mkdir -p release-assets
           for dir in artifacts/oag-*/; do
             TARGET=$(basename "$dir")
-            cp "$dir/oag" "release-assets/$TARGET"
+            if [ -f "$dir/oag.exe" ]; then
+              cp "$dir/oag.exe" "release-assets/${TARGET}.exe"
+            else
+              cp "$dir/oag" "release-assets/$TARGET"
+              chmod +x "release-assets/$TARGET"
+            fi
           done
-          chmod +x release-assets/*
 
       - name: Release
         id: sr
