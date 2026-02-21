@@ -2,16 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client";
 import { ApiClient, ApiError } from "./client";
-import type {
-  CreatePetBodyVariant1,
-  CreatePetBodyVariant2,
-  CreatePetResponseVariant1,
-  CreatePetResponseVariant2,
-  GetPetResponseVariant1,
-  GetPetResponseVariant2,
-  ListPetsResponseItemVariant1,
-  ListPetsResponseItemVariant2,
-} from "./types";
+import type { Pet } from "./types";
 
 function createMockFetch(status = 200, body: unknown = {}) {
   return vi.fn().mockResolvedValue({
@@ -111,12 +102,9 @@ describe("ApiClient", () => {
     });
 
     it("makes POST request to correct URL", async () => {
-      const mockFetch = createMockFetch(
-        200,
-        {} as CreatePetResponseVariant1 | CreatePetResponseVariant2,
-      );
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      await client.createPet({} as CreatePetBodyVariant1);
+      await client.createPet({} as Pet);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/pets");
@@ -124,12 +112,9 @@ describe("ApiClient", () => {
     });
 
     it("sends request body", async () => {
-      const mockFetch = createMockFetch(
-        200,
-        {} as CreatePetResponseVariant1 | CreatePetResponseVariant2,
-      );
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      await client.createPet({} as CreatePetBodyVariant1);
+      await client.createPet({} as Pet);
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
     });
@@ -137,7 +122,7 @@ describe("ApiClient", () => {
     it("throws ApiError on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      await expect(client.createPet({} as CreatePetBodyVariant1)).rejects.toThrow(ApiError);
+      await expect(client.createPet({} as Pet)).rejects.toThrow(ApiError);
     });
   });
 
@@ -148,12 +133,9 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(
-        200,
-        {} as CreatePetResponseVariant1 | CreatePetResponseVariant2,
-      );
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      const response = await client.createPetRaw({} as CreatePetBodyVariant1);
+      const response = await client.createPetRaw({} as Pet);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(200);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -163,7 +145,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.createPetRaw({} as CreatePetBodyVariant1);
+      const response = await client.createPetRaw({} as Pet);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });
@@ -176,7 +158,7 @@ describe("ApiClient", () => {
     });
 
     it("makes GET request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as GetPetResponseVariant1 | GetPetResponseVariant2);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
       await client.getPet("test");
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -199,7 +181,7 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as GetPetResponseVariant1 | GetPetResponseVariant2);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
       const response = await client.getPetRaw("test");
       expect(response.ok).toBe(true);

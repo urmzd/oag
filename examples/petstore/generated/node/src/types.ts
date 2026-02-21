@@ -3,15 +3,15 @@ export interface Pet {
   id: string;
   name: string;
   tag?: string;
-  status: "available" | "pending" | "sold";
-  category?: PetCategory;
+  status: PetStatus;
+  category?: Category;
 }
 
 export interface NewPet {
   name: string;
   tag?: string;
-  status?: "available" | "pending" | "sold";
-  category?: NewPetCategory;
+  status?: PetStatus;
+  category?: Category;
 }
 
 export type PetStatus = "available" | "pending" | "sold";
@@ -19,90 +19,4 @@ export type PetStatus = "available" | "pending" | "sold";
 export interface Category {
   id: number;
   name: string;
-}
-
-export interface PetCategory {
-  id: number;
-  name: string;
-}
-
-export interface NewPetCategory {
-  id: number;
-  name: string;
-}
-
-export interface ListPetsResponseItemCategory {
-  id: number;
-  name: string;
-}
-
-export interface ListPetsResponseItem {
-  id: string;
-  name: string;
-  tag?: string;
-  status: "available" | "pending" | "sold";
-  category?: ListPetsResponseItemCategory;
-}
-
-export interface CreatePetResponseCategory {
-  id: number;
-  name: string;
-}
-
-export interface CreatePetResponse {
-  id: string;
-  name: string;
-  tag?: string;
-  status: "available" | "pending" | "sold";
-  category?: CreatePetResponseCategory;
-}
-
-export interface CreatePetBodyCategory {
-  id: number;
-  name: string;
-}
-
-export interface CreatePetBody {
-  name: string;
-  tag?: string;
-  status?: "available" | "pending" | "sold";
-  category?: CreatePetBodyCategory;
-}
-
-export interface GetPetResponseCategory {
-  id: number;
-  name: string;
-}
-
-export interface GetPetResponse {
-  id: string;
-  name: string;
-  tag?: string;
-  status: "available" | "pending" | "sold";
-  category?: GetPetResponseCategory;
-}
-
-export interface UpdatePetResponseCategory {
-  id: number;
-  name: string;
-}
-
-export interface UpdatePetResponse {
-  id: string;
-  name: string;
-  tag?: string;
-  status: "available" | "pending" | "sold";
-  category?: UpdatePetResponseCategory;
-}
-
-export interface UpdatePetBodyCategory {
-  id: number;
-  name: string;
-}
-
-export interface UpdatePetBody {
-  name: string;
-  tag?: string;
-  status?: "available" | "pending" | "sold";
-  category?: UpdatePetBodyCategory;
 }

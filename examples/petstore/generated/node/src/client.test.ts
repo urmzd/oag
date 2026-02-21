@@ -2,14 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client";
 import { ApiClient, ApiError } from "./client";
-import type {
-  CreatePetBody,
-  CreatePetResponse,
-  GetPetResponse,
-  ListPetsResponseItem,
-  UpdatePetBody,
-  UpdatePetResponse,
-} from "./types";
+import type { NewPet, Pet } from "./types";
 
 function createMockFetch(status = 200, body: unknown = {}) {
   return vi.fn().mockResolvedValue({
@@ -109,9 +102,9 @@ describe("ApiClient", () => {
     });
 
     it("makes POST request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as CreatePetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      await client.createPet({} as CreatePetBody);
+      await client.createPet({} as NewPet);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/pets");
@@ -119,9 +112,9 @@ describe("ApiClient", () => {
     });
 
     it("sends request body", async () => {
-      const mockFetch = createMockFetch(200, {} as CreatePetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      await client.createPet({} as CreatePetBody);
+      await client.createPet({} as NewPet);
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
     });
@@ -129,7 +122,7 @@ describe("ApiClient", () => {
     it("throws ApiError on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      await expect(client.createPet({} as CreatePetBody)).rejects.toThrow(ApiError);
+      await expect(client.createPet({} as NewPet)).rejects.toThrow(ApiError);
     });
   });
 
@@ -140,9 +133,9 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as CreatePetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      const response = await client.createPetRaw({} as CreatePetBody);
+      const response = await client.createPetRaw({} as NewPet);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(200);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -152,7 +145,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.createPetRaw({} as CreatePetBody);
+      const response = await client.createPetRaw({} as NewPet);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });
@@ -165,7 +158,7 @@ describe("ApiClient", () => {
     });
 
     it("makes GET request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as GetPetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
       await client.getPet("test");
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -188,7 +181,7 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as GetPetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
       const response = await client.getPetRaw("test");
       expect(response.ok).toBe(true);
@@ -213,9 +206,9 @@ describe("ApiClient", () => {
     });
 
     it("makes PUT request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as UpdatePetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      await client.updatePet("test", {} as UpdatePetBody);
+      await client.updatePet("test", {} as NewPet);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/pets/test");
@@ -223,9 +216,9 @@ describe("ApiClient", () => {
     });
 
     it("sends request body", async () => {
-      const mockFetch = createMockFetch(200, {} as UpdatePetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      await client.updatePet("test", {} as UpdatePetBody);
+      await client.updatePet("test", {} as NewPet);
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
     });
@@ -233,7 +226,7 @@ describe("ApiClient", () => {
     it("throws ApiError on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      await expect(client.updatePet("test", {} as UpdatePetBody)).rejects.toThrow(ApiError);
+      await expect(client.updatePet("test", {} as NewPet)).rejects.toThrow(ApiError);
     });
   });
 
@@ -244,9 +237,9 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as UpdatePetResponse);
+      const mockFetch = createMockFetch(200, {} as Pet);
       const client = createClient(mockFetch);
-      const response = await client.updatePetRaw("test", {} as UpdatePetBody);
+      const response = await client.updatePetRaw("test", {} as NewPet);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(200);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -256,7 +249,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.updatePetRaw("test", {} as UpdatePetBody);
+      const response = await client.updatePetRaw("test", {} as NewPet);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });

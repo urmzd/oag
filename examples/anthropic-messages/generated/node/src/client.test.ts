@@ -3,20 +3,20 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client";
 import { ApiClient, ApiError } from "./client";
 import type {
-  CountTokensBody,
-  CountTokensResponse2,
-  CreateMessageBody,
-  CreateMessageEventVariant1,
-  CreateMessageEventVariant2,
-  CreateMessageEventVariant3,
-  CreateMessageEventVariant4,
-  CreateMessageEventVariant5,
-  CreateMessageEventVariant6,
-  CreateMessageEventVariant7,
-  CreateMessageEventVariant8,
-  CreateMessageResponse,
-  GetModelResponse,
-  ListModelsResponse,
+  ContentBlockDeltaEvent,
+  ContentBlockStartEvent,
+  ContentBlockStopEvent,
+  CountTokensRequest,
+  CountTokensResponse,
+  CreateMessageRequest,
+  ErrorEvent,
+  MessageDeltaEvent,
+  MessageResponse,
+  MessageStartEvent,
+  MessageStopEvent,
+  ModelInfo,
+  ModelListResponse,
+  PingEvent,
 } from "./types";
 
 function createMockFetch(status = 200, body: unknown = {}) {
@@ -70,7 +70,7 @@ describe("ApiClient", () => {
 
     it("returns an async iterable", () => {
       const client = createClient();
-      const result = client.createMessageStream("test", {} as CreateMessageBody);
+      const result = client.createMessageStream("test", {} as CreateMessageRequest);
       expect(result).toBeDefined();
       expect(typeof result[Symbol.asyncIterator]).toBe("function");
     });
@@ -83,9 +83,9 @@ describe("ApiClient", () => {
     });
 
     it("makes POST request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as CreateMessageResponse);
+      const mockFetch = createMockFetch(200, {} as MessageResponse);
       const client = createClient(mockFetch);
-      await client.createMessage("test", {} as CreateMessageBody);
+      await client.createMessage("test", {} as CreateMessageRequest);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/v1/messages");
@@ -93,9 +93,9 @@ describe("ApiClient", () => {
     });
 
     it("sends request body", async () => {
-      const mockFetch = createMockFetch(200, {} as CreateMessageResponse);
+      const mockFetch = createMockFetch(200, {} as MessageResponse);
       const client = createClient(mockFetch);
-      await client.createMessage("test", {} as CreateMessageBody);
+      await client.createMessage("test", {} as CreateMessageRequest);
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
     });
@@ -103,7 +103,9 @@ describe("ApiClient", () => {
     it("throws ApiError on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      await expect(client.createMessage("test", {} as CreateMessageBody)).rejects.toThrow(ApiError);
+      await expect(client.createMessage("test", {} as CreateMessageRequest)).rejects.toThrow(
+        ApiError,
+      );
     });
   });
 
@@ -114,9 +116,9 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as CreateMessageResponse);
+      const mockFetch = createMockFetch(200, {} as MessageResponse);
       const client = createClient(mockFetch);
-      const response = await client.createMessageRaw("test", {} as CreateMessageBody);
+      const response = await client.createMessageRaw("test", {} as CreateMessageRequest);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(200);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -126,7 +128,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.createMessageRaw("test", {} as CreateMessageBody);
+      const response = await client.createMessageRaw("test", {} as CreateMessageRequest);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });
@@ -139,9 +141,9 @@ describe("ApiClient", () => {
     });
 
     it("makes POST request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as CountTokensResponse2);
+      const mockFetch = createMockFetch(200, {} as CountTokensResponse);
       const client = createClient(mockFetch);
-      await client.countTokens("test", {} as CountTokensBody);
+      await client.countTokens("test", {} as CountTokensRequest);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/v1/messages/count_tokens");
@@ -149,9 +151,9 @@ describe("ApiClient", () => {
     });
 
     it("sends request body", async () => {
-      const mockFetch = createMockFetch(200, {} as CountTokensResponse2);
+      const mockFetch = createMockFetch(200, {} as CountTokensResponse);
       const client = createClient(mockFetch);
-      await client.countTokens("test", {} as CountTokensBody);
+      await client.countTokens("test", {} as CountTokensRequest);
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
     });
@@ -159,7 +161,7 @@ describe("ApiClient", () => {
     it("throws ApiError on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      await expect(client.countTokens("test", {} as CountTokensBody)).rejects.toThrow(ApiError);
+      await expect(client.countTokens("test", {} as CountTokensRequest)).rejects.toThrow(ApiError);
     });
   });
 
@@ -170,9 +172,9 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as CountTokensResponse2);
+      const mockFetch = createMockFetch(200, {} as CountTokensResponse);
       const client = createClient(mockFetch);
-      const response = await client.countTokensRaw("test", {} as CountTokensBody);
+      const response = await client.countTokensRaw("test", {} as CountTokensRequest);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(200);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -182,7 +184,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.countTokensRaw("test", {} as CountTokensBody);
+      const response = await client.countTokensRaw("test", {} as CountTokensRequest);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });
@@ -195,7 +197,7 @@ describe("ApiClient", () => {
     });
 
     it("makes GET request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as ListModelsResponse);
+      const mockFetch = createMockFetch(200, {} as ModelListResponse);
       const client = createClient(mockFetch);
       await client.listModels("test");
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -218,7 +220,7 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as ListModelsResponse);
+      const mockFetch = createMockFetch(200, {} as ModelListResponse);
       const client = createClient(mockFetch);
       const response = await client.listModelsRaw("test");
       expect(response.ok).toBe(true);
@@ -243,7 +245,7 @@ describe("ApiClient", () => {
     });
 
     it("makes GET request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as GetModelResponse);
+      const mockFetch = createMockFetch(200, {} as ModelInfo);
       const client = createClient(mockFetch);
       await client.getModel("test", "test");
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -266,7 +268,7 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as GetModelResponse);
+      const mockFetch = createMockFetch(200, {} as ModelInfo);
       const client = createClient(mockFetch);
       const response = await client.getModelRaw("test", "test");
       expect(response.ok).toBe(true);
@@ -363,7 +365,7 @@ describe("ApiClient", () => {
         retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
       };
       const client = new ApiClient(config);
-      await client.createMessage("test", {} as CreateMessageBody);
+      await client.createMessage("test", {} as CreateMessageRequest);
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });

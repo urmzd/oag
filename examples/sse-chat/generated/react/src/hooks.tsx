@@ -5,24 +5,24 @@ import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 import { useApiClient } from "./provider";
 import type {
-  CreateChatCompletionBody,
-  CreateChatCompletionResponse,
+  ChatCompletionRequest,
+  ChatCompletionResponse,
   CreateChatCompletionStreamEvent,
-  GetModelResponse,
-  ListModelsResponse,
-  SubmitFeedbackBody,
+  FeedbackRequest,
+  Model,
+  ModelList,
 } from "./types";
 
 /** List available models */
-export function useListModels(config?: SWRConfiguration<ListModelsResponse>) {
+export function useListModels(config?: SWRConfiguration<ModelList>) {
   const client = useApiClient();
-  return useSWR<ListModelsResponse>("/models", () => client.listModels(), config);
+  return useSWR<ModelList>("/models", () => client.listModels(), config);
 }
 
 /** Get a specific model */
-export function useGetModel(modelId: string, config?: SWRConfiguration<GetModelResponse>) {
+export function useGetModel(modelId: string, config?: SWRConfiguration<Model>) {
   const client = useApiClient();
-  return useSWR<GetModelResponse>(
+  return useSWR<Model>(
     ["/models/{modelId}", modelId] as const,
     () => client.getModel(modelId),
     config,
@@ -38,7 +38,7 @@ export function useCreateChatCompletionStream() {
   const abortRef = useRef<AbortController | null>(null);
 
   const trigger = useCallback(
-    async (body: CreateChatCompletionBody) => {
+    async (body: ChatCompletionRequest) => {
       setEvents([]);
       setError(null);
       setIsStreaming(true);
@@ -78,29 +78,24 @@ export function useCreateChatCompletionStream() {
 
 /** Create a chat completion */
 export function useCreateChatCompletion(
-  config?: SWRMutationConfiguration<
-    CreateChatCompletionResponse,
-    Error,
-    string,
-    CreateChatCompletionBody
-  >,
+  config?: SWRMutationConfiguration<ChatCompletionResponse, Error, string, ChatCompletionRequest>,
 ) {
   const client = useApiClient();
-  return useSWRMutation<CreateChatCompletionResponse, Error, string, CreateChatCompletionBody>(
+  return useSWRMutation<ChatCompletionResponse, Error, string, ChatCompletionRequest>(
     "/chat/completions",
-    (_key: string, { arg }: { arg: CreateChatCompletionBody }) => client.createChatCompletion(arg),
+    (_key: string, { arg }: { arg: ChatCompletionRequest }) => client.createChatCompletion(arg),
     config,
   );
 }
 
 /** Submit feedback for a completion */
 export function useSubmitFeedback(
-  config?: SWRMutationConfiguration<void, Error, string, SubmitFeedbackBody>,
+  config?: SWRMutationConfiguration<void, Error, string, FeedbackRequest>,
 ) {
   const client = useApiClient();
-  return useSWRMutation<void, Error, string, SubmitFeedbackBody>(
+  return useSWRMutation<void, Error, string, FeedbackRequest>(
     "/chat/feedback",
-    (_key: string, { arg }: { arg: SubmitFeedbackBody }) => client.submitFeedback(arg),
+    (_key: string, { arg }: { arg: FeedbackRequest }) => client.submitFeedback(arg),
     config,
   );
 }

@@ -22,9 +22,6 @@ export interface ApiProviderProps {
 /** Provider component that makes the API client available to all child components. */
 export function ApiProvider({ config, children }: ApiProviderProps) {
   const client = new ApiClient(config);
-  return (
-    <ApiClientContext.Provider value={client}>
-      {children}
-    </ApiClientContext.Provider>
-  );
+  return (<ApiClientContext.Provider value =
+    { client } > { children } < /.>ACCPdeeeiiilnnooprrtttvx);
 }

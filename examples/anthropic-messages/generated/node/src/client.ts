@@ -2,13 +2,13 @@
 
 import { type SSEOptions, streamSse } from "./sse";
 import type {
-  CountTokensBody,
-  CountTokensResponse2,
-  CreateMessageBody,
-  CreateMessageResponse,
+  CountTokensRequest,
+  CountTokensResponse,
+  CreateMessageRequest,
   CreateMessageStreamEvent,
-  GetModelResponse,
-  ListModelsResponse,
+  MessageResponse,
+  ModelInfo,
+  ModelListResponse,
 } from "./types";
 
 /** Structured response wrapper exposing status, headers, and parsed data. */
@@ -343,7 +343,7 @@ export class ApiClient {
   /** Send a structured message and receive a response. Supports both JSON and SSE streaming. */
   async *createMessageStream(
     anthropicVersion: string,
-    body: CreateMessageBody,
+    body: CreateMessageRequest,
     options?: SSEOptions,
   ): AsyncGenerator<CreateMessageStreamEvent> {
     const path = "/v1/messages";
@@ -368,15 +368,15 @@ export class ApiClient {
   /** Send a structured message and receive a response. Supports both JSON and SSE streaming. */
   async createMessage(
     anthropicVersion: string,
-    body: CreateMessageBody,
+    body: CreateMessageRequest,
     options?: RequestOptions,
-  ): Promise<CreateMessageResponse> {
+  ): Promise<MessageResponse> {
     const path = "/v1/messages";
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.request<CreateMessageResponse>("POST", path, {
+    return this.request<MessageResponse>("POST", path, {
       body,
       contentType: "application/json",
       signal: options?.signal,
@@ -388,15 +388,15 @@ export class ApiClient {
 
   async createMessageRaw(
     anthropicVersion: string,
-    body: CreateMessageBody,
+    body: CreateMessageRequest,
     options?: RequestOptions,
-  ): Promise<ApiResponse<CreateMessageResponse>> {
+  ): Promise<ApiResponse<MessageResponse>> {
     const path = "/v1/messages";
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.rawRequest<CreateMessageResponse>("POST", path, {
+    return this.rawRequest<MessageResponse>("POST", path, {
       body,
       contentType: "application/json",
       signal: options?.signal,
@@ -409,15 +409,15 @@ export class ApiClient {
   /** Count tokens in a message */
   async countTokens(
     anthropicVersion: string,
-    body: CountTokensBody,
+    body: CountTokensRequest,
     options?: RequestOptions,
-  ): Promise<CountTokensResponse2> {
+  ): Promise<CountTokensResponse> {
     const path = "/v1/messages/count_tokens";
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.request<CountTokensResponse2>("POST", path, {
+    return this.request<CountTokensResponse>("POST", path, {
       body,
       contentType: "application/json",
       signal: options?.signal,
@@ -429,15 +429,15 @@ export class ApiClient {
 
   async countTokensRaw(
     anthropicVersion: string,
-    body: CountTokensBody,
+    body: CountTokensRequest,
     options?: RequestOptions,
-  ): Promise<ApiResponse<CountTokensResponse2>> {
+  ): Promise<ApiResponse<CountTokensResponse>> {
     const path = "/v1/messages/count_tokens";
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.rawRequest<CountTokensResponse2>("POST", path, {
+    return this.rawRequest<CountTokensResponse>("POST", path, {
       body,
       contentType: "application/json",
       signal: options?.signal,
@@ -454,13 +454,13 @@ export class ApiClient {
     afterId?: string,
     beforeId?: string,
     options?: RequestOptions,
-  ): Promise<ListModelsResponse> {
+  ): Promise<ModelListResponse> {
     const path = "/v1/models";
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.request<ListModelsResponse>("GET", path, {
+    return this.request<ModelListResponse>("GET", path, {
       query: { limit: limit, after_id: afterId, before_id: beforeId },
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
@@ -475,13 +475,13 @@ export class ApiClient {
     afterId?: string,
     beforeId?: string,
     options?: RequestOptions,
-  ): Promise<ApiResponse<ListModelsResponse>> {
+  ): Promise<ApiResponse<ModelListResponse>> {
     const path = "/v1/models";
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.rawRequest<ListModelsResponse>("GET", path, {
+    return this.rawRequest<ModelListResponse>("GET", path, {
       query: { limit: limit, after_id: afterId, before_id: beforeId },
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
@@ -495,14 +495,14 @@ export class ApiClient {
     anthropicVersion: string,
     modelId: string,
     options?: RequestOptions,
-  ): Promise<GetModelResponse> {
+  ): Promise<ModelInfo> {
     let path = "/v1/models/{model_id}";
     path = path.replace("{model_id}", encodeURIComponent(String(modelId)));
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.request<GetModelResponse>("GET", path, {
+    return this.request<ModelInfo>("GET", path, {
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
       retry: options?.retry,
@@ -514,14 +514,14 @@ export class ApiClient {
     anthropicVersion: string,
     modelId: string,
     options?: RequestOptions,
-  ): Promise<ApiResponse<GetModelResponse>> {
+  ): Promise<ApiResponse<ModelInfo>> {
     let path = "/v1/models/{model_id}";
     path = path.replace("{model_id}", encodeURIComponent(String(modelId)));
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ "anthropic-version": anthropicVersion })) {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
-    return this.rawRequest<GetModelResponse>("GET", path, {
+    return this.rawRequest<ModelInfo>("GET", path, {
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
       retry: options?.retry,

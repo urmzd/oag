@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client";
 import { ApiClient, ApiError } from "./client";
 import type {
-  CreateChatCompletionBody,
-  CreateChatCompletionEventVariant1,
-  CreateChatCompletionEventVariant2,
-  CreateChatCompletionResponse,
-  GetModelResponse,
-  ListModelsResponse,
-  SubmitFeedbackBody,
+  ChatCompletionChunk,
+  ChatCompletionDone,
+  ChatCompletionRequest,
+  ChatCompletionResponse,
+  FeedbackRequest,
+  Model,
+  ModelList,
 } from "./types";
 
 function createMockFetch(status = 200, body: unknown = {}) {
@@ -62,7 +62,7 @@ describe("ApiClient", () => {
     });
 
     it("makes GET request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as ListModelsResponse);
+      const mockFetch = createMockFetch(200, {} as ModelList);
       const client = createClient(mockFetch);
       await client.listModels();
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -85,7 +85,7 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as ListModelsResponse);
+      const mockFetch = createMockFetch(200, {} as ModelList);
       const client = createClient(mockFetch);
       const response = await client.listModelsRaw();
       expect(response.ok).toBe(true);
@@ -110,7 +110,7 @@ describe("ApiClient", () => {
     });
 
     it("makes GET request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as GetModelResponse);
+      const mockFetch = createMockFetch(200, {} as Model);
       const client = createClient(mockFetch);
       await client.getModel("test");
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -133,7 +133,7 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as GetModelResponse);
+      const mockFetch = createMockFetch(200, {} as Model);
       const client = createClient(mockFetch);
       const response = await client.getModelRaw("test");
       expect(response.ok).toBe(true);
@@ -159,7 +159,7 @@ describe("ApiClient", () => {
 
     it("returns an async iterable", () => {
       const client = createClient();
-      const result = client.createChatCompletionStream({} as CreateChatCompletionBody);
+      const result = client.createChatCompletionStream({} as ChatCompletionRequest);
       expect(result).toBeDefined();
       expect(typeof result[Symbol.asyncIterator]).toBe("function");
     });
@@ -172,9 +172,9 @@ describe("ApiClient", () => {
     });
 
     it("makes POST request to correct URL", async () => {
-      const mockFetch = createMockFetch(200, {} as CreateChatCompletionResponse);
+      const mockFetch = createMockFetch(200, {} as ChatCompletionResponse);
       const client = createClient(mockFetch);
-      await client.createChatCompletion({} as CreateChatCompletionBody);
+      await client.createChatCompletion({} as ChatCompletionRequest);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/chat/completions");
@@ -182,9 +182,9 @@ describe("ApiClient", () => {
     });
 
     it("sends request body", async () => {
-      const mockFetch = createMockFetch(200, {} as CreateChatCompletionResponse);
+      const mockFetch = createMockFetch(200, {} as ChatCompletionResponse);
       const client = createClient(mockFetch);
-      await client.createChatCompletion({} as CreateChatCompletionBody);
+      await client.createChatCompletion({} as ChatCompletionRequest);
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
     });
@@ -192,7 +192,7 @@ describe("ApiClient", () => {
     it("throws ApiError on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      await expect(client.createChatCompletion({} as CreateChatCompletionBody)).rejects.toThrow(
+      await expect(client.createChatCompletion({} as ChatCompletionRequest)).rejects.toThrow(
         ApiError,
       );
     });
@@ -205,9 +205,9 @@ describe("ApiClient", () => {
     });
 
     it("returns ApiResponse with ok, status, headers, data", async () => {
-      const mockFetch = createMockFetch(200, {} as CreateChatCompletionResponse);
+      const mockFetch = createMockFetch(200, {} as ChatCompletionResponse);
       const client = createClient(mockFetch);
-      const response = await client.createChatCompletionRaw({} as CreateChatCompletionBody);
+      const response = await client.createChatCompletionRaw({} as ChatCompletionRequest);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(200);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -217,7 +217,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.createChatCompletionRaw({} as CreateChatCompletionBody);
+      const response = await client.createChatCompletionRaw({} as ChatCompletionRequest);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });
@@ -232,7 +232,7 @@ describe("ApiClient", () => {
     it("makes POST request to correct URL", async () => {
       const mockFetch = createMockFetch(204);
       const client = createClient(mockFetch);
-      await client.submitFeedback({} as SubmitFeedbackBody);
+      await client.submitFeedback({} as FeedbackRequest);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/chat/feedback");
@@ -242,7 +242,7 @@ describe("ApiClient", () => {
     it("returns undefined on 204", async () => {
       const mockFetch = createMockFetch(204);
       const client = createClient(mockFetch);
-      const result = await client.submitFeedback({} as SubmitFeedbackBody);
+      const result = await client.submitFeedback({} as FeedbackRequest);
       expect(result).toBeUndefined();
     });
   });
@@ -256,7 +256,7 @@ describe("ApiClient", () => {
     it("returns ApiResponse with ok, status, headers", async () => {
       const mockFetch = createMockFetch(204);
       const client = createClient(mockFetch);
-      const response = await client.submitFeedbackRaw({} as SubmitFeedbackBody);
+      const response = await client.submitFeedbackRaw({} as FeedbackRequest);
       expect(response.ok).toBe(true);
       expect(response.status).toBe(204);
       expect(response.headers).toBeInstanceOf(Headers);
@@ -265,7 +265,7 @@ describe("ApiClient", () => {
     it("does not throw on non-OK response", async () => {
       const mockFetch = createMockFetch(500);
       const client = createClient(mockFetch);
-      const response = await client.submitFeedbackRaw({} as SubmitFeedbackBody);
+      const response = await client.submitFeedbackRaw({} as FeedbackRequest);
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
     });

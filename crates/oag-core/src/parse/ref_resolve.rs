@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use indexmap::IndexMap;
 
 use super::components::Components;
@@ -16,14 +14,12 @@ use crate::error::ResolveError;
 /// with no remaining references. Detects circular references.
 pub struct RefResolver<'a> {
     components: Option<&'a Components>,
-    visited: HashSet<String>,
 }
 
 impl<'a> RefResolver<'a> {
     pub fn new(spec: &'a OpenApiSpec) -> Self {
         Self {
             components: spec.components.as_ref(),
-            visited: HashSet::new(),
         }
     }
 
@@ -105,18 +101,12 @@ impl<'a> RefResolver<'a> {
         schema_or_ref: &SchemaOrRef,
     ) -> Result<SchemaOrRef, ResolveError> {
         match schema_or_ref {
-            SchemaOrRef::Ref { ref_path } => {
-                if self.visited.contains(ref_path) {
-                    // Circular reference — return as-is to avoid infinite loop.
-                    // The IR transform layer handles these.
-                    return Ok(schema_or_ref.clone());
-                }
-                self.visited.insert(ref_path.clone());
-                let resolved = self.lookup_schema(ref_path)?;
-                let result =
-                    self.resolve_schema_or_ref(&SchemaOrRef::Schema(Box::new(resolved)))?;
-                self.visited.remove(ref_path);
-                Ok(result)
+            SchemaOrRef::Ref { .. } => {
+                // Preserve schema $ref pointers. Component schemas are resolved
+                // separately when iterating components.schemas. This allows
+                // schema_or_ref_to_ir_type to produce IrType::Ref(name) instead
+                // of inlining the full schema.
+                Ok(schema_or_ref.clone())
             }
             SchemaOrRef::Schema(schema) => {
                 let resolved = self.resolve_schema(schema)?;
@@ -246,26 +236,6 @@ impl<'a> RefResolver<'a> {
     }
 
     // Lookup helpers
-
-    fn lookup_schema(&self, ref_path: &str) -> Result<Schema, ResolveError> {
-        let name = parse_ref_name(ref_path, "schemas")?;
-        self.components
-            .and_then(|c| c.schemas.get(name))
-            .and_then(|s| match s {
-                SchemaOrRef::Schema(schema) => Some(schema.as_ref().clone()),
-                SchemaOrRef::Ref { ref_path: inner } => {
-                    // Transitive ref — just extract the name and look up again
-                    let inner_name = parse_ref_name(inner, "schemas").ok()?;
-                    self.components
-                        .and_then(|c| c.schemas.get(inner_name))
-                        .and_then(|s2| match s2 {
-                            SchemaOrRef::Schema(schema) => Some(schema.as_ref().clone()),
-                            _ => None,
-                        })
-                }
-            })
-            .ok_or_else(|| ResolveError::RefTargetNotFound(ref_path.to_string()))
-    }
 
     fn lookup_parameter(&self, ref_path: &str) -> Result<Parameter, ResolveError> {
         let name = parse_ref_name(ref_path, "parameters")?;

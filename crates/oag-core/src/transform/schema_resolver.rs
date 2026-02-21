@@ -231,7 +231,10 @@ pub fn schema_to_ir_schema(name: &str, schema: &Schema) -> Result<IrSchema, Tran
             mapping: d
                 .mapping
                 .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .map(|(k, v)| {
+                    let name = v.rsplit('/').next().unwrap_or(v);
+                    (k.clone(), normalize_name(name).pascal_case)
+                })
                 .collect(),
         });
         return Ok(IrSchema::Union(IrUnionSchema {

@@ -194,7 +194,7 @@ fn transform_anthropic_messages() {
 
     assert_eq!(ir.info.title, "Anthropic Messages API");
 
-    // --- ContentBlock: discriminated union with 4 variants ---
+    // --- ContentBlock: discriminated union with 4 Ref variants ---
     let content_block = ir
         .schemas
         .iter()
@@ -203,14 +203,30 @@ fn transform_anthropic_messages() {
     match content_block {
         IrSchema::Union(u) => {
             assert_eq!(u.variants.len(), 4, "ContentBlock should have 4 variants");
+            assert!(
+                matches!(&u.variants[0], IrType::Ref(name) if name == "TextBlock"),
+                "first variant should be Ref(TextBlock)"
+            );
+            assert!(
+                matches!(&u.variants[1], IrType::Ref(name) if name == "ImageBlock"),
+                "second variant should be Ref(ImageBlock)"
+            );
             let disc = u.discriminator.as_ref().expect("should have discriminator");
             assert_eq!(disc.property_name, "type");
             assert_eq!(disc.mapping.len(), 4);
+            assert_eq!(
+                disc.mapping.iter().find(|(k, _)| k == "text").unwrap().1,
+                "TextBlock"
+            );
+            assert_eq!(
+                disc.mapping.iter().find(|(k, _)| k == "image").unwrap().1,
+                "ImageBlock"
+            );
         }
         _ => panic!("ContentBlock should be a Union"),
     }
 
-    // --- StreamDelta: discriminated union with 2 variants ---
+    // --- StreamDelta: discriminated union with 2 Ref variants ---
     let stream_delta = ir
         .schemas
         .iter()
@@ -219,13 +235,21 @@ fn transform_anthropic_messages() {
     match stream_delta {
         IrSchema::Union(u) => {
             assert_eq!(u.variants.len(), 2, "StreamDelta should have 2 variants");
+            assert!(
+                matches!(&u.variants[0], IrType::Ref(name) if name == "TextDelta"),
+                "first variant should be Ref(TextDelta)"
+            );
+            assert!(
+                matches!(&u.variants[1], IrType::Ref(name) if name == "InputJsonDelta"),
+                "second variant should be Ref(InputJsonDelta)"
+            );
             let disc = u.discriminator.as_ref().expect("should have discriminator");
             assert_eq!(disc.property_name, "type");
         }
         _ => panic!("StreamDelta should be a Union"),
     }
 
-    // --- ToolResultContent: anyOf union with NO discriminator ---
+    // --- ToolResultContent: anyOf union with Ref variants, NO discriminator ---
     let tool_result_content = ir
         .schemas
         .iter()
@@ -237,6 +261,14 @@ fn transform_anthropic_messages() {
                 u.variants.len(),
                 2,
                 "ToolResultContent should have 2 variants"
+            );
+            assert!(
+                matches!(&u.variants[0], IrType::Ref(name) if name == "TextBlock"),
+                "first variant should be Ref(TextBlock)"
+            );
+            assert!(
+                matches!(&u.variants[1], IrType::Ref(name) if name == "ImageBlock"),
+                "second variant should be Ref(ImageBlock)"
             );
             assert!(
                 u.discriminator.is_none(),
@@ -258,9 +290,14 @@ fn transform_anthropic_messages() {
                 obj.fields.iter().any(|f| f.original_name == "type"),
                 "should have type field"
             );
+            let message_field = obj
+                .fields
+                .iter()
+                .find(|f| f.original_name == "message")
+                .expect("should have message field");
             assert!(
-                obj.fields.iter().any(|f| f.original_name == "message"),
-                "should have message field"
+                matches!(&message_field.field_type, IrType::Ref(name) if name == "MessageResponse"),
+                "message field should reference MessageResponse"
             );
         }
         _ => panic!("MessageStartEvent should be an Object (merged allOf)"),
@@ -368,7 +405,7 @@ fn transform_petstore_polymorphic() {
 
     assert_eq!(ir.info.title, "Petstore (Polymorphic)");
 
-    // --- Pet: discriminated union with 2 variants ---
+    // --- Pet: discriminated union with 2 Ref variants ---
     let pet = ir
         .schemas
         .iter()
@@ -377,9 +414,25 @@ fn transform_petstore_polymorphic() {
     match pet {
         IrSchema::Union(u) => {
             assert_eq!(u.variants.len(), 2, "Pet should have 2 variants");
+            assert!(
+                matches!(&u.variants[0], IrType::Ref(name) if name == "Cat"),
+                "first variant should be Ref(Cat)"
+            );
+            assert!(
+                matches!(&u.variants[1], IrType::Ref(name) if name == "Dog"),
+                "second variant should be Ref(Dog)"
+            );
             let disc = u.discriminator.as_ref().expect("should have discriminator");
             assert_eq!(disc.property_name, "petType");
             assert_eq!(disc.mapping.len(), 2);
+            assert_eq!(
+                disc.mapping.iter().find(|(k, _)| k == "cat").unwrap().1,
+                "Cat"
+            );
+            assert_eq!(
+                disc.mapping.iter().find(|(k, _)| k == "dog").unwrap().1,
+                "Dog"
+            );
         }
         _ => panic!("Pet should be a Union"),
     }
@@ -432,28 +485,35 @@ fn transform_petstore_polymorphic() {
         _ => panic!("Dog should be an Object"),
     }
 
-    // --- ExtendedErrorModel: allOf merged into Object ---
+    // --- ExtendedErrorModel: allOf with $ref produces Alias(Intersection) ---
     let ext_err = ir
         .schemas
         .iter()
         .find(|s| s.name().pascal_case == "ExtendedErrorModel")
         .expect("should have ExtendedErrorModel schema");
     match ext_err {
-        IrSchema::Object(obj) => {
-            assert!(
-                obj.fields.iter().any(|f| f.original_name == "message"),
-                "should have message field from ErrorModel"
-            );
-            assert!(
-                obj.fields.iter().any(|f| f.original_name == "code"),
-                "should have code field from ErrorModel"
-            );
-            assert!(
-                obj.fields.iter().any(|f| f.original_name == "rootCause"),
-                "should have rootCause field from extension"
-            );
+        IrSchema::Alias(alias) => {
+            match &alias.target {
+                IrType::Intersection(parts) => {
+                    assert_eq!(parts.len(), 2, "should have 2 intersection parts");
+                    assert!(
+                        matches!(&parts[0], IrType::Ref(name) if name == "ErrorModel"),
+                        "first part should be Ref(ErrorModel)"
+                    );
+                    match &parts[1] {
+                        IrType::Object(fields) => {
+                            assert!(
+                                fields.iter().any(|(name, _, _)| name == "rootCause"),
+                                "should have rootCause field from extension"
+                            );
+                        }
+                        _ => panic!("second part should be Object"),
+                    }
+                }
+                _ => panic!("ExtendedErrorModel target should be Intersection"),
+            }
         }
-        _ => panic!("ExtendedErrorModel should be an Object (merged allOf)"),
+        _ => panic!("ExtendedErrorModel should be an Alias (allOf with $ref)"),
     }
 
     // --- Operations ---

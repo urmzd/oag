@@ -12,7 +12,7 @@ export interface Model {
 }
 
 export interface ModelList {
-  data: ModelListDataItem[];
+  data: Model[];
 }
 
 export interface ChatMessage {
@@ -22,7 +22,7 @@ export interface ChatMessage {
 
 export interface ChatCompletionRequest {
   model: string;
-  messages: ChatCompletionRequestMessagesItem[];
+  messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
   /** Whether to stream the response */
@@ -32,13 +32,13 @@ export interface ChatCompletionRequest {
 export interface ChatCompletionResponse {
   id: string;
   model: string;
-  choices: ChatCompletionResponseChoicesItem[];
-  usage: ChatCompletionResponseUsage;
+  choices: Choice[];
+  usage: Usage;
 }
 
 export interface Choice {
   index: number;
-  message: ChoiceMessage;
+  message: ChatMessage;
   finishReason: "stop" | "length" | "content_filter";
 }
 
@@ -56,48 +56,13 @@ export interface ChatCompletionChunk {
 
 export interface ChatCompletionDone {
   id: string;
-  usage: ChatCompletionDoneUsage;
+  usage: Usage;
 }
 
 export interface FeedbackRequest {
   completionId: string;
   rating: number;
   comment?: string;
-}
-
-export interface ModelListDataItem {
-  id: string;
-  name: string;
-  provider: string;
-  maxTokens?: number;
-  capabilities?: string[];
-}
-
-export interface ChatCompletionRequestMessagesItem {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-export interface ChatCompletionResponseChoicesItemMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-export interface ChatCompletionResponseChoicesItem {
-  index: number;
-  message: ChatCompletionResponseChoicesItemMessage;
-  finishReason: "stop" | "length" | "content_filter";
-}
-
-export interface ChatCompletionResponseUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface ChoiceMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
 }
 
 export interface ChatCompletionChunkChoicesItemDelta {
@@ -111,201 +76,8 @@ export interface ChatCompletionChunkChoicesItem {
   finishReason?: "stop" | "length" | "content_filter";
 }
 
-export interface ChatCompletionDoneUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface ListModelsResponseDataItem {
-  id: string;
-  name: string;
-  provider: string;
-  maxTokens?: number;
-  capabilities?: string[];
-}
-
-export interface ListModelsResponse {
-  data: ListModelsResponseDataItem[];
-}
-
-export interface GetModelResponse {
-  id: string;
-  name: string;
-  provider: string;
-  maxTokens?: number;
-  capabilities?: string[];
-}
-
-export interface CreateChatCompletionEventVariant1ChoicesItemDelta {
-  role?: string;
-  content?: string;
-}
-
-export interface CreateChatCompletionEventVariant1ChoicesItem {
-  index: number;
-  delta: CreateChatCompletionEventVariant1ChoicesItemDelta;
-  finishReason?: "stop" | "length" | "content_filter";
-}
-
-export interface CreateChatCompletionEventVariant1 {
-  id: string;
-  model: string;
-  choices: CreateChatCompletionEventVariant1ChoicesItem[];
-}
-
-export interface CreateChatCompletionEventVariant2Usage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface CreateChatCompletionEventVariant2 {
-  id: string;
-  usage: CreateChatCompletionEventVariant2Usage;
-}
-
-export interface CreateChatCompletionEventChoicesItemDelta {
-  role?: string;
-  content?: string;
-}
-
-export interface CreateChatCompletionEventChoicesItem {
-  index: number;
-  delta: CreateChatCompletionEventChoicesItemDelta;
-  finishReason?: "stop" | "length" | "content_filter";
-}
-
-export interface CreateChatCompletionEvent {
-  id: string;
-  model: string;
-  choices: CreateChatCompletionEventChoicesItem[];
-}
-
-export interface CreateChatCompletionEvent2Usage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface CreateChatCompletionEvent2 {
-  id: string;
-  usage: CreateChatCompletionEvent2Usage;
-}
-
-export interface CreateChatCompletionResponseChoicesItemMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-export interface CreateChatCompletionResponseChoicesItem {
-  index: number;
-  message: CreateChatCompletionResponseChoicesItemMessage;
-  finishReason: "stop" | "length" | "content_filter";
-}
-
-export interface CreateChatCompletionResponseUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface CreateChatCompletionResponse {
-  id: string;
-  model: string;
-  choices: CreateChatCompletionResponseChoicesItem[];
-  usage: CreateChatCompletionResponseUsage;
-}
-
-export interface CreateChatCompletionBodyMessagesItem {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-export interface CreateChatCompletionBody {
-  model: string;
-  messages: CreateChatCompletionBodyMessagesItem[];
-  temperature?: number;
-  maxTokens?: number;
-  stream?: boolean;
-}
-
-export interface CreateChatCompletionStreamEventVariant1ChoicesItemDelta {
-  role?: string;
-  content?: string;
-}
-
-export interface CreateChatCompletionStreamEventVariant1ChoicesItem {
-  index: number;
-  delta: CreateChatCompletionStreamEventVariant1ChoicesItemDelta;
-  finishReason?: "stop" | "length" | "content_filter";
-}
-
-export interface CreateChatCompletionStreamEventVariant1 {
-  id: string;
-  model: string;
-  choices: CreateChatCompletionStreamEventVariant1ChoicesItem[];
-}
-
-export interface CreateChatCompletionStreamEventVariant2Usage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface CreateChatCompletionStreamEventVariant2 {
-  id: string;
-  usage: CreateChatCompletionStreamEventVariant2Usage;
-}
-
-export interface CreateChatCompletionStreamEventChoicesItemDelta {
-  role?: string;
-  content?: string;
-}
-
-export interface CreateChatCompletionStreamEventChoicesItem {
-  index: number;
-  delta: CreateChatCompletionStreamEventChoicesItemDelta;
-  finishReason?: "stop" | "length" | "content_filter";
-}
-
-export interface CreateChatCompletionStreamEvent {
-  id: string;
-  model: string;
-  choices: CreateChatCompletionStreamEventChoicesItem[];
-}
-
-export interface CreateChatCompletionStreamEvent2Usage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-export interface CreateChatCompletionStreamEvent2 {
-  id: string;
-  usage: CreateChatCompletionStreamEvent2Usage;
-}
-
-export interface CreateChatCompletionStreamBodyMessagesItem {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-export interface CreateChatCompletionStreamBody {
-  model: string;
-  messages: CreateChatCompletionStreamBodyMessagesItem[];
-  temperature?: number;
-  maxTokens?: number;
-  stream?: boolean;
-}
-
-export interface SubmitFeedbackBody {
-  completionId: string;
-  rating: number;
-  comment?: string;
-}
+/** SSE event union type for streaming responses. */
+export type CreateChatCompletionStreamEvent = ChatCompletionChunk | ChatCompletionDone;
 
 /** SSE event union type for streaming responses. */
-export type CreateChatCompletionStreamStreamEvent =
-  | CreateChatCompletionStreamEvent
-  | CreateChatCompletionStreamEvent2;
+export type CreateChatCompletionStreamStreamEvent = ChatCompletionChunk | ChatCompletionDone;

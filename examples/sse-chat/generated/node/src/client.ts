@@ -2,12 +2,12 @@
 
 import { type SSEOptions, streamSse } from "./sse";
 import type {
-  CreateChatCompletionBody,
-  CreateChatCompletionResponse,
+  ChatCompletionRequest,
+  ChatCompletionResponse,
   CreateChatCompletionStreamEvent,
-  GetModelResponse,
-  ListModelsResponse,
-  SubmitFeedbackBody,
+  FeedbackRequest,
+  Model,
+  ModelList,
 } from "./types";
 
 /** Structured response wrapper exposing status, headers, and parsed data. */
@@ -340,43 +340,40 @@ export class ApiClient {
   }
 
   /** List available models */
-  async listModels(options?: RequestOptions): Promise<ListModelsResponse> {
+  async listModels(options?: RequestOptions): Promise<ModelList> {
     const path = "/models";
-    return this.request<ListModelsResponse>("GET", path, {
+    return this.request<ModelList>("GET", path, {
       ...options,
     });
   }
 
-  async listModelsRaw(options?: RequestOptions): Promise<ApiResponse<ListModelsResponse>> {
+  async listModelsRaw(options?: RequestOptions): Promise<ApiResponse<ModelList>> {
     const path = "/models";
-    return this.rawRequest<ListModelsResponse>("GET", path, {
+    return this.rawRequest<ModelList>("GET", path, {
       ...options,
     });
   }
 
   /** Get a specific model */
-  async getModel(modelId: string, options?: RequestOptions): Promise<GetModelResponse> {
+  async getModel(modelId: string, options?: RequestOptions): Promise<Model> {
     let path = "/models/{modelId}";
     path = path.replace("{modelId}", encodeURIComponent(String(modelId)));
-    return this.request<GetModelResponse>("GET", path, {
+    return this.request<Model>("GET", path, {
       ...options,
     });
   }
 
-  async getModelRaw(
-    modelId: string,
-    options?: RequestOptions,
-  ): Promise<ApiResponse<GetModelResponse>> {
+  async getModelRaw(modelId: string, options?: RequestOptions): Promise<ApiResponse<Model>> {
     let path = "/models/{modelId}";
     path = path.replace("{modelId}", encodeURIComponent(String(modelId)));
-    return this.rawRequest<GetModelResponse>("GET", path, {
+    return this.rawRequest<Model>("GET", path, {
       ...options,
     });
   }
 
   /** Creates a completion for the chat messages. Supports both JSON and streaming responses. */
   async *createChatCompletionStream(
-    body: CreateChatCompletionBody,
+    body: ChatCompletionRequest,
     options?: SSEOptions,
   ): AsyncGenerator<CreateChatCompletionStreamEvent> {
     const path = "/chat/completions";
@@ -396,11 +393,11 @@ export class ApiClient {
 
   /** Creates a completion for the chat messages. Supports both JSON and streaming responses. */
   async createChatCompletion(
-    body: CreateChatCompletionBody,
+    body: ChatCompletionRequest,
     options?: RequestOptions,
-  ): Promise<CreateChatCompletionResponse> {
+  ): Promise<ChatCompletionResponse> {
     const path = "/chat/completions";
-    return this.request<CreateChatCompletionResponse>("POST", path, {
+    return this.request<ChatCompletionResponse>("POST", path, {
       body,
       contentType: "application/json",
       ...options,
@@ -408,11 +405,11 @@ export class ApiClient {
   }
 
   async createChatCompletionRaw(
-    body: CreateChatCompletionBody,
+    body: ChatCompletionRequest,
     options?: RequestOptions,
-  ): Promise<ApiResponse<CreateChatCompletionResponse>> {
+  ): Promise<ApiResponse<ChatCompletionResponse>> {
     const path = "/chat/completions";
-    return this.rawRequest<CreateChatCompletionResponse>("POST", path, {
+    return this.rawRequest<ChatCompletionResponse>("POST", path, {
       body,
       contentType: "application/json",
       ...options,
@@ -420,7 +417,7 @@ export class ApiClient {
   }
 
   /** Submit feedback for a completion */
-  async submitFeedback(body: SubmitFeedbackBody, options?: RequestOptions): Promise<void> {
+  async submitFeedback(body: FeedbackRequest, options?: RequestOptions): Promise<void> {
     const path = "/chat/feedback";
     await this.request<void>("POST", path, {
       body,
@@ -430,7 +427,7 @@ export class ApiClient {
   }
 
   async submitFeedbackRaw(
-    body: SubmitFeedbackBody,
+    body: FeedbackRequest,
     options?: RequestOptions,
   ): Promise<ApiResponse<void>> {
     const path = "/chat/feedback";

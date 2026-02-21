@@ -5,13 +5,13 @@ import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 import { useApiClient } from "./provider";
 import type {
-  CountTokensBody,
-  CountTokensResponse2,
-  CreateMessageBody,
-  CreateMessageResponse,
+  CountTokensRequest,
+  CountTokensResponse,
+  CreateMessageRequest,
   CreateMessageStreamEvent,
-  GetModelResponse,
-  ListModelsResponse,
+  MessageResponse,
+  ModelInfo,
+  ModelListResponse,
 } from "./types";
 
 /** Create a message */
@@ -23,7 +23,7 @@ export function useCreateMessageStream(anthropicVersion: string) {
   const abortRef = useRef<AbortController | null>(null);
 
   const trigger = useCallback(
-    async (body: CreateMessageBody) => {
+    async (body: CreateMessageRequest) => {
       setEvents([]);
       setError(null);
       setIsStreaming(true);
@@ -65,16 +65,16 @@ export function useCreateMessageStream(anthropicVersion: string) {
 export function useCreateMessage(
   anthropicVersion: string,
   config?: SWRMutationConfiguration<
-    CreateMessageResponse,
+    MessageResponse,
     Error,
     readonly [string, string],
-    CreateMessageBody
+    CreateMessageRequest
   >,
 ) {
   const client = useApiClient();
-  return useSWRMutation<CreateMessageResponse, Error, readonly [string, string], CreateMessageBody>(
+  return useSWRMutation<MessageResponse, Error, readonly [string, string], CreateMessageRequest>(
     ["/v1/messages", anthropicVersion] as const,
-    (_key: readonly [string, string], { arg }: { arg: CreateMessageBody }) =>
+    (_key: readonly [string, string], { arg }: { arg: CreateMessageRequest }) =>
       client.createMessage(anthropicVersion, arg),
     config,
   );
@@ -84,16 +84,16 @@ export function useCreateMessage(
 export function useCountTokens(
   anthropicVersion: string,
   config?: SWRMutationConfiguration<
-    CountTokensResponse2,
+    CountTokensResponse,
     Error,
     readonly [string, string],
-    CountTokensBody
+    CountTokensRequest
   >,
 ) {
   const client = useApiClient();
-  return useSWRMutation<CountTokensResponse2, Error, readonly [string, string], CountTokensBody>(
+  return useSWRMutation<CountTokensResponse, Error, readonly [string, string], CountTokensRequest>(
     ["/v1/messages/count_tokens", anthropicVersion] as const,
-    (_key: readonly [string, string], { arg }: { arg: CountTokensBody }) =>
+    (_key: readonly [string, string], { arg }: { arg: CountTokensRequest }) =>
       client.countTokens(anthropicVersion, arg),
     config,
   );
@@ -105,10 +105,10 @@ export function useListModels(
   limit?: number,
   afterId?: string,
   beforeId?: string,
-  config?: SWRConfiguration<ListModelsResponse>,
+  config?: SWRConfiguration<ModelListResponse>,
 ) {
   const client = useApiClient();
-  return useSWR<ListModelsResponse>(
+  return useSWR<ModelListResponse>(
     ["/v1/models", anthropicVersion, limit, afterId, beforeId] as const,
     () => client.listModels(anthropicVersion, limit, afterId, beforeId),
     config,
@@ -119,10 +119,10 @@ export function useListModels(
 export function useGetModel(
   anthropicVersion: string,
   modelId: string,
-  config?: SWRConfiguration<GetModelResponse>,
+  config?: SWRConfiguration<ModelInfo>,
 ) {
   const client = useApiClient();
-  return useSWR<GetModelResponse>(
+  return useSWR<ModelInfo>(
     ["/v1/models/{model_id}", anthropicVersion, modelId] as const,
     () => client.getModel(anthropicVersion, modelId),
     config,

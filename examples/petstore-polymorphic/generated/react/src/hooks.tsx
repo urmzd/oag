@@ -2,62 +2,26 @@
 import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 import { useApiClient } from "./provider";
-import type {
-  CreatePetBodyVariant1,
-  CreatePetBodyVariant2,
-  CreatePetResponseVariant1,
-  CreatePetResponseVariant2,
-  GetPetResponseVariant1,
-  GetPetResponseVariant2,
-  ListPetsResponseItemVariant1,
-  ListPetsResponseItemVariant2,
-} from "./types";
+import type { Pet } from "./types";
 
 /** List all pets */
-export function useListPets(
-  limit?: number,
-  config?: SWRConfiguration<(ListPetsResponseItemVariant1 | ListPetsResponseItemVariant2)[]>,
-) {
+export function useListPets(limit?: number, config?: SWRConfiguration<Pet[]>) {
   const client = useApiClient();
-  return useSWR<(ListPetsResponseItemVariant1 | ListPetsResponseItemVariant2)[]>(
-    ["/pets", limit] as const,
-    () => client.listPets(limit),
-    config,
-  );
+  return useSWR<Pet[]>(["/pets", limit] as const, () => client.listPets(limit), config);
 }
 
 /** Create a pet */
-export function useCreatePet(
-  config?: SWRMutationConfiguration<
-    CreatePetResponseVariant1 | CreatePetResponseVariant2,
-    Error,
-    string,
-    CreatePetBodyVariant1 | CreatePetBodyVariant2
-  >,
-) {
+export function useCreatePet(config?: SWRMutationConfiguration<Pet, Error, string, Pet>) {
   const client = useApiClient();
-  return useSWRMutation<
-    CreatePetResponseVariant1 | CreatePetResponseVariant2,
-    Error,
-    string,
-    CreatePetBodyVariant1 | CreatePetBodyVariant2
-  >(
+  return useSWRMutation<Pet, Error, string, Pet>(
     "/pets",
-    (_key: string, { arg }: { arg: CreatePetBodyVariant1 | CreatePetBodyVariant2 }) =>
-      client.createPet(arg),
+    (_key: string, { arg }: { arg: Pet }) => client.createPet(arg),
     config,
   );
 }
 
 /** Get a pet by ID */
-export function useGetPet(
-  petId: string,
-  config?: SWRConfiguration<GetPetResponseVariant1 | GetPetResponseVariant2>,
-) {
+export function useGetPet(petId: string, config?: SWRConfiguration<Pet>) {
   const client = useApiClient();
-  return useSWR<GetPetResponseVariant1 | GetPetResponseVariant2>(
-    ["/pets/{petId}", petId] as const,
-    () => client.getPet(petId),
-    config,
-  );
+  return useSWR<Pet>(["/pets/{petId}", petId] as const, () => client.getPet(petId), config);
 }

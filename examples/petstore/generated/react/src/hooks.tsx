@@ -2,23 +2,16 @@
 import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 import { useApiClient } from "./provider";
-import type {
-  CreatePetBody,
-  CreatePetResponse,
-  GetPetResponse,
-  ListPetsResponseItem,
-  UpdatePetBody,
-  UpdatePetResponse,
-} from "./types";
+import type { NewPet, Pet } from "./types";
 
 /** List all pets */
 export function useListPets(
   limit?: number,
   status?: "available" | "pending" | "sold",
-  config?: SWRConfiguration<ListPetsResponseItem[]>,
+  config?: SWRConfiguration<Pet[]>,
 ) {
   const client = useApiClient();
-  return useSWR<ListPetsResponseItem[]>(
+  return useSWR<Pet[]>(
     ["/pets", limit, status] as const,
     () => client.listPets(limit, status),
     config,
@@ -26,42 +19,30 @@ export function useListPets(
 }
 
 /** Create a pet */
-export function useCreatePet(
-  config?: SWRMutationConfiguration<CreatePetResponse, Error, string, CreatePetBody>,
-) {
+export function useCreatePet(config?: SWRMutationConfiguration<Pet, Error, string, NewPet>) {
   const client = useApiClient();
-  return useSWRMutation<CreatePetResponse, Error, string, CreatePetBody>(
+  return useSWRMutation<Pet, Error, string, NewPet>(
     "/pets",
-    (_key: string, { arg }: { arg: CreatePetBody }) => client.createPet(arg),
+    (_key: string, { arg }: { arg: NewPet }) => client.createPet(arg),
     config,
   );
 }
 
 /** Get a pet by ID */
-export function useGetPet(petId: string, config?: SWRConfiguration<GetPetResponse>) {
+export function useGetPet(petId: string, config?: SWRConfiguration<Pet>) {
   const client = useApiClient();
-  return useSWR<GetPetResponse>(
-    ["/pets/{petId}", petId] as const,
-    () => client.getPet(petId),
-    config,
-  );
+  return useSWR<Pet>(["/pets/{petId}", petId] as const, () => client.getPet(petId), config);
 }
 
 /** Update a pet */
 export function useUpdatePet(
   petId: string,
-  config?: SWRMutationConfiguration<
-    UpdatePetResponse,
-    Error,
-    readonly [string, string],
-    UpdatePetBody
-  >,
+  config?: SWRMutationConfiguration<Pet, Error, readonly [string, string], NewPet>,
 ) {
   const client = useApiClient();
-  return useSWRMutation<UpdatePetResponse, Error, readonly [string, string], UpdatePetBody>(
+  return useSWRMutation<Pet, Error, readonly [string, string], NewPet>(
     ["/pets/{petId}", petId] as const,
-    (_key: readonly [string, string], { arg }: { arg: UpdatePetBody }) =>
-      client.updatePet(petId, arg),
+    (_key: readonly [string, string], { arg }: { arg: NewPet }) => client.updatePet(petId, arg),
     config,
   );
 }
