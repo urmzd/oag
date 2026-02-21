@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.10.0 (2026-02-21)
+
+### Features
+
+- add shell installer, Windows release target, and license fields ([0716e27](https://github.com/urmzd/openapi-generator/commit/0716e27e24ace9e2f162512aac02a90d20dd9552))
+
+### Bug Fixes
+
+- preserve $ref pointers to eliminate type duplication in generated output ([343bab7](https://github.com/urmzd/openapi-generator/commit/343bab75145c91782e35e05bd035c4ec17135cdb))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([4fea9f4](https://github.com/urmzd/openapi-generator/commit/4fea9f4a17c60690f4b099d0a7d3cc58a6eb1d2a))
+
+
 ## 0.9.0 (2026-02-17)
 
 ### Features
