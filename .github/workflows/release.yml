@@ -6,24 +6,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  embed-it:
-    name: Embed-it
+  embed-src:
+    name: Embed-src
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: urmzd/embed-it@v2
+      - uses: urmzd/embed-src@v2
         with:
           commit-message: "chore: sync embedded files [skip ci]"
 
   ci:
-    needs: embed-it
+    needs: embed-src
     uses: ./.github/workflows/ci.yml
 
   release:
     name: Release
-    needs: [ci, embed-it]
+    needs: [ci, embed-src]
     runs-on: ubuntu-latest
     permissions:
       contents: write
