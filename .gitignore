@@ -14,3 +14,5 @@
 # Node (integration tests)
 node_modules/
 package-lock.json
+.claude/
+.env.*
