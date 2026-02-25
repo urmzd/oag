@@ -124,6 +124,38 @@ fn transform_mixed() {
         }
         _ => panic!("expected SSE return type"),
     }
+
+    // Check style/explode propagation on listItems parameters
+    let list_items = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "listItems")
+        .expect("should have listItems");
+
+    let tags_param = list_items
+        .parameters
+        .iter()
+        .find(|p| p.original_name == "tags")
+        .unwrap();
+    assert_eq!(tags_param.style, Some("form".to_string()));
+    assert_eq!(tags_param.explode, Some(false));
+
+    let filter_param = list_items
+        .parameters
+        .iter()
+        .find(|p| p.original_name == "filter")
+        .unwrap();
+    assert_eq!(filter_param.style, Some("deepObject".to_string()));
+    assert_eq!(filter_param.explode, Some(true));
+
+    // Params without explicit style/explode should be None
+    let page_param = list_items
+        .parameters
+        .iter()
+        .find(|p| p.original_name == "page")
+        .unwrap();
+    assert_eq!(page_param.style, None);
+    assert_eq!(page_param.explode, None);
 }
 
 #[test]

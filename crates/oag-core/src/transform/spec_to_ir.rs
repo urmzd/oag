@@ -198,6 +198,8 @@ fn resolve_parameters(params: &[ParameterOrRef]) -> Vec<IrParameter> {
                     param_type,
                     required: param.required,
                     description: param.description.clone(),
+                    style: param.style.clone(),
+                    explode: param.explode,
                 })
             }
             ParameterOrRef::Ref { .. } => None, // Should already be resolved

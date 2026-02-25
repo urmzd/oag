@@ -21,10 +21,23 @@ paths:
             type: integer
         - name: tags
           in: query
+          style: form
+          explode: false
           schema:
             type: array
             items:
               type: string
+        - name: filter
+          in: query
+          style: deepObject
+          explode: true
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              category:
+                type: string
       responses:
         "200":
           description: Items list

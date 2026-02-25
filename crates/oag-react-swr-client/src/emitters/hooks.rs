@@ -387,6 +387,9 @@ fn collect_imported_types<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> Vec
         if let Some(ref body) = op.request_body {
             collect_refs(&body.body_type, &mut types);
         }
+        for param in &op.parameters {
+            collect_refs(&param.param_type, &mut types);
+        }
     }
 
     let mut sorted: Vec<String> = types.into_iter().collect();
