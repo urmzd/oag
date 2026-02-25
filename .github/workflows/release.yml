@@ -63,3 +63,14 @@ jobs:
           cargo publish -p oag-fastapi-server --allow-dirty
           sleep 30
           cargo publish -p oag-cli --allow-dirty
+
+    outputs:
+      released: ${{ steps.sr.outputs.released }}
+      tag: ${{ steps.sr.outputs.tag }}
+
+  build:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}

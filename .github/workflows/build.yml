@@ -3,6 +3,11 @@ name: Build
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
 
 jobs:
   build:
@@ -66,7 +71,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           if [ -f "target/${{ matrix.target }}/release/oag.exe" ]; then
             cp "target/${{ matrix.target }}/release/oag.exe" "oag-${{ matrix.target }}.exe"
             gh release upload "$TAG" "oag-${{ matrix.target }}.exe" --clobber
