@@ -20,8 +20,7 @@ pub fn emit_bundled(ir: &IrSpec, no_jsdoc: bool) -> String {
 
     // Append guards (strip header + relative imports since types are inlined)
     output.push_str("// === Guards ===\n\n");
-    let guards_stripped =
-        strip_relative_imports(&strip_auto_generated_header(&guards_content));
+    let guards_stripped = strip_relative_imports(&strip_auto_generated_header(&guards_content));
     output.push_str(&guards_stripped);
     output.push('\n');
 
