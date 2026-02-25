@@ -1,0 +1,36 @@
+openapi: "3.1.0"
+info:
+  title: Integer Discriminator Test
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Shape:
+      oneOf:
+        - $ref: "#/components/schemas/Circle"
+        - $ref: "#/components/schemas/Square"
+      discriminator:
+        propertyName: shapeType
+        mapping:
+          "0": "#/components/schemas/Circle"
+          "1": "#/components/schemas/Square"
+
+    Circle:
+      type: object
+      required: [shapeType, radius]
+      properties:
+        shapeType:
+          type: integer
+          const: 0
+        radius:
+          type: number
+
+    Square:
+      type: object
+      required: [shapeType, side]
+      properties:
+        shapeType:
+          type: integer
+          const: 1
+        side:
+          type: number

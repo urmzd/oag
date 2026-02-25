@@ -33,11 +33,13 @@ pub fn emit_guards(ir: &IrSpec) -> String {
                     if !import_names.contains(schema_name) {
                         import_names.push(schema_name.clone());
                     }
+                    let is_integer_discriminator = disc_value.parse::<i64>().is_ok();
                     guards.push(context! {
                         union_name => union_name.clone(),
                         variant_name => schema_name.clone(),
                         property_name => disc.property_name.clone(),
                         discriminator_value => disc_value.clone(),
+                        is_integer_discriminator => is_integer_discriminator,
                     });
                 }
             }
@@ -61,6 +63,8 @@ mod tests {
     const ANTHROPIC: &str =
         include_str!("../../../oag-core/tests/fixtures/anthropic-messages.yaml");
     const PETSTORE: &str = include_str!("../../../oag-core/tests/fixtures/petstore-3.2.yaml");
+    const INTEGER_DISC: &str =
+        include_str!("../../../oag-core/tests/fixtures/integer-discriminator.yaml");
 
     fn ir_from_yaml(yaml: &str) -> IrSpec {
         let spec = parse::from_yaml(yaml).unwrap();
@@ -133,6 +137,34 @@ mod tests {
                 "export function isInputJsonDelta(value: StreamDelta): value is InputJsonDelta"
             ),
             "should have isInputJsonDelta guard"
+        );
+    }
+
+    #[test]
+    fn integer_discriminator_generates_numeric_comparison() {
+        let ir = ir_from_yaml(INTEGER_DISC);
+        let output = emit_guards(&ir);
+
+        assert!(
+            output.contains("export function isCircle(value: Shape): value is Circle"),
+            "should have isCircle guard"
+        );
+        assert!(
+            output.contains(".shapeType === 0"),
+            "isCircle should use numeric comparison === 0, not string"
+        );
+        assert!(
+            !output.contains(r#".shapeType === "0""#),
+            "isCircle should NOT use string comparison"
+        );
+
+        assert!(
+            output.contains("export function isSquare(value: Shape): value is Square"),
+            "should have isSquare guard"
+        );
+        assert!(
+            output.contains(".shapeType === 1"),
+            "isSquare should use numeric comparison === 1"
         );
     }
 

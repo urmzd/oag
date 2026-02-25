@@ -92,6 +92,9 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
         if let Some(s) = val.as_str() {
             return IrType::StringLiteral(s.to_string());
         }
+        if let Some(i) = val.as_i64() {
+            return IrType::IntegerLiteral(i);
+        }
         return IrType::String;
     }
 

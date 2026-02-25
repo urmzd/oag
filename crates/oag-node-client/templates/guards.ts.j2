@@ -5,7 +5,7 @@ import type { {{ imports | join(", ") }} } from "./types";
 {% for guard in guards %}
 
 export function is{{ guard.variant_name }}(value: {{ guard.union_name }}): value is {{ guard.variant_name }} {
-  return (value as {{ guard.variant_name }}).{{ guard.property_name }} === "{{ guard.discriminator_value }}";
+  return (value as {{ guard.variant_name }}).{{ guard.property_name }} === {% if guard.is_integer_discriminator %}{{ guard.discriminator_value }}{% else %}"{{ guard.discriminator_value }}"{% endif %};
 }
 {% endfor %}
 {% if not guards %}
