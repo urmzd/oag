@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.1 (2026-02-25)
+
+### Bug Fixes
+
+- correct integer/union edge cases in const, discriminator guards, and Python enum base class ([7e4f414](https://github.com/urmzd/openapi-generator/commit/7e4f41434ce497d64f0b365fe11fb84a462cdb70))
+- preserve integer enum values through IR translation ([b7f04d8](https://github.com/urmzd/openapi-generator/commit/b7f04d86bd83d1258f1d46f53b1398ef2c8c52dc))
+
+### Miscellaneous
+
+- fix clippy warnings in schema_resolver ([1c9098a](https://github.com/urmzd/openapi-generator/commit/1c9098a3422a5948e5eca5ae1913507217a97502))
+- standardize GitHub Actions workflows ([47cba2a](https://github.com/urmzd/openapi-generator/commit/47cba2ac46666b3f6120c0df95cf5c2f87fefac2))
+- sync Cargo.lock [skip ci] ([a5f003c](https://github.com/urmzd/openapi-generator/commit/a5f003c3ac66cefe7888fdf82e5126f0cc90955b))
+
+
 ## 0.11.0 (2026-02-25)
 
 ### Features
