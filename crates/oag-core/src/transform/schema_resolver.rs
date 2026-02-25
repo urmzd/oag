@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 
 use crate::error::TransformError;
 use crate::ir::{
-    IrAliasSchema, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField, IrObjectSchema,
-    IrSchema, IrType, IrUnionSchema,
+    IrAliasSchema, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField, IrObjectSchema, IrSchema,
+    IrType, IrUnionSchema,
 };
 use crate::parse::schema::{AdditionalProperties, Schema, SchemaOrRef, SchemaType, TypeSet};
 
@@ -71,10 +71,8 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
             .filter_map(|v| {
                 if let Some(s) = v.as_str() {
                     Some(IrType::StringLiteral(s.to_string()))
-                } else if let Some(i) = v.as_i64() {
-                    Some(IrType::IntegerLiteral(i))
                 } else {
-                    None
+                    v.as_i64().map(IrType::IntegerLiteral)
                 }
             })
             .collect();
@@ -218,10 +216,8 @@ pub fn schema_to_ir_schema(name: &str, schema: &Schema) -> Result<IrSchema, Tran
             .filter_map(|v| {
                 if let Some(s) = v.as_str() {
                     Some(IrEnumVariant::String(s.to_string()))
-                } else if let Some(i) = v.as_i64() {
-                    Some(IrEnumVariant::Integer(i))
                 } else {
-                    None
+                    v.as_i64().map(IrEnumVariant::Integer)
                 }
             })
             .collect();
