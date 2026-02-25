@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.11.0 (2026-02-25)
+
+### Features
+
+- add runtime type guards for discriminated unions ([da1dd8c](https://github.com/urmzd/openapi-generator/commit/da1dd8cf630e62f5603dc686d872246de495997a))
+
+### Bug Fixes
+
+- resolve clippy and rustfmt warnings in oag-node-client ([e04f03e](https://github.com/urmzd/openapi-generator/commit/e04f03e1a66ca1f34be6a64acb8bee0f7540f18c))
+- trigger binary builds from release workflow ([e96e700](https://github.com/urmzd/openapi-generator/commit/e96e70020229d5baf910ad2ad7ba13478f0f8457))
+- generate per-parameter query string serialization using OpenAPI style/explode ([77db2cf](https://github.com/urmzd/openapi-generator/commit/77db2cf85472eda712deb8917f2ce3e8b3df7948))
+
+### Documentation
+
+- remove License section from README ([2da9424](https://github.com/urmzd/openapi-generator/commit/2da9424295d1e1ed66e0eecaf78f01b845059d65))
+
+### Miscellaneous
+
+- move crates.io publish to separate job so build is never blocked ([58cd8cc](https://github.com/urmzd/openapi-generator/commit/58cd8cce67a0114217a203619773ba89e82ef5a0))
+- inline build matrix into release.yml, remove build.yml ([bacafb1](https://github.com/urmzd/openapi-generator/commit/bacafb18c66a9221a0559590daf4fa6c71b828f6))
+- float ([53ab565](https://github.com/urmzd/openapi-generator/commit/53ab56526f917f71958697a2e5de45ed91245213))
+- update embed-src action to v3.1.0 ([d7182e7](https://github.com/urmzd/openapi-generator/commit/d7182e73eaa2d62d38159cafaa26cd9b764fde08))
+- update embed-it references to embed-src ([c1777da](https://github.com/urmzd/openapi-generator/commit/c1777da94d36961d46eb0d2420684b68f459dfe6))
+- split release and build workflows ([a0ff195](https://github.com/urmzd/openapi-generator/commit/a0ff195009bc8b177bb3c5ae0122494ef2d89453))
+- add sensitive paths to .gitignore ([6f8ab4f](https://github.com/urmzd/openapi-generator/commit/6f8ab4f3077d449df931ca0155f1f6f04e21c9a2))
+- sync Cargo.lock [skip ci] ([1639f73](https://github.com/urmzd/openapi-generator/commit/1639f73925664a7b430a7c71c49533ebd3e551e3))
+
+
 ## 0.10.0 (2026-02-21)
 
 ### Features
