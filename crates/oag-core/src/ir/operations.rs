@@ -86,6 +86,8 @@ pub struct IrParameter {
     pub param_type: IrType,
     pub required: bool,
     pub description: Option<String>,
+    pub style: Option<String>,
+    pub explode: Option<bool>,
 }
 
 /// Parameter location.

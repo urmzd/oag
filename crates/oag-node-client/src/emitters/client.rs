@@ -128,7 +128,7 @@ fn build_standard_op(op: &IrOperation, return_type: &str) -> minijinja::Value {
         params_signature => result.parts.join(", "),
         return_type => return_type,
         path_params => result.path_params,
-        query_params_obj => result.query_params_obj,
+        query_params => result.query_params.clone(),
         header_params_obj => result.header_params_obj,
         has_body => result.has_body,
         body_content_type => result.body_content_type.clone(),
@@ -153,7 +153,7 @@ fn build_void_op(op: &IrOperation) -> minijinja::Value {
         params_signature => result.parts.join(", "),
         return_type => "void",
         path_params => result.path_params,
-        query_params_obj => result.query_params_obj,
+        query_params => result.query_params.clone(),
         header_params_obj => result.header_params_obj,
         has_body => result.has_body,
         body_content_type => result.body_content_type.clone(),
@@ -186,7 +186,7 @@ fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minij
         params_signature => params_sig,
         return_type => return_type,
         path_params => result.path_params,
-        query_params_obj => result.query_params_obj,
+        query_params => result.query_params.clone(),
         header_params_obj => result.header_params_obj,
         has_body => result.has_body,
         body_content_type => result.body_content_type.clone(),
@@ -203,13 +203,24 @@ fn build_sse_op(op: &IrOperation, return_type: &str, method_name: &str) -> minij
 struct ParamsResult {
     parts: Vec<String>,
     path_params: Vec<minijinja::Value>,
-    query_params_obj: String,
+    query_params: Vec<minijinja::Value>,
     header_params_obj: String,
     has_body: bool,
     body_content_type: String,
     has_path_params: bool,
     has_query_params: bool,
     has_header_params: bool,
+}
+
+/// Classify an IrType into a simple kind string for query parameter serialization.
+fn classify_param_type(ir_type: &IrType) -> &'static str {
+    match ir_type {
+        IrType::Array(_) => "array",
+        IrType::Map(_) => "map",
+        IrType::Object(_) => "object",
+        IrType::Ref(_) => "object",
+        _ => "primitive",
+    }
 }
 
 fn build_params(op: &IrOperation) -> ParamsResult {
@@ -220,7 +231,7 @@ fn build_params_raw(op: &IrOperation) -> ParamsResult {
     let mut required_parts = Vec::new();
     let mut optional_parts = Vec::new();
     let mut path_params = Vec::new();
-    let mut query_parts = Vec::new();
+    let mut query_params = Vec::new();
     let mut header_parts = Vec::new();
 
     for param in &op.parameters {
@@ -239,10 +250,16 @@ fn build_params_raw(op: &IrOperation) -> ParamsResult {
                 } else {
                     optional_parts.push(format!("{}?: {}", param.name.camel_case, ts_type));
                 }
-                query_parts.push(format!(
-                    "\"{}\": {}",
-                    param.original_name, param.name.camel_case
-                ));
+                let type_kind = classify_param_type(&param.param_type);
+                let style = param.style.clone().unwrap_or_else(|| "form".to_string());
+                let explode = param.explode.unwrap_or(style == "form");
+                query_params.push(context! {
+                    name => param.name.camel_case.clone(),
+                    original_name => param.original_name.clone(),
+                    style => style,
+                    explode => explode,
+                    type_kind => type_kind,
+                });
             }
             IrParameterLocation::Header => {
                 if param.required {
@@ -281,15 +298,14 @@ fn build_params_raw(op: &IrOperation) -> ParamsResult {
     parts.extend(optional_parts);
 
     let has_path_params = !path_params.is_empty();
-    let has_query_params = !query_parts.is_empty();
+    let has_query_params = !query_params.is_empty();
     let has_header_params = !header_parts.is_empty();
-    let query_params_obj = query_parts.join(", ");
     let header_params_obj = header_parts.join(", ");
 
     ParamsResult {
         parts,
         path_params,
-        query_params_obj,
+        query_params,
         header_params_obj,
         has_body,
         body_content_type,

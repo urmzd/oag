@@ -182,6 +182,10 @@ export class ApiClient {
             for (const v of value) {
               params.append(key, String(v));
             }
+          } else if (typeof value === "object") {
+            for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+              if (v !== undefined && v !== null) params.set(`${key}[${k}]`, String(v));
+            }
           } else {
             params.set(key, String(value));
           }
@@ -341,13 +345,33 @@ export class ApiClient {
 {% endif %}
 {% if op.kind == "standard" %}
   async {{ op.method_name }}({{ op.params_signature }}): Promise<{{ op.return_type }}> {
-{% if op.has_path_params %}
+{% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
     path = path.replace("{{ "{" }}{{ param.original_name }}{{ "}" }}", encodeURIComponent(String({{ param.name }})));
 {% endfor %}
 {% else %}
     const path = "{{ op.path }}";
+{% endif %}
+{% if op.has_query_params %}
+    const _q = new URLSearchParams();
+{% for qp in op.query_params %}
+{% if qp.type_kind == "primitive" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", String({{ qp.name }}));
+{% elif qp.type_kind == "array" and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const _v of {{ qp.name }}) _q.append("{{ qp.original_name }}", String(_v)); }
+{% elif qp.type_kind == "array" and not qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", {{ qp.name }}.map(String).join(","));
+{% elif qp.style == "deepObject" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(`{{ qp.original_name }}[${_k}]`, String(_v)); } }
+{% elif (qp.type_kind == "object" or qp.type_kind == "map") and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(_k, String(_v)); } }
+{% elif qp.type_kind == "object" or qp.type_kind == "map" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", Object.entries({{ qp.name }}).flatMap(([k, v]) => [k, String(v)]).join(","));
+{% endif %}
+{% endfor %}
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
 {% endif %}
 {% if op.has_header_params %}
     const _hdr: Record<string, string> = {};
@@ -363,9 +387,6 @@ export class ApiClient {
       isMultipart: true,
 {% endif %}
 {% endif %}
-{% if op.has_query_params %}
-      query: { {{ op.query_params_obj }} },
-{% endif %}
 {% if op.has_header_params %}
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
@@ -378,13 +399,33 @@ export class ApiClient {
   }
 
   async {{ op.method_name }}Raw({{ op.params_signature }}): Promise<ApiResponse<{{ op.return_type }}>> {
-{% if op.has_path_params %}
+{% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
     path = path.replace("{{ "{" }}{{ param.original_name }}{{ "}" }}", encodeURIComponent(String({{ param.name }})));
 {% endfor %}
 {% else %}
     const path = "{{ op.path }}";
+{% endif %}
+{% if op.has_query_params %}
+    const _q = new URLSearchParams();
+{% for qp in op.query_params %}
+{% if qp.type_kind == "primitive" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", String({{ qp.name }}));
+{% elif qp.type_kind == "array" and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const _v of {{ qp.name }}) _q.append("{{ qp.original_name }}", String(_v)); }
+{% elif qp.type_kind == "array" and not qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", {{ qp.name }}.map(String).join(","));
+{% elif qp.style == "deepObject" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(`{{ qp.original_name }}[${_k}]`, String(_v)); } }
+{% elif (qp.type_kind == "object" or qp.type_kind == "map") and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(_k, String(_v)); } }
+{% elif qp.type_kind == "object" or qp.type_kind == "map" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", Object.entries({{ qp.name }}).flatMap(([k, v]) => [k, String(v)]).join(","));
+{% endif %}
+{% endfor %}
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
 {% endif %}
 {% if op.has_header_params %}
     const _hdr: Record<string, string> = {};
@@ -400,9 +441,6 @@ export class ApiClient {
       isMultipart: true,
 {% endif %}
 {% endif %}
-{% if op.has_query_params %}
-      query: { {{ op.query_params_obj }} },
-{% endif %}
 {% if op.has_header_params %}
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
@@ -415,7 +453,7 @@ export class ApiClient {
   }
 {% elif op.kind == "sse" %}
   async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<{{ op.return_type }}> {
-{% if op.has_path_params %}
+{% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
     path = path.replace("{{ "{" }}{{ param.original_name }}{{ "}" }}", encodeURIComponent(String({{ param.name }})));
@@ -423,23 +461,27 @@ export class ApiClient {
 {% else %}
     const path = "{{ op.path }}";
 {% endif %}
-    let url = `${this.baseUrl}${path}`;
 {% if op.has_query_params %}
     const _q = new URLSearchParams();
-    for (const [k, v] of Object.entries({ {{ op.query_params_obj }} })) {
-      if (v !== undefined && v !== null) {
-        if (Array.isArray(v)) {
-          for (const item of v) {
-            _q.append(k, String(item));
-          }
-        } else {
-          _q.set(k, String(v));
-        }
-      }
-    }
-    const _qs = _q.toString();
-    if (_qs) url += `?${_qs}`;
+{% for qp in op.query_params %}
+{% if qp.type_kind == "primitive" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", String({{ qp.name }}));
+{% elif qp.type_kind == "array" and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const _v of {{ qp.name }}) _q.append("{{ qp.original_name }}", String(_v)); }
+{% elif qp.type_kind == "array" and not qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", {{ qp.name }}.map(String).join(","));
+{% elif qp.style == "deepObject" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(`{{ qp.original_name }}[${_k}]`, String(_v)); } }
+{% elif (qp.type_kind == "object" or qp.type_kind == "map") and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(_k, String(_v)); } }
+{% elif qp.type_kind == "object" or qp.type_kind == "map" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", Object.entries({{ qp.name }}).flatMap(([k, v]) => [k, String(v)]).join(","));
 {% endif %}
+{% endfor %}
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
+{% endif %}
+    let url = `${this.baseUrl}${path}`;
 {% if op.has_header_params %}
     const _hdr: Record<string, string> = {};
     for (const [k, v] of Object.entries({ {{ op.header_params_obj }} })) {
@@ -464,13 +506,33 @@ export class ApiClient {
   }
 {% elif op.kind == "void" %}
   async {{ op.method_name }}({{ op.params_signature }}): Promise<void> {
-{% if op.has_path_params %}
+{% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
     path = path.replace("{{ "{" }}{{ param.original_name }}{{ "}" }}", encodeURIComponent(String({{ param.name }})));
 {% endfor %}
 {% else %}
     const path = "{{ op.path }}";
+{% endif %}
+{% if op.has_query_params %}
+    const _q = new URLSearchParams();
+{% for qp in op.query_params %}
+{% if qp.type_kind == "primitive" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", String({{ qp.name }}));
+{% elif qp.type_kind == "array" and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const _v of {{ qp.name }}) _q.append("{{ qp.original_name }}", String(_v)); }
+{% elif qp.type_kind == "array" and not qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", {{ qp.name }}.map(String).join(","));
+{% elif qp.style == "deepObject" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(`{{ qp.original_name }}[${_k}]`, String(_v)); } }
+{% elif (qp.type_kind == "object" or qp.type_kind == "map") and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(_k, String(_v)); } }
+{% elif qp.type_kind == "object" or qp.type_kind == "map" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", Object.entries({{ qp.name }}).flatMap(([k, v]) => [k, String(v)]).join(","));
+{% endif %}
+{% endfor %}
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
 {% endif %}
 {% if op.has_header_params %}
     const _hdr: Record<string, string> = {};
@@ -486,9 +548,6 @@ export class ApiClient {
       isMultipart: true,
 {% endif %}
 {% endif %}
-{% if op.has_query_params %}
-      query: { {{ op.query_params_obj }} },
-{% endif %}
 {% if op.has_header_params %}
       signal: options?.signal,
       headers: { ..._hdr, ...options?.headers },
@@ -501,13 +560,33 @@ export class ApiClient {
   }
 
   async {{ op.method_name }}Raw({{ op.params_signature }}): Promise<ApiResponse<void>> {
-{% if op.has_path_params %}
+{% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
     path = path.replace("{{ "{" }}{{ param.original_name }}{{ "}" }}", encodeURIComponent(String({{ param.name }})));
 {% endfor %}
 {% else %}
     const path = "{{ op.path }}";
+{% endif %}
+{% if op.has_query_params %}
+    const _q = new URLSearchParams();
+{% for qp in op.query_params %}
+{% if qp.type_kind == "primitive" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", String({{ qp.name }}));
+{% elif qp.type_kind == "array" and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const _v of {{ qp.name }}) _q.append("{{ qp.original_name }}", String(_v)); }
+{% elif qp.type_kind == "array" and not qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", {{ qp.name }}.map(String).join(","));
+{% elif qp.style == "deepObject" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(`{{ qp.original_name }}[${_k}]`, String(_v)); } }
+{% elif (qp.type_kind == "object" or qp.type_kind == "map") and qp.explode %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) { for (const [_k, _v] of Object.entries({{ qp.name }})) { if (_v !== undefined && _v !== null) _q.set(_k, String(_v)); } }
+{% elif qp.type_kind == "object" or qp.type_kind == "map" %}
+    if ({{ qp.name }} !== undefined && {{ qp.name }} !== null) _q.set("{{ qp.original_name }}", Object.entries({{ qp.name }}).flatMap(([k, v]) => [k, String(v)]).join(","));
+{% endif %}
+{% endfor %}
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
 {% endif %}
 {% if op.has_header_params %}
     const _hdr: Record<string, string> = {};
@@ -522,9 +601,6 @@ export class ApiClient {
 {% if op.is_multipart %}
       isMultipart: true,
 {% endif %}
-{% endif %}
-{% if op.has_query_params %}
-      query: { {{ op.query_params_obj }} },
 {% endif %}
 {% if op.has_header_params %}
       signal: options?.signal,
