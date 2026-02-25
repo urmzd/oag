@@ -41,12 +41,19 @@ pub struct IrField {
     pub write_only: bool,
 }
 
-/// A string enum schema.
+/// A single variant value in an enum schema.
+#[derive(Debug, Clone)]
+pub enum IrEnumVariant {
+    String(String),
+    Integer(i64),
+}
+
+/// An enum schema (string or integer variants).
 #[derive(Debug, Clone)]
 pub struct IrEnumSchema {
     pub name: NormalizedName,
     pub description: Option<String>,
-    pub variants: Vec<String>,
+    pub variants: Vec<IrEnumVariant>,
 }
 
 /// A type alias (e.g., `type Foo = string`).
@@ -86,6 +93,7 @@ pub enum IrType {
     Object(Vec<(String, IrType, bool)>), // inline object: (name, type, required)
     Map(Box<IrType>),                    // Record<string, T>
     Ref(String),                         // reference to a named schema (PascalCase)
+    IntegerLiteral(i64),
     Union(Vec<IrType>),
     Intersection(Vec<IrType>),
     Any,

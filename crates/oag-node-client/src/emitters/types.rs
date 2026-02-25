@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use minijinja::{Environment, context};
-use oag_core::ir::{IrObjectSchema, IrReturnType, IrSchema, IrSpec};
+use oag_core::ir::{IrEnumVariant, IrObjectSchema, IrReturnType, IrSchema, IrSpec};
 
 use crate::type_mapper::ir_type_to_ts;
 
@@ -43,7 +43,14 @@ fn schema_to_ctx(schema: &IrSchema) -> minijinja::Value {
     match schema {
         IrSchema::Object(obj) => object_to_ctx(obj),
         IrSchema::Enum(e) => {
-            let variants: Vec<String> = e.variants.iter().map(|v| format!("\"{v}\"")).collect();
+            let variants: Vec<String> = e
+                .variants
+                .iter()
+                .map(|v| match v {
+                    IrEnumVariant::String(s) => format!("\"{s}\""),
+                    IrEnumVariant::Integer(i) => i.to_string(),
+                })
+                .collect();
             context! {
                 kind => "enum",
                 name => e.name.pascal_case.clone(),

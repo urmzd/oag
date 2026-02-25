@@ -36,9 +36,9 @@ class {{ schema.name }}(BaseModel):
 {% if schema.description %}
 # {{ schema.description }}
 {% endif %}
-class {{ schema.name }}(str, Enum):
+class {{ schema.name }}({% if schema.is_integer %}int{% else %}str{% endif %}, Enum):
 {% for variant in schema.variants %}
-    {{ variant.name }} = "{{ variant.value }}"
+    {{ variant.name }} = {{ variant.value }}
 {% endfor %}
 
 {% elif schema.kind == "alias" %}
