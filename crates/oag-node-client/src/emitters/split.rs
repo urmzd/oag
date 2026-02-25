@@ -20,31 +20,28 @@ pub fn emit_split(
     source_dir: &str,
 ) -> Vec<GeneratedFile> {
     let groups = group_operations(ir, split_by);
-    let mut files = Vec::new();
-
-    // Centralized types
-    files.push(GeneratedFile {
-        path: source_path(source_dir, "types.ts"),
-        content: emitters::types::emit_types(ir),
-    });
-
-    // Type guards for discriminated unions
-    files.push(GeneratedFile {
-        path: source_path(source_dir, "guards.ts"),
-        content: emitters::guards::emit_guards(ir),
-    });
-
-    // SSE runtime
-    files.push(GeneratedFile {
-        path: source_path(source_dir, "sse.ts"),
-        content: emitters::sse::emit_sse(),
-    });
-
-    // Client base — full client class
-    files.push(GeneratedFile {
-        path: source_path(source_dir, "client.ts"),
-        content: emitters::client::emit_client(ir, no_jsdoc),
-    });
+    let mut files = vec![
+        // Centralized types
+        GeneratedFile {
+            path: source_path(source_dir, "types.ts"),
+            content: emitters::types::emit_types(ir),
+        },
+        // Type guards for discriminated unions
+        GeneratedFile {
+            path: source_path(source_dir, "guards.ts"),
+            content: emitters::guards::emit_guards(ir),
+        },
+        // SSE runtime
+        GeneratedFile {
+            path: source_path(source_dir, "sse.ts"),
+            content: emitters::sse::emit_sse(),
+        },
+        // Client base — full client class
+        GeneratedFile {
+            path: source_path(source_dir, "client.ts"),
+            content: emitters::client::emit_client(ir, no_jsdoc),
+        },
+    ];
 
     // Per-group files — re-export from client for the group's operations
     let mut group_names = Vec::new();

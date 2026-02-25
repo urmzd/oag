@@ -16,29 +16,29 @@ pub fn emit_guards(ir: &IrSpec) -> String {
     let mut import_names: Vec<String> = Vec::new();
 
     for schema in &ir.schemas {
-        if let IrSchema::Union(u) = schema {
-            if let Some(disc) = &u.discriminator {
-                let union_name = u.name.pascal_case.clone();
-                if !import_names.contains(&union_name) {
-                    import_names.push(union_name.clone());
-                }
+        if let IrSchema::Union(u) = schema
+            && let Some(disc) = &u.discriminator
+        {
+            let union_name = u.name.pascal_case.clone();
+            if !import_names.contains(&union_name) {
+                import_names.push(union_name.clone());
+            }
 
-                for (disc_value, schema_name) in &disc.mapping {
-                    // Only emit guard for Ref variants that exist in the union
-                    if u.variants
-                        .iter()
-                        .any(|v| matches!(v, IrType::Ref(n) if n == schema_name))
-                    {
-                        if !import_names.contains(schema_name) {
-                            import_names.push(schema_name.clone());
-                        }
-                        guards.push(context! {
-                            union_name => union_name.clone(),
-                            variant_name => schema_name.clone(),
-                            property_name => disc.property_name.clone(),
-                            discriminator_value => disc_value.clone(),
-                        });
+            for (disc_value, schema_name) in &disc.mapping {
+                // Only emit guard for Ref variants that exist in the union
+                if u.variants
+                    .iter()
+                    .any(|v| matches!(v, IrType::Ref(n) if n == schema_name))
+                {
+                    if !import_names.contains(schema_name) {
+                        import_names.push(schema_name.clone());
                     }
+                    guards.push(context! {
+                        union_name => union_name.clone(),
+                        variant_name => schema_name.clone(),
+                        property_name => disc.property_name.clone(),
+                        discriminator_value => disc_value.clone(),
+                    });
                 }
             }
         }
@@ -72,7 +72,10 @@ mod tests {
         let ir = ir_from_yaml(PETSTORE_POLY);
         let output = emit_guards(&ir);
 
-        assert!(output.contains("import type {"), "should have import statement");
+        assert!(
+            output.contains("import type {"),
+            "should have import statement"
+        );
         assert!(output.contains("Pet"), "should import Pet");
         assert!(output.contains("Cat"), "should import Cat");
         assert!(output.contains("Dog"), "should import Dog");
