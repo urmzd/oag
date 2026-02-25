@@ -31,6 +31,10 @@ impl CodeGenerator for ReactSwrClientGenerator {
                 content: oag_node_client::emitters::types::emit_types(ir),
             },
             GeneratedFile {
+                path: source_path(sd, "guards.ts"),
+                content: oag_node_client::emitters::guards::emit_guards(ir),
+            },
+            GeneratedFile {
                 path: source_path(sd, "sse.ts"),
                 content: oag_node_client::emitters::sse::emit_sse(),
             },

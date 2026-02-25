@@ -1,5 +1,6 @@
 pub mod bundled;
 pub mod client;
+pub mod guards;
 pub mod index;
 pub mod scaffold;
 pub mod split;
