@@ -49,8 +49,22 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: sync Cargo.lock [skip ci]"
           git push
 
+    outputs:
+      released: ${{ steps.sr.outputs.released }}
+      tag: ${{ steps.sr.outputs.tag }}
+
+  publish:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
       - name: Publish to crates.io
-        if: steps.sr.outputs.released == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
@@ -63,10 +77,6 @@ jobs:
           cargo publish -p oag-fastapi-server --allow-dirty
           sleep 30
           cargo publish -p oag-cli --allow-dirty
-
-    outputs:
-      released: ${{ steps.sr.outputs.released }}
-      tag: ${{ steps.sr.outputs.tag }}
 
   build:
     needs: release
