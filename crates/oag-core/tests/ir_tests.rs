@@ -7,6 +7,7 @@ const PETSTORE: &str = include_str!("fixtures/petstore-3.2.yaml");
 const MIXED: &str = include_str!("fixtures/mixed-endpoints.yaml");
 const ANTHROPIC: &str = include_str!("fixtures/anthropic-messages.yaml");
 const PETSTORE_POLY: &str = include_str!("fixtures/petstore-polymorphic.yaml");
+const INTEGER_DISC: &str = include_str!("fixtures/integer-discriminator.yaml");
 
 #[test]
 fn transform_sse_chat() {
@@ -568,4 +569,82 @@ fn transform_petstore_polymorphic() {
         .find(|op| op.name.camel_case == "getPet")
         .expect("should have getPet");
     assert_eq!(get_op.parameters.len(), 1); // petId
+}
+
+#[test]
+fn integer_const_produces_integer_literal() {
+    let spec = parse::from_yaml(INTEGER_DISC).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+
+    // Circle.shapeType has const: 0 — should be IntegerLiteral(0)
+    let circle = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Circle")
+        .expect("should have Circle schema");
+    match circle {
+        IrSchema::Object(obj) => {
+            let shape_type = obj
+                .fields
+                .iter()
+                .find(|f| f.original_name == "shapeType")
+                .expect("Circle should have shapeType field");
+            assert_eq!(
+                shape_type.field_type,
+                IrType::IntegerLiteral(0),
+                "Circle.shapeType should be IntegerLiteral(0)"
+            );
+        }
+        _ => panic!("Circle should be an Object"),
+    }
+
+    // Square.shapeType has const: 1 — should be IntegerLiteral(1)
+    let square = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Square")
+        .expect("should have Square schema");
+    match square {
+        IrSchema::Object(obj) => {
+            let shape_type = obj
+                .fields
+                .iter()
+                .find(|f| f.original_name == "shapeType")
+                .expect("Square should have shapeType field");
+            assert_eq!(
+                shape_type.field_type,
+                IrType::IntegerLiteral(1),
+                "Square.shapeType should be IntegerLiteral(1)"
+            );
+        }
+        _ => panic!("Square should be an Object"),
+    }
+}
+
+#[test]
+fn integer_discriminator_mapping_keys_preserved() {
+    let spec = parse::from_yaml(INTEGER_DISC).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+
+    let shape = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Shape")
+        .expect("should have Shape schema");
+    match shape {
+        IrSchema::Union(u) => {
+            let disc = u.discriminator.as_ref().expect("should have discriminator");
+            assert_eq!(disc.property_name, "shapeType");
+            assert_eq!(disc.mapping.len(), 2);
+            assert_eq!(
+                disc.mapping.iter().find(|(k, _)| k == "0").unwrap().1,
+                "Circle"
+            );
+            assert_eq!(
+                disc.mapping.iter().find(|(k, _)| k == "1").unwrap().1,
+                "Square"
+            );
+        }
+        _ => panic!("Shape should be a Union"),
+    }
 }

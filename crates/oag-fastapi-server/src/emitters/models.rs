@@ -22,10 +22,10 @@ fn schema_to_ctx(schema: &IrSchema) -> minijinja::Value {
     match schema {
         IrSchema::Object(obj) => object_to_ctx(obj),
         IrSchema::Enum(e) => {
-            let is_integer = e
-                .variants
-                .iter()
-                .any(|v| matches!(v, IrEnumVariant::Integer(_)));
+            let is_integer = !e.variants.is_empty()
+                && e.variants
+                    .iter()
+                    .all(|v| matches!(v, IrEnumVariant::Integer(_)));
             let variants: Vec<minijinja::Value> = e
                 .variants
                 .iter()
@@ -72,6 +72,89 @@ fn schema_to_ctx(schema: &IrSchema) -> minijinja::Value {
                 variants => variants,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use oag_core::ir::{IrEnumSchema, IrEnumVariant, IrInfo, IrSchema, IrSpec, NormalizedName};
+
+    use super::*;
+
+    fn make_enum_spec(variants: Vec<IrEnumVariant>) -> IrSpec {
+        IrSpec {
+            info: IrInfo {
+                title: "test".into(),
+                version: "0.0.0".into(),
+                description: None,
+            },
+            servers: vec![],
+            schemas: vec![IrSchema::Enum(IrEnumSchema {
+                name: NormalizedName {
+                    original: "Status".into(),
+                    pascal_case: "Status".into(),
+                    snake_case: "status".into(),
+                    camel_case: "status".into(),
+                    screaming_snake: "STATUS".into(),
+                },
+                description: None,
+                variants,
+            })],
+            operations: vec![],
+            modules: vec![],
+        }
+    }
+
+    #[test]
+    fn all_integer_enum_is_integer_true() {
+        let spec = make_enum_spec(vec![
+            IrEnumVariant::Integer(0),
+            IrEnumVariant::Integer(1),
+            IrEnumVariant::Integer(2),
+        ]);
+        let output = emit_models(&spec);
+        assert!(
+            output.contains("int, Enum"),
+            "all-integer enum should inherit from (int, Enum)"
+        );
+        assert!(
+            !output.contains("str, Enum"),
+            "all-integer enum should NOT inherit from (str, Enum)"
+        );
+    }
+
+    #[test]
+    fn mixed_enum_is_integer_false() {
+        let spec = make_enum_spec(vec![
+            IrEnumVariant::String("active".into()),
+            IrEnumVariant::Integer(1),
+        ]);
+        let output = emit_models(&spec);
+        assert!(
+            output.contains("str, Enum"),
+            "mixed enum should inherit from (str, Enum)"
+        );
+        assert!(
+            !output.contains("int, Enum"),
+            "mixed enum should NOT inherit from (int, Enum)"
+        );
+    }
+
+    #[test]
+    fn all_string_enum_is_integer_false() {
+        let spec = make_enum_spec(vec![
+            IrEnumVariant::String("active".into()),
+            IrEnumVariant::String("inactive".into()),
+        ]);
+        let output = emit_models(&spec);
+        assert!(
+            output.contains("str, Enum"),
+            "string enum should inherit from (str, Enum)"
+        );
+        assert!(
+            !output.contains("int, Enum"),
+            "string enum should NOT inherit from (int, Enum)"
+        );
     }
 }
 
