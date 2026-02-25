@@ -13,7 +13,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: urmzd/embed-src@v3.1.0
+      - uses: urmzd/embed-src@v3
         with:
           commit-message: "chore: sync embedded files [skip ci]"
 
