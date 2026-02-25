@@ -62,6 +62,10 @@ impl CodeGenerator for NodeClientGenerator {
                         content: emitters::types::emit_types(ir),
                     },
                     GeneratedFile {
+                        path: source_path(sd, "guards.ts"),
+                        content: emitters::guards::emit_guards(ir),
+                    },
+                    GeneratedFile {
                         path: source_path(sd, "sse.ts"),
                         content: emitters::sse::emit_sse(),
                     },

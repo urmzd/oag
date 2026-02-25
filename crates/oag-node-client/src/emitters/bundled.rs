@@ -6,6 +6,7 @@ use crate::emitters;
 /// Strips relative imports between modules since everything is inlined.
 pub fn emit_bundled(ir: &IrSpec, no_jsdoc: bool) -> String {
     let types_content = emitters::types::emit_types(ir);
+    let guards_content = emitters::guards::emit_guards(ir);
     let sse_content = emitters::sse::emit_sse();
     let client_content = emitters::client::emit_client(ir, no_jsdoc);
 
@@ -15,6 +16,13 @@ pub fn emit_bundled(ir: &IrSpec, no_jsdoc: bool) -> String {
     // Append types (already standalone, no imports to strip)
     output.push_str("// === Types ===\n\n");
     output.push_str(&strip_auto_generated_header(&types_content));
+    output.push('\n');
+
+    // Append guards (strip header + relative imports since types are inlined)
+    output.push_str("// === Guards ===\n\n");
+    let guards_stripped =
+        strip_relative_imports(&strip_auto_generated_header(&guards_content));
+    output.push_str(&guards_stripped);
     output.push('\n');
 
     // Append SSE runtime (strip header)
@@ -46,7 +54,10 @@ fn strip_relative_imports(content: &str) -> String {
     let mut i = 0;
 
     let is_relative = |s: &str| {
-        s.contains("\"./types\"") || s.contains("\"./sse\"") || s.contains("\"./client\"")
+        s.contains("\"./types\"")
+            || s.contains("\"./guards\"")
+            || s.contains("\"./sse\"")
+            || s.contains("\"./client\"")
     };
 
     while i < lines.len() {
