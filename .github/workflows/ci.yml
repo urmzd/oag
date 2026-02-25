@@ -78,7 +78,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Record demo
         run: vhs doc/demo.tape
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: demo-gif
           path: doc/demo.gif
