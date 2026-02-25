@@ -1,5 +1,5 @@
 use minijinja::{Environment, context};
-use oag_core::ir::{IrObjectSchema, IrSchema, IrSpec};
+use oag_core::ir::{IrEnumVariant, IrObjectSchema, IrSchema, IrSpec};
 
 use crate::type_mapper::{ir_type_to_python, ir_type_to_python_field};
 
@@ -22,13 +22,28 @@ fn schema_to_ctx(schema: &IrSchema) -> minijinja::Value {
     match schema {
         IrSchema::Object(obj) => object_to_ctx(obj),
         IrSchema::Enum(e) => {
+            let is_integer = e
+                .variants
+                .iter()
+                .any(|v| matches!(v, IrEnumVariant::Integer(_)));
             let variants: Vec<minijinja::Value> = e
                 .variants
                 .iter()
-                .map(|v| {
-                    context! {
-                        name => heck::AsUpperCamelCase(v).to_string(),
-                        value => v.clone(),
+                .map(|v| match v {
+                    IrEnumVariant::String(s) => context! {
+                        name => heck::AsUpperCamelCase(s).to_string(),
+                        value => format!("\"{}\"", s),
+                    },
+                    IrEnumVariant::Integer(i) => {
+                        let name = if *i < 0 {
+                            format!("Neg{}", i.unsigned_abs())
+                        } else {
+                            format!("Value{i}")
+                        };
+                        context! {
+                            name => name,
+                            value => i.to_string(),
+                        }
                     }
                 })
                 .collect();
@@ -37,6 +52,7 @@ fn schema_to_ctx(schema: &IrSchema) -> minijinja::Value {
                 name => e.name.pascal_case.clone(),
                 description => e.description.clone(),
                 variants => variants,
+                is_integer => is_integer,
             }
         }
         IrSchema::Alias(a) => {

@@ -5,6 +5,7 @@ pub fn ir_type_to_ts(ir_type: &IrType) -> String {
     match ir_type {
         IrType::String => "string".to_string(),
         IrType::StringLiteral(s) => format!("\"{s}\""),
+        IrType::IntegerLiteral(i) => i.to_string(),
         IrType::Number => "number".to_string(),
         IrType::Integer => "number".to_string(),
         IrType::Boolean => "boolean".to_string(),

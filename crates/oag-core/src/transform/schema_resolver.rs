@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 
 use crate::error::TransformError;
 use crate::ir::{
-    IrAliasSchema, IrDiscriminator, IrEnumSchema, IrField, IrObjectSchema, IrSchema, IrType,
-    IrUnionSchema,
+    IrAliasSchema, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField, IrObjectSchema,
+    IrSchema, IrType, IrUnionSchema,
 };
 use crate::parse::schema::{AdditionalProperties, Schema, SchemaOrRef, SchemaType, TypeSet};
 
@@ -65,23 +65,26 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
 
     // Handle enum
     if !schema.enum_values.is_empty() {
-        let string_variants: Vec<String> = schema
+        let variants: Vec<IrType> = schema
             .enum_values
             .iter()
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .filter_map(|v| {
+                if let Some(s) = v.as_str() {
+                    Some(IrType::StringLiteral(s.to_string()))
+                } else if let Some(i) = v.as_i64() {
+                    Some(IrType::IntegerLiteral(i))
+                } else {
+                    None
+                }
+            })
             .collect();
-        if string_variants.len() == 1 {
-            return IrType::StringLiteral(string_variants.into_iter().next().unwrap());
+        if variants.len() == 1 {
+            return variants.into_iter().next().unwrap();
         }
-        if string_variants.len() > 1 {
-            return IrType::Union(
-                string_variants
-                    .into_iter()
-                    .map(IrType::StringLiteral)
-                    .collect(),
-            );
+        if variants.len() > 1 {
+            return IrType::Union(variants);
         }
-        return IrType::String; // fallback for non-string enums
+        return IrType::String; // fallback for non-string/non-integer enums
     }
 
     // Handle const
@@ -206,10 +209,18 @@ pub fn schema_to_ir_schema(name: &str, schema: &Schema) -> Result<IrSchema, Tran
 
     // Check for enum
     if !schema.enum_values.is_empty() {
-        let variants: Vec<String> = schema
+        let variants: Vec<IrEnumVariant> = schema
             .enum_values
             .iter()
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .filter_map(|v| {
+                if let Some(s) = v.as_str() {
+                    Some(IrEnumVariant::String(s.to_string()))
+                } else if let Some(i) = v.as_i64() {
+                    Some(IrEnumVariant::Integer(i))
+                } else {
+                    None
+                }
+            })
             .collect();
         return Ok(IrSchema::Enum(IrEnumSchema {
             name: normalized,
