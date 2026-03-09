@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.12.0 (2026-03-09)
+
+### Features
+
+- support `scaffold: false` to disable scaffolding for existing projects ([de8637d](https://github.com/urmzd/openapi-generator/commit/de8637dd034414e27bc7a199a7f8f9a4c2ebfb8b))
+
+### Documentation
+
+- add comprehensive CLI reference, config comments, and schema documentation ([9aed1b8](https://github.com/urmzd/openapi-generator/commit/9aed1b89d3fb5d9b61ff586a00f1d884117e2aac))
+
+### Miscellaneous
+
+- switch to trusted publishing for crates.io ([9f301bf](https://github.com/urmzd/openapi-generator/commit/9f301bfaf3d8e07b5c9d0498c38cf400a0fa42a2))
+- sync Cargo.lock [skip ci] ([8ac6954](https://github.com/urmzd/openapi-generator/commit/8ac69543908177a65a647ef5b72341ad1fbee40a))
+
+
 ## 0.11.1 (2026-02-25)
 
 ### Bug Fixes
