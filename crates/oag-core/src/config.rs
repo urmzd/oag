@@ -49,11 +49,39 @@ impl<'de> Deserialize<'de> for ToolSetting {
     }
 }
 
+/// Deserialize the `scaffold` field: `false` → `None`, object → `Some(object)`, absent → `None`.
+fn deserialize_scaffold<'de, D>(deserializer: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    match value {
+        Some(serde_json::Value::Bool(false)) => Ok(None),
+        other => Ok(other),
+    }
+}
+
 /// Top-level project configuration loaded from `.urmzd.oag.yaml`.
+///
+/// This is the entry point for all `oag` settings. The config file controls which
+/// OpenAPI spec to parse, how operation names are derived, and which code generators
+/// to run (each with its own output directory and options).
+///
+/// # Format detection
+///
+/// The deserializer auto-detects the config format:
+/// - **New format** (recommended): has a `generators` map keyed by generator ID.
+/// - **Legacy format**: uses `target`, `output`, `output_options`, and `client` fields.
+///   Automatically converted to the new format at load time.
 #[derive(Debug, Clone)]
 pub struct OagConfig {
+    /// Path to the OpenAPI spec file (YAML or JSON). Resolved relative to the
+    /// config file's directory. Can be overridden via `oag generate -i <path>`.
     pub input: String,
+    /// Controls how operation names are derived from the spec.
     pub naming: NamingConfig,
+    /// Map of generator ID → per-generator configuration. Only generators listed
+    /// here will run during `oag generate`. Order is preserved (insertion order).
     pub generators: IndexMap<GeneratorId, GeneratorConfig>,
 }
 
@@ -68,10 +96,23 @@ impl Default for OagConfig {
 }
 
 /// A generator plugin identifier.
+///
+/// Each variant corresponds to a code generator crate in the workspace.
+/// Used as the key in the `generators` map in `.urmzd.oag.yaml`.
+///
+/// # YAML values
+///
+/// - `node-client` — TypeScript/Node API client (zero runtime dependencies)
+/// - `react-swr-client` — React/SWR hooks (extends node-client with hooks + provider)
+/// - `fastapi-server` — Python FastAPI server stubs with Pydantic v2 models
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GeneratorId {
+    /// TypeScript/Node.js API client using native `fetch`. Zero runtime dependencies.
     NodeClient,
+    /// React hooks built on SWR for queries, mutations, and SSE streaming.
+    /// Internally generates all node-client files plus React-specific hooks and provider.
     ReactSwrClient,
+    /// Python FastAPI server with Pydantic v2 models and route stubs.
     FastapiServer,
 }
 
@@ -110,18 +151,68 @@ impl<'de> Deserialize<'de> for GeneratorId {
 }
 
 /// Configuration for a single generator.
+///
+/// Each entry in the `generators` map deserializes into this struct. All fields
+/// except `output` have sensible defaults so a minimal config only needs the
+/// output directory.
+///
+/// # TypeScript-only fields
+///
+/// `base_url`, `no_jsdoc`, and `source_dir` only affect the TypeScript generators
+/// (`node-client` and `react-swr-client`). They are silently ignored by `fastapi-server`.
+///
+/// # Scaffold
+///
+/// The `scaffold` field is an opaque JSON object forwarded to the generator.
+/// Each generator defines its own scaffold struct (e.g., package name, formatter,
+/// test runner, bundler). See the default config for available scaffold options.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct GeneratorConfig {
+    /// Output directory for generated files. Required — the generator writes all
+    /// files relative to this path. Created automatically if it doesn't exist.
     pub output: String,
+    /// How files are organized on disk. Default: `modular`.
+    /// - `bundled` — single file containing all types, client, and SSE utilities
+    /// - `modular` — separate files per concern (types, client, sse, index)
+    /// - `split` — separate files per operation group (see `split_by`)
     pub layout: OutputLayout,
+    /// Only used when `layout: split`. Controls how operations are grouped into files.
+    /// - `tag` (default) — one file per OpenAPI tag
+    /// - `operation` — one file per operation
+    /// - `route` — one file per route prefix
     pub split_by: Option<SplitBy>,
+    /// Override the API base URL instead of reading it from the spec's `servers` array.
+    /// Only affects TypeScript generators. Useful when the spec doesn't include a server
+    /// or you need a different URL for development.
     pub base_url: Option<String>,
+    /// Disable JSDoc comments on generated types and methods. Default: `false`.
+    /// Only affects TypeScript generators.
     pub no_jsdoc: Option<bool>,
-    /// Subdirectory for generated source files. Default `"src"`.
-    /// Empty string `""` places files at the output root.
+    /// Subdirectory within `output` for generated source files. Default: `"src"`.
+    /// The scaffold's `tsconfig.json` and `tsdown.config.ts` adapt automatically.
+    /// Set to `""` to place source files directly at the output root.
+    /// Only affects TypeScript generators.
     pub source_dir: String,
-    /// Opaque scaffold config — each generator defines and parses its own struct.
+    /// Opaque scaffold configuration forwarded to the generator. Each generator
+    /// defines its own scaffold options:
+    ///
+    /// **TypeScript generators** (`node-client`, `react-swr-client`):
+    /// - `package_name` — npm package name (default: derived from spec title)
+    /// - `repository` — repository URL for `package.json`
+    /// - `existing_repo` — skip all scaffold files, only emit source + root index
+    /// - `formatter` — `"biome"` or `false` to disable (default: `"biome"`)
+    /// - `test_runner` — `"vitest"` or `false` to disable (default: `"vitest"`)
+    /// - `bundler` — `"tsdown"` or `false` to disable (default: `"tsdown"`)
+    ///
+    /// **Python generator** (`fastapi-server`):
+    /// - `package_name` — Python package name for `pyproject.toml`
+    /// - `formatter` — `"ruff"` or `false` to disable (default: `"ruff"`)
+    /// - `test_runner` — `"pytest"` or `false` to disable (default: `"pytest"`)
+    ///
+    /// Set to `false` to explicitly disable all scaffolding. Omitting the field
+    /// entirely also disables scaffolding.
+    #[serde(default, deserialize_with = "deserialize_scaffold")]
     pub scaffold: Option<serde_json::Value>,
 }
 
@@ -140,35 +231,62 @@ impl Default for GeneratorConfig {
 }
 
 /// How generated files are laid out on disk.
+///
+/// # YAML values
+///
+/// - `bundled` — everything in a single file (e.g., `src/index.ts`)
+/// - `modular` — separate files per concern (default, recommended)
+/// - `split` — separate files per operation group (requires `split_by`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputLayout {
-    /// All files concatenated into one output file + scaffold.
+    /// All types, client, and utilities concatenated into one output file.
+    /// Produces `src/index.ts` (TS) or a single combined Python module.
+    /// Scaffold files (package.json, tsconfig, etc.) are still separate.
     Bundled,
-    /// Current behavior: types.ts, client.ts, sse.ts, index.ts.
+    /// Separate files per concern. This is the default and recommended layout.
+    /// TypeScript: `types.ts`, `client.ts`, `sse.ts`, `guards.ts`, `index.ts`.
+    /// Python: `models.py`, `routes.py`, `sse.py`, `app.py`.
     Modular,
-    /// Per-group files with shared base.
+    /// Separate files per operation group, determined by `split_by`.
+    /// For example, with `split_by: tag`: `src/pets.ts`, `src/users.ts`, etc.
+    /// Each file contains the types, client methods, and utilities for that group.
     Split,
 }
 
-/// How to split operations into groups.
+/// How to split operations into groups when using `OutputLayout::Split`.
+///
+/// # YAML values
+///
+/// - `operation` — one file per operation (finest granularity)
+/// - `tag` — one file per OpenAPI tag (default, recommended)
+/// - `route` — one file per route prefix (e.g., `/pets`, `/users`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SplitBy {
-    /// Group by operation (one file per operation).
+    /// One file per operation — finest granularity. Each operation gets its own
+    /// file with its types, client method, and utilities.
     Operation,
-    /// Group by tag (reuse IrModule).
+    /// One file per OpenAPI tag — groups related operations together.
+    /// Maps directly to `IrModule` groupings from the transform pipeline.
     Tag,
-    /// Group by path prefix.
+    /// One file per route prefix — groups operations sharing the same path root.
+    /// For example, `/pets` and `/pets/{petId}` would share a file.
     Route,
 }
 
-/// Naming strategy and aliases.
+/// Naming strategy and operation aliases.
+///
+/// Controls how operation names (used as function/method names in generated code)
+/// are derived from the OpenAPI spec.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct NamingConfig {
+    /// How to derive operation names. See [`NamingStrategy`] for options.
     pub strategy: NamingStrategy,
-    /// Map from resolved operation name (operationId or route-derived) to custom alias.
+    /// Map from resolved operation name to a custom alias. Applied after the
+    /// naming strategy resolves the base name. Useful for shortening verbose
+    /// operationIds (e.g., `createChatCompletion` → `chat`).
     #[serde(default)]
     pub aliases: IndexMap<String, String>,
 }
@@ -182,12 +300,23 @@ impl Default for NamingConfig {
     }
 }
 
-/// How operation names are derived.
+/// How operation names are derived from the OpenAPI spec.
+///
+/// # YAML values
+///
+/// - `use_operation_id` — use the `operationId` field directly (default)
+/// - `use_route_based` — derive from HTTP method + path (e.g., `GET /pets` → `getPets`)
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NamingStrategy {
+    /// Use the `operationId` field from the OpenAPI spec as-is.
+    /// This is the default and works well when the spec has meaningful operation IDs.
+    /// Falls back to route-based naming if `operationId` is missing.
     #[default]
     UseOperationId,
+    /// Derive the name from the HTTP method and path.
+    /// For example: `GET /pets` → `getPets`, `POST /pets/{petId}` → `createPetsPetId`.
+    /// Useful when the spec lacks `operationId` fields or has inconsistent IDs.
     UseRouteBased,
 }
 
@@ -562,5 +691,46 @@ output_options:
         assert_eq!(config.input, "api.yaml");
         // Legacy format with defaults: target=all, layout=single -> react-swr-client
         assert_eq!(config.generators.len(), 1);
+    }
+
+    #[test]
+    fn test_scaffold_false_disables_scaffolding() {
+        let yaml = r#"
+generators:
+  node-client:
+    output: out/node
+    scaffold: false
+  fastapi-server:
+    output: out/server
+    scaffold: false
+"#;
+        let value: serde_json::Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let config: OagConfig = serde_json::from_value(value).unwrap();
+
+        let node = &config.generators[&GeneratorId::NodeClient];
+        assert!(
+            node.scaffold.is_none(),
+            "scaffold: false should become None"
+        );
+
+        let fastapi = &config.generators[&GeneratorId::FastapiServer];
+        assert!(
+            fastapi.scaffold.is_none(),
+            "scaffold: false should become None"
+        );
+    }
+
+    #[test]
+    fn test_scaffold_omitted_is_none() {
+        let yaml = r#"
+generators:
+  node-client:
+    output: out/node
+"#;
+        let value: serde_json::Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let config: OagConfig = serde_json::from_value(value).unwrap();
+
+        let node = &config.generators[&GeneratorId::NodeClient];
+        assert!(node.scaffold.is_none());
     }
 }
