@@ -24,41 +24,41 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate code from an OpenAPI spec
+    /// Generate code from an OpenAPI spec using .urmzd.oag.yaml configuration
     Generate {
-        /// Path to the OpenAPI spec file (YAML or JSON)
+        /// Path to the OpenAPI spec file (YAML or JSON). Overrides the `input` field in the config.
         #[arg(short, long)]
         input: Option<PathBuf>,
     },
 
-    /// Validate an OpenAPI spec
+    /// Validate an OpenAPI spec and report its contents (paths, schemas, operations)
     Validate {
-        /// Path to the OpenAPI spec file
+        /// Path to the OpenAPI spec file (YAML or JSON)
         #[arg(short, long)]
         input: PathBuf,
     },
 
-    /// Inspect the parsed IR of an OpenAPI spec
+    /// Dump the parsed intermediate representation (IR) for debugging
     Inspect {
-        /// Path to the OpenAPI spec file
+        /// Path to the OpenAPI spec file (YAML or JSON)
         #[arg(short, long)]
         input: PathBuf,
 
-        /// Output format
+        /// Output format for the IR dump
         #[arg(long, default_value = "yaml")]
         format: InspectFormat,
     },
 
-    /// Initialize a new oag configuration
+    /// Create a .urmzd.oag.yaml config file with defaults and commented examples
     Init {
-        /// Overwrite existing files
+        /// Overwrite an existing .urmzd.oag.yaml file
         #[arg(long)]
         force: bool,
     },
 
-    /// Generate shell completions
+    /// Generate shell completion scripts for tab-completion (bash, zsh, fish, powershell, elvish)
     Completions {
-        /// Shell to generate completions for
+        /// Target shell for completions
         shell: Shell,
     },
 }
