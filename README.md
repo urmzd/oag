@@ -257,6 +257,18 @@ When using `split` layout, specify `split_by`:
 
 The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported and automatically converted to the new format.
 
+## Agent Skill
+
+This project ships an [Agent Skill](https://github.com/vercel-labs/skills) for use with Claude Code, Cursor, and other compatible agents.
+
+**Install:**
+
+```sh
+npx skills add urmzd/openapi-generator
+```
+
+Once installed, use `/openapi-generate` to generate TypeScript clients, React/SWR hooks, or Python FastAPI servers from your OpenAPI spec.
+
 ## Architecture
 
 ```
