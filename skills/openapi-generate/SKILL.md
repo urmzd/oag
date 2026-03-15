@@ -10,8 +10,8 @@ Generate code from an OpenAPI 3.x spec using `oag`.
 
 ## Steps
 
-1. Ensure a `.urmzd.oag.yaml` config exists. If not, run `oag init` to create one.
-2. Configure the generators you need in `.urmzd.oag.yaml`:
+1. Ensure a `oag.yaml` config exists. If not, run `oag init` to create one.
+2. Configure the generators you need in `oag.yaml`:
    - `node-client` — TypeScript/Node API client
    - `react-swr-client` — React/SWR hooks
    - `fastapi-server` — Python FastAPI server stubs

@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
-use oag_core::config::{self, CONFIG_FILE_NAME, GeneratorId, OagConfig};
+use oag_core::config::{self, CONFIG_FILE_NAME, GeneratorId, LEGACY_CONFIG_FILE, OagConfig};
 use oag_core::ir::IrSpec;
 use oag_core::parse;
 use oag_core::transform::{self, TransformOptions};
@@ -24,7 +24,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate code from an OpenAPI spec using .urmzd.oag.yaml configuration
+    /// Generate code from an OpenAPI spec using oag.yaml configuration
     Generate {
         /// Path to the OpenAPI spec file (YAML or JSON). Overrides the `input` field in the config.
         #[arg(short, long)]
@@ -49,9 +49,9 @@ enum Commands {
         format: InspectFormat,
     },
 
-    /// Create a .urmzd.oag.yaml config file with defaults and commented examples
+    /// Create an oag.yaml config file with defaults and commented examples
     Init {
-        /// Overwrite an existing .urmzd.oag.yaml file
+        /// Overwrite an existing oag.yaml file
         #[arg(long)]
         force: bool,
     },
@@ -93,8 +93,18 @@ fn main() -> Result<()> {
 
 /// Try to load the project config file from the current directory.
 fn try_load_config() -> Result<Option<OagConfig>> {
-    let config_path = PathBuf::from(CONFIG_FILE_NAME);
-    config::load_config(&config_path).map_err(|e| anyhow::anyhow!(e))
+    match config::find_config(Path::new(".")) {
+        Some((path, is_legacy)) => {
+            if is_legacy {
+                eprintln!(
+                    "warning: {} is deprecated, rename to {} (legacy support will be removed in a future release)",
+                    LEGACY_CONFIG_FILE, CONFIG_FILE_NAME,
+                );
+            }
+            config::load_config(&path).map_err(|e| anyhow::anyhow!(e))
+        }
+        None => Ok(None),
+    }
 }
 
 fn load_spec(path: &PathBuf, cfg: &OagConfig) -> Result<IrSpec> {
@@ -224,7 +234,7 @@ To regenerate, run:
 oag generate
 ```
 
-To customize the generated output, edit your `.urmzd.oag.yaml` configuration file.
+To customize the generated output, edit your `oag.yaml` configuration file.
 "#
 }
 
