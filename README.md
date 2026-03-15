@@ -1,6 +1,19 @@
-# oag
+<p align="center">
+  <h1 align="center">oag</h1>
+  <p align="center">
+    OpenAPI 3.x code generator with a plugin-style architecture supporting TypeScript, React, and Python FastAPI.
+    <br /><br />
+    <a href="https://github.com/urmzd/openapi-generator/releases">Download</a>
+    &middot;
+    <a href="https://github.com/urmzd/openapi-generator/issues">Report Bug</a>
+    &middot;
+    <a href="https://github.com/urmzd/openapi-generator/tree/main/examples">Examples</a>
+  </p>
+</p>
 
-OpenAPI 3.x code generator with a plugin-style architecture supporting TypeScript, React, and Python FastAPI.
+<p align="center">
+  <a href="https://github.com/urmzd/openapi-generator/actions/workflows/ci.yml"><img src="https://github.com/urmzd/openapi-generator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
 ![demo](doc/demo.gif)
 
