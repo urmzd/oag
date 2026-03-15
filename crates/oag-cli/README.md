@@ -20,10 +20,10 @@ Windows users can download binaries from the [latest release](https://github.com
 
 ### `oag generate`
 
-Generate code from an OpenAPI spec using the configuration in `.urmzd.oag.yaml`.
+Generate code from an OpenAPI spec using the configuration in `oag.yaml`.
 
 ```sh
-# Use config file (loads .urmzd.oag.yaml from current directory)
+# Use config file (loads oag.yaml from current directory)
 oag generate
 
 # Override the input spec path
@@ -38,7 +38,7 @@ oag generate -i other-spec.yaml
 
 **Behavior:**
 
-1. Loads `.urmzd.oag.yaml` from the current directory (falls back to defaults if missing)
+1. Loads `oag.yaml` from the current directory (falls back to defaults if missing)
 2. Parses the OpenAPI spec and transforms it into an intermediate representation (IR)
 3. For each generator in the `generators` map, generates code into the specified output directory
 4. Writes a `README.md` in each output directory warning against manual edits
@@ -87,7 +87,7 @@ oag inspect -i openapi.yaml --format json
 
 ### `oag init`
 
-Create a `.urmzd.oag.yaml` configuration file in the current directory with sensible defaults and commented-out examples for all generators.
+Create a `oag.yaml` configuration file in the current directory with sensible defaults and commented-out examples for all generators.
 
 ```sh
 # Create config (fails if it already exists)
@@ -101,7 +101,7 @@ oag init --force
 
 | Flag | Description |
 |------|-------------|
-| `--force` | Overwrite an existing `.urmzd.oag.yaml` file |
+| `--force` | Overwrite an existing `oag.yaml` file |
 
 ### `oag completions`
 
@@ -129,7 +129,7 @@ oag completions powershell >> $PROFILE
 
 ## Configuration
 
-The CLI automatically loads `.urmzd.oag.yaml` from the current directory. Run `oag init` to create one with defaults.
+The CLI automatically loads `oag.yaml` from the current directory. Run `oag init` to create one with defaults.
 
 See the [root README](../../README.md#configuration) for the full configuration reference, including all generator options, layout modes, scaffold settings, and naming strategies.
 

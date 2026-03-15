@@ -33,7 +33,7 @@ The spec-to-IR transform runs in six phases:
 | `IrOperation` | A single API operation with method, path, parameters, and return type |
 | `IrType` | Primitive and composite types (String, Array, Ref, Union, Map, etc.) |
 | `NormalizedName` | A name in all four case conventions |
-| `OagConfig` | Parsed `.urmzd.oag.yaml` configuration |
+| `OagConfig` | Parsed `oag.yaml` configuration |
 | `GeneratorId` | Enum identifying each generator: `NodeClient`, `ReactSwrClient`, `FastapiServer` |
 | `GeneratorConfig` | Per-generator configuration (output, layout, scaffold options, etc.) |
 | `CodeGenerator` | Trait that all generators implement |

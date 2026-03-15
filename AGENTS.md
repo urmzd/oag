@@ -33,7 +33,7 @@ pub trait CodeGenerator {
 
 - `crates/oag-cli/src/main.rs` — CLI entry point
 - `crates/oag-core/src/` — IR, parser, config, transform pipeline
-- `crates/oag-core/default-config.yaml` — Default `.urmzd.oag.yaml` config
+- `crates/oag-core/default-config.yaml` — Default `oag.yaml` config
 - `examples/` — Working examples (petstore, sse-chat, anthropic-messages, petstore-polymorphic)
 
 ## Commands

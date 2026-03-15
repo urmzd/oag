@@ -55,7 +55,7 @@ Initialize a config file:
 oag init
 ```
 
-This creates `.urmzd.oag.yaml` in the current directory:
+This creates `oag.yaml` in the current directory:
 
 <!-- embed-src src="crates/oag-core/default-config.yaml" fence="yaml" -->
 ```yaml
@@ -197,14 +197,14 @@ oag generate -i other-spec.yaml
 | `oag generate` | Generate code from an OpenAPI spec | `-i, --input <PATH>` — override spec path |
 | `oag validate` | Validate an OpenAPI spec and report its contents | `-i, --input <PATH>` **(required)** |
 | `oag inspect` | Dump the parsed intermediate representation | `-i, --input <PATH>` **(required)**, `--format yaml\|json` |
-| `oag init` | Create a `.urmzd.oag.yaml` config file | `--force` — overwrite existing |
+| `oag init` | Create a `oag.yaml` config file | `--force` — overwrite existing |
 | `oag completions` | Generate shell completions | `<SHELL>` — bash, zsh, fish, powershell, elvish |
 
 Run `oag <command> --help` for detailed usage. Set `RUST_LOG=debug` for verbose output.
 
 ## Configuration
 
-All options are set in `.urmzd.oag.yaml`. The CLI supports `-i/--input` to override the input spec path.
+All options are set in `oag.yaml`. The CLI supports `-i/--input` to override the input spec path.
 
 ### Global options
 
@@ -298,7 +298,7 @@ pub trait CodeGenerator {
 }
 ```
 
-Each generator implements this trait with a unique ID (`node-client`, `react-swr-client`, or `fastapi-server`). The CLI loops over the configured generators in `.urmzd.oag.yaml` and invokes each one.
+Each generator implements this trait with a unique ID (`node-client`, `react-swr-client`, or `fastapi-server`). The CLI loops over the configured generators in `oag.yaml` and invokes each one.
 
 ## Examples
 
@@ -307,7 +307,7 @@ Working examples with generated output are in the [`examples/`](examples/) direc
 - **[`petstore`](examples/petstore/)** — Node client and React client generated from the Petstore 3.2 spec
 - **[`sse-chat`](examples/sse-chat/)** — Node client and React hooks with SSE streaming for a chat API
 
-Each example has its own `.urmzd.oag.yaml` configuring generators with separate output directories (e.g. `generated/node` and `generated/react`).
+Each example has its own `oag.yaml` configuring generators with separate output directories (e.g. `generated/node` and `generated/react`).
 
 Regenerate them with:
 

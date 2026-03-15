@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use serde::de;
@@ -61,7 +61,7 @@ where
     }
 }
 
-/// Top-level project configuration loaded from `.urmzd.oag.yaml`.
+/// Top-level project configuration loaded from `oag.yaml`.
 ///
 /// This is the entry point for all `oag` settings. The config file controls which
 /// OpenAPI spec to parse, how operation names are derived, and which code generators
@@ -98,7 +98,7 @@ impl Default for OagConfig {
 /// A generator plugin identifier.
 ///
 /// Each variant corresponds to a code generator crate in the workspace.
-/// Used as the key in the `generators` map in `.urmzd.oag.yaml`.
+/// Used as the key in the `generators` map in `oag.yaml`.
 ///
 /// # YAML values
 ///
@@ -490,8 +490,27 @@ fn convert_legacy(legacy: LegacyConfig) -> OagConfig {
     }
 }
 
-/// Default config file name.
-pub const CONFIG_FILE_NAME: &str = ".urmzd.oag.yaml";
+/// Preferred config file name for new projects.
+pub const CONFIG_FILE_NAME: &str = "oag.yaml";
+
+/// Legacy config file name (deprecated, will be removed in a future release).
+pub const LEGACY_CONFIG_FILE: &str = ".urmzd.oag.yaml";
+
+/// Config file candidates, checked in priority order.
+pub const CONFIG_CANDIDATES: &[&str] = &["oag.yaml", "oag.yml", LEGACY_CONFIG_FILE];
+
+/// Find the first config file that exists in the given directory.
+/// Returns `(path, is_legacy)`.
+pub fn find_config(dir: &Path) -> Option<(PathBuf, bool)> {
+    for &candidate in CONFIG_CANDIDATES {
+        let path = dir.join(candidate);
+        if path.exists() {
+            let is_legacy = candidate == LEGACY_CONFIG_FILE;
+            return Some((path, is_legacy));
+        }
+    }
+    None
+}
 
 /// Load config from a YAML file. Returns `None` if the file doesn't exist.
 pub fn load_config(path: &Path) -> Result<Option<OagConfig>, String> {
@@ -501,9 +520,9 @@ pub fn load_config(path: &Path) -> Result<Option<OagConfig>, String> {
     let content = fs::read_to_string(path)
         .map_err(|e| format!("failed to read config {}: {}", path.display(), e))?;
 
-    // Parse YAML to serde_json::Value first, then use our custom Deserialize impl
     let yaml_value: serde_json::Value = serde_yaml_ng::from_str(&content)
         .map_err(|e| format!("failed to parse config {}: {}", path.display(), e))?;
+
     let config: OagConfig = serde_json::from_value(yaml_value)
         .map_err(|e| format!("failed to parse config {}: {}", path.display(), e))?;
     Ok(Some(config))
