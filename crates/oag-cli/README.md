@@ -11,10 +11,10 @@ Installs a single binary called `oag` that parses OpenAPI specs and generates ty
 cargo install oag-cli
 
 # Or via the install script (Linux/macOS)
-curl -fsSL https://raw.githubusercontent.com/urmzd/openapi-generator/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 ```
 
-Windows users can download binaries from the [latest release](https://github.com/urmzd/openapi-generator/releases/latest).
+Windows users can download binaries from the [latest release](https://github.com/urmzd/oag/releases/latest).
 
 ## Commands
 

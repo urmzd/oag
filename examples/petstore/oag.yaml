@@ -13,7 +13,7 @@ generators:
     base_url: https://petstore.example.com/api
     scaffold:
       package_name: "@examples/petstore-node-client"
-      repository: https://github.com/urmzd/openapi-generator
+      repository: https://github.com/urmzd/oag
       formatter: biome
       test_runner: vitest
       bundler: tsdown
@@ -24,7 +24,7 @@ generators:
     base_url: https://petstore.example.com/api
     scaffold:
       package_name: "@examples/petstore-react-client"
-      repository: https://github.com/urmzd/openapi-generator
+      repository: https://github.com/urmzd/oag
       formatter: biome
       test_runner: vitest
       bundler: tsdown

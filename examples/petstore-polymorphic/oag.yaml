@@ -13,7 +13,7 @@ generators:
     base_url: https://petstore.example.com/v2
     scaffold:
       package_name: "@examples/petstore-polymorphic-node-client"
-      repository: https://github.com/urmzd/openapi-generator
+      repository: https://github.com/urmzd/oag
       formatter: biome
       test_runner: vitest
       bundler: tsdown
@@ -24,7 +24,7 @@ generators:
     base_url: https://petstore.example.com/v2
     scaffold:
       package_name: "@examples/petstore-polymorphic-react-client"
-      repository: https://github.com/urmzd/openapi-generator
+      repository: https://github.com/urmzd/oag
       formatter: biome
       test_runner: vitest
       bundler: tsdown

@@ -4,22 +4,22 @@
 
 ## Docs
 
-- [README](https://github.com/urmzd/openapi-generator/blob/main/README.md): Installation, CLI reference, configuration, and examples
-- [AGENTS.md](https://github.com/urmzd/openapi-generator/blob/main/AGENTS.md): Architecture and development guide
-- [CHANGELOG](https://github.com/urmzd/openapi-generator/blob/main/CHANGELOG.md): Version history
-- [CONTRIBUTING](https://github.com/urmzd/openapi-generator/blob/main/CONTRIBUTING.md): Setup, workflow, adding generators, and publishing
+- [README](https://github.com/urmzd/oag/blob/main/README.md): Installation, CLI reference, configuration, and examples
+- [AGENTS.md](https://github.com/urmzd/oag/blob/main/AGENTS.md): Architecture and development guide
+- [CHANGELOG](https://github.com/urmzd/oag/blob/main/CHANGELOG.md): Version history
+- [CONTRIBUTING](https://github.com/urmzd/oag/blob/main/CONTRIBUTING.md): Setup, workflow, adding generators, and publishing
 
 ## API / Key Files
 
-- [crates/oag-core/src/](https://github.com/urmzd/openapi-generator/blob/main/crates/oag-core/src/): IR, parser, config, transform pipeline, CodeGenerator trait
-- [crates/oag-cli/src/main.rs](https://github.com/urmzd/openapi-generator/blob/main/crates/oag-cli/src/main.rs): CLI entry point
-- [crates/oag-node-client/](https://github.com/urmzd/openapi-generator/blob/main/crates/oag-node-client/): TypeScript/Node client generator
-- [crates/oag-react-swr-client/](https://github.com/urmzd/openapi-generator/blob/main/crates/oag-react-swr-client/): React/SWR hooks generator
-- [crates/oag-fastapi-server/](https://github.com/urmzd/openapi-generator/blob/main/crates/oag-fastapi-server/): Python FastAPI server generator
-- [crates/oag-core/default-config.yaml](https://github.com/urmzd/openapi-generator/blob/main/crates/oag-core/default-config.yaml): Default oag.yaml config
-- [examples/](https://github.com/urmzd/openapi-generator/blob/main/examples/): Working examples (petstore, sse-chat)
+- [crates/oag-core/src/](https://github.com/urmzd/oag/blob/main/crates/oag-core/src/): IR, parser, config, transform pipeline, CodeGenerator trait
+- [crates/oag-cli/src/main.rs](https://github.com/urmzd/oag/blob/main/crates/oag-cli/src/main.rs): CLI entry point
+- [crates/oag-node-client/](https://github.com/urmzd/oag/blob/main/crates/oag-node-client/): TypeScript/Node client generator
+- [crates/oag-react-swr-client/](https://github.com/urmzd/oag/blob/main/crates/oag-react-swr-client/): React/SWR hooks generator
+- [crates/oag-fastapi-server/](https://github.com/urmzd/oag/blob/main/crates/oag-fastapi-server/): Python FastAPI server generator
+- [crates/oag-core/default-config.yaml](https://github.com/urmzd/oag/blob/main/crates/oag-core/default-config.yaml): Default oag.yaml config
+- [examples/](https://github.com/urmzd/oag/blob/main/examples/): Working examples (petstore, sse-chat)
 
 ## Optional
 
-- [CONTRIBUTING](https://github.com/urmzd/openapi-generator/blob/main/CONTRIBUTING.md): How to contribute
-- [Skill](https://github.com/urmzd/openapi-generator/blob/main/skills/openapi-generate/SKILL.md): Agent skill
+- [CONTRIBUTING](https://github.com/urmzd/oag/blob/main/CONTRIBUTING.md): How to contribute
+- [Skill](https://github.com/urmzd/oag/blob/main/skills/openapi-generate/SKILL.md): Agent skill
