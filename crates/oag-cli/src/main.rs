@@ -226,7 +226,7 @@ fn try_run_ruff(output_dir: &Path) {
 fn readme_content() -> &'static str {
     r#"# Generated Code — Do Not Edit
 
-This directory is **auto-generated** by [oag](https://github.com/urmzd/openapi-generator).
+This directory is **auto-generated** by [oag](https://github.com/urmzd/oag).
 Any manual changes will be overwritten the next time `oag generate` is run.
 
 To regenerate, run:

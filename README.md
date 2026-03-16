@@ -3,16 +3,16 @@
   <p align="center">
     OpenAPI 3.x code generator with a plugin-style architecture supporting TypeScript, React, and Python FastAPI.
     <br /><br />
-    <a href="https://github.com/urmzd/openapi-generator/releases">Download</a>
+    <a href="https://github.com/urmzd/oag/releases">Download</a>
     &middot;
-    <a href="https://github.com/urmzd/openapi-generator/issues">Report Bug</a>
+    <a href="https://github.com/urmzd/oag/issues">Report Bug</a>
     &middot;
-    <a href="https://github.com/urmzd/openapi-generator/tree/main/examples">Examples</a>
+    <a href="https://github.com/urmzd/oag/tree/main/examples">Examples</a>
   </p>
 </p>
 
 <p align="center">
-  <a href="https://github.com/urmzd/openapi-generator/actions/workflows/ci.yml"><img src="https://github.com/urmzd/openapi-generator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/urmzd/oag/actions/workflows/ci.yml"><img src="https://github.com/urmzd/oag/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 ![demo](doc/demo.gif)
@@ -39,7 +39,7 @@ OpenAPI 3.2 shipped but most generators haven't caught up. When you need to glue
 Install with a single command (Linux/macOS):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/urmzd/openapi-generator/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 ```
 
 Or install from crates.io (requires Rust):
@@ -49,13 +49,13 @@ cargo install oag-cli
 ```
 
 Windows users can download binaries directly from the
-[latest release](https://github.com/urmzd/openapi-generator/releases/latest).
+[latest release](https://github.com/urmzd/oag/releases/latest).
 
 <details>
 <summary>Build from source</summary>
 
 ```sh
-git clone https://github.com/urmzd/openapi-generator.git
+git clone https://github.com/urmzd/oag.git
 cd openapi-generator
 cargo install --path crates/oag-cli
 ```
@@ -72,12 +72,12 @@ This creates `oag.yaml` in the current directory:
 
 <!-- embed-src src="crates/oag-core/default-config.yaml" fence="yaml" -->
 ```yaml
-# oag configuration — https://github.com/urmzd/openapi-generator
+# oag configuration — https://github.com/urmzd/oag
 #
 # This file is loaded automatically from the current directory when running `oag generate`.
 # You can override the input spec with: oag generate -i other-spec.yaml
 #
-# Full reference: https://github.com/urmzd/openapi-generator#configuration
+# Full reference: https://github.com/urmzd/oag#configuration
 
 # ---------------------------------------------------------------------------
 # Input
@@ -277,7 +277,7 @@ This project ships an [Agent Skill](https://github.com/vercel-labs/skills) for u
 **Install:**
 
 ```sh
-npx skills add urmzd/openapi-generator
+npx skills add urmzd/oag
 ```
 
 Once installed, use `/openapi-generate` to generate TypeScript clients, React/SWR hooks, or Python FastAPI servers from your OpenAPI spec.

@@ -1,9 +1,9 @@
-# oag configuration — https://github.com/urmzd/openapi-generator
+# oag configuration — https://github.com/urmzd/oag
 #
 # This file is loaded automatically from the current directory when running `oag generate`.
 # You can override the input spec with: oag generate -i other-spec.yaml
 #
-# Full reference: https://github.com/urmzd/openapi-generator#configuration
+# Full reference: https://github.com/urmzd/oag#configuration
 
 # ---------------------------------------------------------------------------
 # Input

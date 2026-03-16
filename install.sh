@@ -2,7 +2,7 @@
 # install.sh — Installs the oag binary from GitHub releases.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/urmzd/openapi-generator/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 #
 # Environment variables:
 #   OAG_VERSION     — version to install (e.g. "v0.9.0"); defaults to latest
@@ -10,7 +10,7 @@
 
 set -eu
 
-REPO="urmzd/openapi-generator"
+REPO="urmzd/oag"
 
 main() {
     os=$(uname -s)

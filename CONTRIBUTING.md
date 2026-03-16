@@ -11,7 +11,7 @@ Thanks for your interest in contributing to `oag`.
 ## Setup
 
 ```sh
-git clone https://github.com/urmzd/openapi-generator.git
+git clone https://github.com/urmzd/oag.git
 cd openapi-generator
 just init
 ```

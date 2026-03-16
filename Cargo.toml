@@ -6,9 +6,9 @@ resolver = "2"
 version = "0.12.0"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/urmzd/openapi-generator"
+repository = "https://github.com/urmzd/oag"
 authors = ["urmzd"]
-homepage = "https://github.com/urmzd/openapi-generator"
+homepage = "https://github.com/urmzd/oag"
 
 [workspace.dependencies]
 # Internal crates

@@ -11,7 +11,7 @@ generators:
     base_url: https://api.anthropic.com
     scaffold:
       package_name: "@examples/anthropic-messages-node-client"
-      repository: https://github.com/urmzd/openapi-generator
+      repository: https://github.com/urmzd/oag
       formatter: biome
       test_runner: vitest
       bundler: tsdown
@@ -22,7 +22,7 @@ generators:
     base_url: https://api.anthropic.com
     scaffold:
       package_name: "@examples/anthropic-messages-react-client"
-      repository: https://github.com/urmzd/openapi-generator
+      repository: https://github.com/urmzd/oag
       formatter: biome
       test_runner: vitest
       bundler: tsdown
