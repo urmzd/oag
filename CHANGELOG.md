@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.13.0 (2026-03-21)
+
+### Features
+
+- **cli**: add styled terminal output matching sr UI standard ([03298e9](https://github.com/urmzd/oag/commit/03298e950b4a7f9243201b8695b2ea09951c1a2c))
+
+### Documentation
+
+- add AGENTS.md and agent skill for Claude Code ([778e9f3](https://github.com/urmzd/oag/commit/778e9f33f0b2805d4e8630a6dc546d7835f7282b))
+
+### Refactoring
+
+- rename config to oag.yaml, remove toml/json support ([6a636c3](https://github.com/urmzd/oag/commit/6a636c3d932e8246b327a00a72960ad0d1053ca7))
+
+### Miscellaneous
+
+- rename repo from openapi-generator to oag, semantic-release to sr ([172ee40](https://github.com/urmzd/oag/commit/172ee40ffccff50c4ebd13793fe9802348b2b782))
+- upgrade node version from 20 to 24 ([95075e3](https://github.com/urmzd/oag/commit/95075e395c2726ec35fa705b7c8b26febfb0f17c))
+- standardize project files and README header ([fc3deb2](https://github.com/urmzd/oag/commit/fc3deb2c7480873d0c92b212bb32c917da354b0b))
+- sync Cargo.lock [skip ci] ([d311eaf](https://github.com/urmzd/oag/commit/d311eaf4eea42d5bc8df7bf416d2b8129a3823a0))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.12.0...v0.13.0)
+
+
 ## 0.12.0 (2026-03-09)
 
 ### Features
