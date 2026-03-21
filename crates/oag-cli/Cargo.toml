@@ -25,3 +25,5 @@ log = { workspace = true }
 indexmap = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
+crossterm = { workspace = true }
+indicatif = { workspace = true }
