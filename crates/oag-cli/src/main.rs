@@ -15,6 +15,43 @@ use oag_fastapi_server::FastapiServerGenerator;
 use oag_node_client::NodeClientGenerator;
 use oag_react_swr_client::ReactSwrClientGenerator;
 
+// ── UI helpers (all output to stderr) ────────────────────────────────
+
+mod ui {
+    use crossterm::style::Stylize;
+    use std::io::{self, Write};
+
+    /// Print a command header: cyan bold title + dim horizontal rule.
+    pub fn header(cmd: &str) {
+        let mut err = io::stderr();
+        let _ = writeln!(err);
+        let _ = writeln!(err, "  {}", cmd.cyan().bold());
+        let _ = writeln!(err, "  {}", "\u{2500}".repeat(40).dim());
+        let _ = writeln!(err);
+    }
+
+    /// Print a completed phase with green checkmark.
+    pub fn phase_ok(msg: &str, detail: Option<&str>) {
+        let mut err = io::stderr();
+        let suffix = detail
+            .map(|d| format!(" \u{00b7} {}", d.dim()))
+            .unwrap_or_default();
+        let _ = writeln!(err, "  {} {msg}{suffix}", "\u{2713}".green().bold());
+    }
+
+    /// Print a warning message.
+    pub fn warn(msg: &str) {
+        let mut err = io::stderr();
+        let _ = writeln!(err, "  {} {}", "\u{26a0}".yellow().bold(), msg.yellow());
+    }
+
+    /// Print an info message.
+    pub fn info(msg: &str) {
+        let mut err = io::stderr();
+        let _ = writeln!(err, "  {} {}", "\u{2139}".cyan(), msg.dim());
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "oag", about = "OpenAPI 3.x code generator", version)]
 struct Cli {
@@ -96,10 +133,10 @@ fn try_load_config() -> Result<Option<OagConfig>> {
     match config::find_config(Path::new(".")) {
         Some((path, is_legacy)) => {
             if is_legacy {
-                eprintln!(
-                    "warning: {} is deprecated, rename to {} (legacy support will be removed in a future release)",
+                ui::warn(&format!(
+                    "{} is deprecated, rename to {} (legacy support will be removed in a future release)",
                     LEGACY_CONFIG_FILE, CONFIG_FILE_NAME,
-                );
+                ));
             }
             config::load_config(&path).map_err(|e| anyhow::anyhow!(e))
         }
@@ -146,7 +183,7 @@ fn write_files(base: &Path, files: &[GeneratedFile]) -> Result<()> {
         }
         fs::write(&path, &file.content)
             .with_context(|| format!("failed to write {}", path.display()))?;
-        eprintln!("  wrote {}", path.display());
+        ui::phase_ok("wrote", Some(&path.display().to_string()));
     }
     Ok(())
 }
@@ -169,18 +206,18 @@ fn try_run_biome(output_dir: &Path) {
         .output()
     {
         Ok(result) if result.status.success() => {
-            eprintln!("  formatted with biome");
+            ui::phase_ok("formatted with biome", None);
         }
         Ok(_result) => {
-            eprintln!(
-                "  warning: biome formatting had issues (non-zero exit), output may need manual formatting"
+            ui::warn(
+                "biome formatting had issues (non-zero exit), output may need manual formatting",
             );
         }
         Err(_) => {
-            eprintln!(
-                "  note: biome not found — run `npx @biomejs/biome check --write .` in {} to format",
+            ui::info(&format!(
+                "biome not found \u{2014} run `npx @biomejs/biome check --write .` in {} to format",
                 output_dir.display()
-            );
+            ));
         }
     }
 }
@@ -193,16 +230,16 @@ fn try_run_ruff(output_dir: &Path) {
         .output()
     {
         Ok(result) if result.status.success() => {
-            eprintln!("  formatted with ruff");
+            ui::phase_ok("formatted with ruff", None);
         }
         Ok(_) => {
-            eprintln!("  warning: ruff format had issues (non-zero exit)");
+            ui::warn("ruff format had issues (non-zero exit)");
         }
         Err(_) => {
-            eprintln!(
-                "  note: ruff not found — run `ruff format . && ruff check --fix .` in {} to format",
+            ui::info(&format!(
+                "ruff not found \u{2014} run `ruff format . && ruff check --fix .` in {} to format",
                 output_dir.display()
-            );
+            ));
             return;
         }
     }
@@ -213,10 +250,10 @@ fn try_run_ruff(output_dir: &Path) {
         .output()
     {
         Ok(result) if result.status.success() => {
-            eprintln!("  linted with ruff");
+            ui::phase_ok("linted with ruff", None);
         }
         Ok(_) => {
-            eprintln!("  warning: ruff check had issues (non-zero exit)");
+            ui::warn("ruff check had issues (non-zero exit)");
         }
         Err(_) => {}
     }
@@ -244,12 +281,15 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
     let ir = load_spec(&input, &cfg)?;
 
     if cfg.generators.is_empty() {
-        eprintln!("No generators configured. Add a `generators` section to your config.");
+        ui::warn("No generators configured. Add a `generators` section to your config.");
         return Ok(());
     }
 
     for (gen_id, gen_config) in &cfg.generators {
-        eprintln!("Generating {} → {}", gen_id, gen_config.output);
+        ui::header(&format!(
+            "Generating {} \u{2192} {}",
+            gen_id, gen_config.output
+        ));
         let generator = get_generator(gen_id);
         let files = generator
             .generate(&ir, gen_config)
@@ -266,20 +306,19 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
         let readme_path = output_dir.join("README.md");
         fs::write(&readme_path, readme_content())
             .with_context(|| format!("failed to write {}", readme_path.display()))?;
-        eprintln!("  wrote {}", readme_path.display());
+        ui::phase_ok("wrote", Some(&readme_path.display().to_string()));
 
         // Auto-run formatter based on config file presence
         try_run_formatter(&output_dir);
 
-        eprintln!(
-            "Generated {} files in {}",
-            files.len() + 1, // +1 for README
-            output_dir.display()
+        ui::phase_ok(
+            &format!("generated {} files", files.len() + 1),
+            Some(&output_dir.display().to_string()),
         );
     }
 
-    eprintln!(
-        "\nThe generated directories should not be edited manually — changes will be overwritten."
+    ui::info(
+        "generated directories should not be edited manually \u{2014} changes will be overwritten",
     );
     Ok(())
 }
@@ -295,23 +334,22 @@ fn cmd_validate(input: PathBuf) -> Result<()> {
         _ => parse::from_yaml(&content)?,
     };
 
-    eprintln!(
-        "Valid OpenAPI {} spec: {}",
-        parsed.openapi, parsed.info.title
-    );
-    eprintln!("  Version: {}", parsed.info.version);
-    eprintln!("  Paths: {}", parsed.paths.len());
+    ui::header(&format!("Validate \u{00b7} {}", parsed.info.title));
+
+    ui::info(&format!("OpenAPI {}", parsed.openapi));
+    ui::info(&format!("Version: {}", parsed.info.version));
+    ui::info(&format!("Paths: {}", parsed.paths.len()));
 
     if let Some(ref components) = parsed.components {
-        eprintln!("  Schemas: {}", components.schemas.len());
+        ui::info(&format!("Schemas: {}", components.schemas.len()));
     }
 
     // Also validate that it transforms to IR successfully
     let ir = transform::transform(&parsed)?;
-    eprintln!("  Operations: {}", ir.operations.len());
-    eprintln!("  IR Schemas: {}", ir.schemas.len());
+    ui::info(&format!("Operations: {}", ir.operations.len()));
+    ui::info(&format!("IR Schemas: {}", ir.schemas.len()));
 
-    eprintln!("Validation successful.");
+    ui::phase_ok("validation successful", None);
     Ok(())
 }
 
@@ -393,6 +431,6 @@ fn cmd_init(force: bool) -> Result<()> {
     }
 
     fs::write(&config_path, config::default_config_content())?;
-    eprintln!("Created {}", config_path.display());
+    ui::phase_ok("created", Some(&config_path.display().to_string()));
     Ok(())
 }
