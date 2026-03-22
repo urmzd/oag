@@ -43,8 +43,9 @@ examples: install
     cd examples/anthropic-messages && ../../target/release/oag generate
     cd examples/petstore-polymorphic && ../../target/release/oag generate
 
-record:
-    teasr showme
+record: install
+    rm -rf /tmp/oag-demo && mkdir -p /tmp/oag-demo
+    PATH="$(pwd)/target/release:$PATH" SPEC="$(pwd)/crates/oag-core/tests/fixtures/petstore-3.2.yaml" teasr showme
 
 check: check-fmt lint test
 

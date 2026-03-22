@@ -8,119 +8,28 @@ name = "demo"
 theme = "dracula"
 cols = 100
 rows = 30
+cwd = "/tmp/oag-demo"
 formats = [{ output_type = "gif" }]
-frame_duration = 80
+frame_duration = 120
 
-# Setup (hidden env)
-[[scenes.interactions]]
-type = "type"
-text = "export PATH=./target/release:$PATH"
-speed = 0
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 500
-
-[[scenes.interactions]]
-type = "type"
-text = "export SPEC=crates/oag-core/tests/fixtures/petstore-3.2.yaml"
-speed = 0
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 500
-
-[[scenes.interactions]]
-type = "type"
-text = "export SSE_SPEC=crates/oag-core/tests/fixtures/sse-chat.yaml"
-speed = 0
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 500
-
-[[scenes.interactions]]
-type = "type"
-text = "export PS1='❯ '"
-speed = 0
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 500
-
-[[scenes.interactions]]
-type = "type"
-text = "splash() { clear; print ''; print '  \\e[90m╭──────────────────────────────────────────────╮\\e[0m'; print '  \\e[90m│\\e[0m                                              \\e[90m│\\e[0m'; print '  \\e[90m│\\e[0m        \\e[35m✦\\e[0m  \\e[1;36mOpenAPI Generator\\e[0m \\e[36m(oag)\\e[0m  \\e[35m✦\\e[0m         \\e[90m│\\e[0m'; print '  \\e[90m│\\e[0m                                              \\e[90m│\\e[0m'; print '  \\e[90m│\\e[0m         \\e[34mgithub.com/urmzd\\e[0m \\e[90m·\\e[0m \\e[34murmzd.com\\e[0m         \\e[90m│\\e[0m'; print '  \\e[90m│\\e[0m                                              \\e[90m│\\e[0m'; print '  \\e[90m╰──────────────────────────────────────────────╯\\e[0m'; print ''; }"
-speed = 0
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 500
-
-[[scenes.interactions]]
-type = "type"
-text = "splash"
-speed = 0
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 500
-
-# First visible snapshot (splash screen)
-[[scenes.interactions]]
-type = "snapshot"
-name = "splash"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 3000
-
-# CLI overview
-[[scenes.interactions]]
-type = "type"
-text = "oag --help"
-speed = 50
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 4000
-
-[[scenes.interactions]]
-type = "snapshot"
+[scenes.intro]
+text = """
+╭──────────────────────────────────────────────╮
+│                                              │
+│        ✦  OpenAPI Generator (oag)  ✦         │
+│                                              │
+│         github.com/urmzd · urmzd.com         │
+│                                              │
+╰──────────────────────────────────────────────╯
+"""
+duration = 1500
+center = true
 
 # Validate a spec
 [[scenes.interactions]]
 type = "type"
 text = "oag validate -i $SPEC"
-speed = 50
+speed = 20
 
 [[scenes.interactions]]
 type = "key"
@@ -128,16 +37,13 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 3000
+duration = 500
 
-[[scenes.interactions]]
-type = "snapshot"
-
-# Generate TypeScript client
+# Init + generate
 [[scenes.interactions]]
 type = "type"
-text = "oag generate -i $SPEC -o /tmp/petstore -t typescript"
-speed = 50
+text = "oag init && oag generate -i $SPEC"
+speed = 20
 
 [[scenes.interactions]]
 type = "key"
@@ -145,33 +51,13 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 3000
-
-[[scenes.interactions]]
-type = "snapshot"
-
-# Show generated files
-[[scenes.interactions]]
-type = "type"
-text = "ls /tmp/petstore/"
-speed = 50
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 2000
-
-[[scenes.interactions]]
-type = "snapshot"
+duration = 500
 
 # Preview generated types
 [[scenes.interactions]]
 type = "type"
-text = "head -n 25 /tmp/petstore/types.ts"
-speed = 50
+text = "head -n 25 src/generated/node/src/types.ts"
+speed = 20
 
 [[scenes.interactions]]
 type = "key"
@@ -179,16 +65,13 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 4000
-
-[[scenes.interactions]]
-type = "snapshot"
+duration = 800
 
 # Preview generated client
 [[scenes.interactions]]
 type = "type"
-text = "head -n 40 /tmp/petstore/client.ts"
-speed = 50
+text = "head -n 30 src/generated/node/src/client.ts"
+speed = 20
 
 [[scenes.interactions]]
 type = "key"
@@ -196,58 +79,4 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 5000
-
-[[scenes.interactions]]
-type = "snapshot"
-
-# Generate React hooks from SSE chat spec
-[[scenes.interactions]]
-type = "type"
-text = "oag generate -i $SSE_SPEC -o /tmp/sse-chat -t react"
-speed = 50
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 3000
-
-[[scenes.interactions]]
-type = "snapshot"
-
-# Show generated React files
-[[scenes.interactions]]
-type = "type"
-text = "ls /tmp/sse-chat/"
-speed = 50
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 2000
-
-[[scenes.interactions]]
-type = "snapshot"
-
-# Preview generated hooks
-[[scenes.interactions]]
-type = "type"
-text = "head -n 40 /tmp/sse-chat/hooks.ts"
-speed = 50
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 5000
-
-[[scenes.interactions]]
-type = "snapshot"
+duration = 800
