@@ -29,7 +29,7 @@ This installs git hooks and adds the `clippy` and `rustfmt` components.
 | `just build` | Build all crates |
 | `just run <args>` | Run the CLI (e.g. `just run generate -i spec.yaml`) |
 | `just examples` | Rebuild the example output in `examples/` |
-| `just record` | Record the demo GIF with [VHS](https://github.com/charmbracelet/vhs) |
+| `just record` | Record the demo GIF with [teasr](https://github.com/urmzd/teasr) |
 
 ## Project structure
 

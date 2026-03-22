@@ -44,7 +44,7 @@ examples: install
     cd examples/petstore-polymorphic && ../../target/release/oag generate
 
 record:
-    vhs doc/demo.tape
+    teasr showme
 
 check: check-fmt lint test
 
