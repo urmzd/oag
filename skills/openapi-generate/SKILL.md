@@ -1,7 +1,8 @@
 ---
 name: openapi-generate
 description: Generate TypeScript clients, React/SWR hooks, or Python FastAPI servers from OpenAPI 3.x specs using oag. Use when generating API clients, server stubs, or working with OpenAPI code generation.
-argument-hint: [spec-path]
+metadata:
+  argument-hint: [spec-path]
 ---
 
 # OpenAPI Code Generation
