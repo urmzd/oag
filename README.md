@@ -274,11 +274,7 @@ The old config format (with `target`, `output`, `output_options`, and `client` f
 
 This project ships an [Agent Skill](https://github.com/vercel-labs/skills) for use with Claude Code, Cursor, and other compatible agents.
 
-**Install:**
-
-```sh
-npx skills add urmzd/oag
-```
+Available as portable agent skills in [`skills/`](skills/).
 
 Once installed, use `/openapi-generate` to generate TypeScript clients, React/SWR hooks, or Python FastAPI servers from your OpenAPI spec.
 
