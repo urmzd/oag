@@ -96,7 +96,7 @@ jobs:
           sleep 30
           cargo publish -p oag-fastapi-server --allow-dirty
           sleep 30
-          cargo publish -p oag-cli --allow-dirty
+          cargo publish -p oag --allow-dirty
 
   build:
     needs: release
@@ -153,9 +153,9 @@ jobs:
       - name: Build
         run: |
           if [ "${{ matrix.cross }}" = "true" ]; then
-            cross build --release --target ${{ matrix.target }} -p oag-cli
+            cross build --release --target ${{ matrix.target }} -p oag
           else
-            cargo build --release --target ${{ matrix.target }} -p oag-cli
+            cargo build --release --target ${{ matrix.target }} -p oag
           fi
         shell: bash
 

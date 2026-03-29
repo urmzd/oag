@@ -22,6 +22,7 @@ types:
   - name: docs
     section: Documentation
   - name: refactor
+    bump: patch
     section: Refactoring
   - name: revert
     section: Reverts
@@ -33,9 +34,6 @@ types:
 
 version_files:
   - crates/oag-core/Cargo.toml
-  - crates/oag-node-client/Cargo.toml
-  - crates/oag-react-swr-client/Cargo.toml
-  - crates/oag-fastapi-server/Cargo.toml
   - crates/oag-cli/Cargo.toml
   - Cargo.toml
 

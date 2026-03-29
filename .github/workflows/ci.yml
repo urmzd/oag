@@ -65,8 +65,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release -p oag-cli
-      - uses: urmzd/teasr/.github/actions/teasr@main
+      - run: cargo build --release -p oag
+      - run: mkdir -p /tmp/oag-demo
+      - run: echo "${{ github.workspace }}/target/release" >> "$GITHUB_PATH"
+      - uses: urmzd/teasr@v0
       - uses: actions/upload-artifact@v4
         with:
           name: demo-gif

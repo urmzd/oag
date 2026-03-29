@@ -8,7 +8,7 @@ Installs a single binary called `oag` that parses OpenAPI specs and generates ty
 
 ```sh
 # From crates.io (requires Rust)
-cargo install oag-cli
+cargo install oag
 
 # Or via the install script (Linux/macOS)
 curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
@@ -127,6 +127,39 @@ oag completions powershell >> $PROFILE
 |----------|-------------|
 | `<SHELL>` | **(required)** Target shell: `bash`, `zsh`, `fish`, `powershell`, `elvish` |
 
+### `oag templates`
+
+Manage template packs for code generation.
+
+```sh
+# List available packs (built-in + installed)
+oag templates list
+
+# Extract all built-in packs to the templates directory for customization
+oag templates install --builtin
+
+# Install a custom pack from a local directory
+oag templates install /path/to/my-pack
+
+# Remove an installed pack
+oag templates remove my-pack
+
+# Print the templates directory path
+oag templates path
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List available template packs (built-in + installed) |
+| `install <SOURCE>` | Install a pack from a local directory |
+| `install --builtin` | Extract all built-in packs to the templates directory |
+| `remove <ID>` | Remove an installed template pack |
+| `path` | Print the template packs directory path |
+
+Installed packs take precedence over built-in packs, allowing you to customize any built-in pack by extracting and modifying it.
+
 ## Configuration
 
 The CLI automatically loads `oag.yaml` from the current directory. Run `oag init` to create one with defaults.
@@ -148,9 +181,7 @@ See the [root README](../../README.md#configuration) for the full configuration 
 
 ## Depends on
 
-- [`oag-core`](../oag-core/) — parser, IR, config, and `CodeGenerator` trait
-- [`oag-node-client`](../oag-node-client/) — TypeScript/Node client generator
-- [`oag-react-swr-client`](../oag-react-swr-client/) — React/SWR hooks generator
-- [`oag-fastapi-server`](../oag-fastapi-server/) — Python FastAPI server generator
+- [`oag-core`](../oag-core/) — parser, IR, config, and template pack engine
+- [`packs/`](../../packs/) — built-in template packs (embedded at compile time)
 
 ## Part of [oag](../../README.md)

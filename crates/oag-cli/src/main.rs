@@ -6,14 +6,72 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
-use oag_core::config::{self, CONFIG_FILE_NAME, GeneratorId, LEGACY_CONFIG_FILE, OagConfig};
+use oag_core::GeneratedFile;
+use oag_core::config::{self, CONFIG_FILE_NAME, LEGACY_CONFIG_FILE, OagConfig};
+use oag_core::engine;
+use oag_core::engine::pack::TemplatePack;
+use oag_core::engine::resolve;
 use oag_core::ir::IrSpec;
 use oag_core::parse;
 use oag_core::transform::{self, TransformOptions};
-use oag_core::{CodeGenerator, GeneratedFile};
-use oag_fastapi_server::FastapiServerGenerator;
-use oag_node_client::NodeClientGenerator;
-use oag_react_swr_client::ReactSwrClientGenerator;
+
+// ── Embedded built-in packs ──────────────────────────────────────────
+
+use include_dir::{Dir, include_dir};
+
+static PACKS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../packs");
+
+/// Load an embedded built-in template pack by ID.
+fn load_embedded_pack(pack_id: &str) -> Option<TemplatePack> {
+    let pack_dir = PACKS_DIR.get_dir(pack_id)?;
+
+    // include_dir stores files with full relative paths, so we need to
+    // construct the path relative to the packs root
+    let manifest_path = format!("{}/pack.toml", pack_id);
+    let manifest_str = pack_dir
+        .get_file(&manifest_path)
+        .or_else(|| pack_dir.get_file("pack.toml"))?
+        .contents_utf8()?;
+
+    let templates_path = format!("{}/templates", pack_id);
+    let templates_dir = pack_dir
+        .get_dir(&templates_path)
+        .or_else(|| pack_dir.get_dir("templates"))?;
+    let template_files: Vec<(String, String)> = templates_dir
+        .files()
+        .filter_map(|f| {
+            let name = f.path().file_name()?.to_string_lossy().to_string();
+            let content = f.contents_utf8()?.to_string();
+            Some((name, content))
+        })
+        .collect();
+
+    TemplatePack::from_embedded(manifest_str, template_files).ok()
+}
+
+/// Resolve a template pack: disk → embedded, with extends support.
+fn resolve_pack(pack_id: &str) -> Result<TemplatePack> {
+    let pack = if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
+        TemplatePack::from_dir(&disk_path)
+            .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?
+    } else if let Some(embedded) = load_embedded_pack(pack_id) {
+        embedded
+    } else {
+        anyhow::bail!(
+            "template pack '{}' not found. Run `oag templates list` to see available packs.",
+            pack_id
+        );
+    };
+
+    // Handle extends
+    if let Some(ref base_id) = pack.manifest.pack.extends {
+        let mut base = resolve_pack(base_id)?;
+        base.merge_from(&pack);
+        Ok(base)
+    } else {
+        Ok(pack)
+    }
+}
 
 // ── UI helpers (all output to stderr) ────────────────────────────────
 
@@ -21,7 +79,6 @@ mod ui {
     use crossterm::style::Stylize;
     use std::io::{self, Write};
 
-    /// Print a command header: cyan bold title + dim horizontal rule.
     pub fn header(cmd: &str) {
         let mut err = io::stderr();
         let _ = writeln!(err);
@@ -30,7 +87,6 @@ mod ui {
         let _ = writeln!(err);
     }
 
-    /// Print a completed phase with green checkmark.
     pub fn phase_ok(msg: &str, detail: Option<&str>) {
         let mut err = io::stderr();
         let suffix = detail
@@ -39,13 +95,11 @@ mod ui {
         let _ = writeln!(err, "  {} {msg}{suffix}", "\u{2713}".green().bold());
     }
 
-    /// Print a warning message.
     pub fn warn(msg: &str) {
         let mut err = io::stderr();
         let _ = writeln!(err, "  {} {}", "\u{26a0}".yellow().bold(), msg.yellow());
     }
 
-    /// Print an info message.
     pub fn info(msg: &str) {
         let mut err = io::stderr();
         let _ = writeln!(err, "  {} {}", "\u{2139}".cyan(), msg.dim());
@@ -98,6 +152,33 @@ enum Commands {
         /// Target shell for completions
         shell: Shell,
     },
+
+    /// Manage template packs for code generation
+    Templates {
+        #[command(subcommand)]
+        action: TemplatesAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum TemplatesAction {
+    /// List installed template packs
+    List,
+    /// Install a template pack from a local directory or extract built-in packs
+    Install {
+        /// Path to a template pack directory, or --builtin to extract all built-in packs
+        source: Option<PathBuf>,
+        /// Extract all built-in packs to the templates directory
+        #[arg(long)]
+        builtin: bool,
+    },
+    /// Remove an installed template pack
+    Remove {
+        /// Pack ID to remove
+        id: String,
+    },
+    /// Print the template packs directory path
+    Path,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -113,18 +194,15 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Generate { input } => cmd_generate(input),
-
         Commands::Validate { input } => cmd_validate(input),
-
         Commands::Inspect { input, format } => cmd_inspect(input, format),
-
         Commands::Init { force } => cmd_init(force),
-
         Commands::Completions { shell } => {
             let mut cmd = <Cli as clap::CommandFactory>::command();
             clap_complete::generate(shell, &mut cmd, "oag", &mut std::io::stdout());
             Ok(())
         }
+        Commands::Templates { action } => cmd_templates(action),
     }
 }
 
@@ -164,15 +242,6 @@ fn load_spec(path: &PathBuf, cfg: &OagConfig) -> Result<IrSpec> {
     Ok(ir)
 }
 
-/// Look up a generator by its ID.
-fn get_generator(id: &GeneratorId) -> Box<dyn CodeGenerator> {
-    match id {
-        GeneratorId::NodeClient => Box::new(NodeClientGenerator),
-        GeneratorId::ReactSwrClient => Box::new(ReactSwrClientGenerator),
-        GeneratorId::FastapiServer => Box::new(FastapiServerGenerator),
-    }
-}
-
 /// Write generated files to disk under the given base directory.
 fn write_files(base: &Path, files: &[GeneratedFile]) -> Result<()> {
     for file in files {
@@ -188,74 +257,38 @@ fn write_files(base: &Path, files: &[GeneratedFile]) -> Result<()> {
     Ok(())
 }
 
-/// Try to run formatters on the output directory based on config file presence.
-fn try_run_formatter(output_dir: &Path) {
-    if output_dir.join("biome.json").exists() {
-        try_run_biome(output_dir);
-    }
-    if output_dir.join("ruff.toml").exists() {
-        try_run_ruff(output_dir);
-    }
-}
-
-/// Try to run Biome formatter on the output directory.
-fn try_run_biome(output_dir: &Path) {
-    match Command::new("npx")
-        .args(["@biomejs/biome", "check", "--write", "."])
-        .current_dir(output_dir)
-        .output()
-    {
-        Ok(result) if result.status.success() => {
-            ui::phase_ok("formatted with biome", None);
+/// Try to run formatters based on pack's formatter config or file presence.
+fn try_run_formatter(output_dir: &Path, pack: &TemplatePack) {
+    for fmt_config in pack.manifest.formatters.values() {
+        if output_dir.join(&fmt_config.detect).exists() {
+            let parts: Vec<&str> = fmt_config.command.split_whitespace().collect();
+            if parts.is_empty() {
+                continue;
+            }
+            match Command::new(parts[0])
+                .args(&parts[1..])
+                .current_dir(output_dir)
+                .output()
+            {
+                Ok(result) if result.status.success() => {
+                    ui::phase_ok(&format!("ran: {}", fmt_config.command), None);
+                }
+                Ok(_) => {
+                    ui::warn(&format!(
+                        "{} had issues (non-zero exit)",
+                        fmt_config.command
+                    ));
+                }
+                Err(_) => {
+                    ui::info(&format!(
+                        "{} not found — run `{}` in {} to format",
+                        parts[0],
+                        fmt_config.command,
+                        output_dir.display()
+                    ));
+                }
+            }
         }
-        Ok(_result) => {
-            ui::warn(
-                "biome formatting had issues (non-zero exit), output may need manual formatting",
-            );
-        }
-        Err(_) => {
-            ui::info(&format!(
-                "biome not found \u{2014} run `npx @biomejs/biome check --write .` in {} to format",
-                output_dir.display()
-            ));
-        }
-    }
-}
-
-/// Try to run Ruff formatter and linter on the output directory.
-fn try_run_ruff(output_dir: &Path) {
-    match Command::new("ruff")
-        .args(["format", "."])
-        .current_dir(output_dir)
-        .output()
-    {
-        Ok(result) if result.status.success() => {
-            ui::phase_ok("formatted with ruff", None);
-        }
-        Ok(_) => {
-            ui::warn("ruff format had issues (non-zero exit)");
-        }
-        Err(_) => {
-            ui::info(&format!(
-                "ruff not found \u{2014} run `ruff format . && ruff check --fix .` in {} to format",
-                output_dir.display()
-            ));
-            return;
-        }
-    }
-
-    match Command::new("ruff")
-        .args(["check", "--fix", "."])
-        .current_dir(output_dir)
-        .output()
-    {
-        Ok(result) if result.status.success() => {
-            ui::phase_ok("linted with ruff", None);
-        }
-        Ok(_) => {
-            ui::warn("ruff check had issues (non-zero exit)");
-        }
-        Err(_) => {}
     }
 }
 
@@ -290,10 +323,9 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
             "Generating {} \u{2192} {}",
             gen_id, gen_config.output
         ));
-        let generator = get_generator(gen_id);
-        let files = generator
-            .generate(&ir, gen_config)
-            .map_err(|e| anyhow::anyhow!(e))?;
+
+        let pack = resolve_pack(gen_id.as_str())?;
+        let files = engine::generate(&ir, gen_config, &pack).map_err(|e| anyhow::anyhow!(e))?;
 
         let output_dir = PathBuf::from(&gen_config.output);
         fs::create_dir_all(&output_dir).with_context(|| {
@@ -308,8 +340,8 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
             .with_context(|| format!("failed to write {}", readme_path.display()))?;
         ui::phase_ok("wrote", Some(&readme_path.display().to_string()));
 
-        // Auto-run formatter based on config file presence
-        try_run_formatter(&output_dir);
+        // Auto-run formatters
+        try_run_formatter(&output_dir, &pack);
 
         ui::phase_ok(
             &format!("generated {} files", files.len() + 1),
@@ -344,7 +376,6 @@ fn cmd_validate(input: PathBuf) -> Result<()> {
         ui::info(&format!("Schemas: {}", components.schemas.len()));
     }
 
-    // Also validate that it transforms to IR successfully
     let ir = transform::transform(&parsed)?;
     ui::info(&format!("Operations: {}", ir.operations.len()));
     ui::info(&format!("IR Schemas: {}", ir.schemas.len()));
@@ -433,4 +464,89 @@ fn cmd_init(force: bool) -> Result<()> {
     fs::write(&config_path, config::default_config_content())?;
     ui::phase_ok("created", Some(&config_path.display().to_string()));
     Ok(())
+}
+
+fn cmd_templates(action: TemplatesAction) -> Result<()> {
+    match action {
+        TemplatesAction::List => {
+            let installed = resolve::list_installed_packs();
+            if installed.is_empty() {
+                ui::info("No template packs installed on disk.");
+            } else {
+                ui::header("Installed template packs");
+                for (id, path) in &installed {
+                    ui::phase_ok(id, Some(&path.display().to_string()));
+                }
+            }
+
+            // Also list built-in packs
+            ui::header("Built-in packs (always available)");
+            for dir in PACKS_DIR.dirs() {
+                let id = dir.path().file_name().unwrap_or_default().to_string_lossy();
+                if let Some(pack_toml) = dir.get_file("pack.toml")
+                    && let Some(content) = pack_toml.contents_utf8()
+                    && let Ok(manifest) = toml::from_str::<engine::pack::PackManifest>(content)
+                {
+                    ui::phase_ok(
+                        &id,
+                        Some(&format!(
+                            "{} (v{})",
+                            manifest.pack.name, manifest.pack.version
+                        )),
+                    );
+                    continue;
+                }
+                ui::phase_ok(&id, None);
+            }
+            Ok(())
+        }
+        TemplatesAction::Install { source, builtin } => {
+            if builtin {
+                // Extract all built-in packs
+                let Some(templates_dir) = resolve::templates_dir() else {
+                    anyhow::bail!("could not determine data directory");
+                };
+                fs::create_dir_all(&templates_dir)?;
+
+                for dir in PACKS_DIR.dirs() {
+                    let id = dir
+                        .path()
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    let target = templates_dir.join(&id);
+                    dir.extract(&target)?;
+                    ui::phase_ok("installed", Some(&format!("{id} → {}", target.display())));
+                }
+                Ok(())
+            } else if let Some(source_path) = source {
+                // Install from local directory
+                let pack_toml = source_path.join("pack.toml");
+                if !pack_toml.exists() {
+                    anyhow::bail!("no pack.toml found in {}", source_path.display());
+                }
+                let pack = TemplatePack::from_dir(&source_path).map_err(|e| anyhow::anyhow!(e))?;
+                let id = pack.manifest.pack.id.clone();
+                let target =
+                    resolve::install_pack(&source_path, &id).map_err(|e| anyhow::anyhow!(e))?;
+                ui::phase_ok("installed", Some(&format!("{id} → {}", target.display())));
+                Ok(())
+            } else {
+                anyhow::bail!("provide a source path or use --builtin");
+            }
+        }
+        TemplatesAction::Remove { id } => {
+            resolve::remove_pack(&id).map_err(|e| anyhow::anyhow!(e))?;
+            ui::phase_ok("removed", Some(&id));
+            Ok(())
+        }
+        TemplatesAction::Path => {
+            match resolve::templates_dir() {
+                Some(dir) => println!("{}", dir.display()),
+                None => anyhow::bail!("could not determine data directory"),
+            }
+            Ok(())
+        }
+    }
 }
