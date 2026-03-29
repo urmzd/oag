@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.14.0 (2026-03-29)
+
+### Features
+
+- **packs**: create template pack manifests and migrate templates ([65ebc65](https://github.com/urmzd/oag/commit/65ebc65d01b7e47475fc6e24116bd57e95447863))
+- **engine**: add template pack engine infrastructure ([ffd026b](https://github.com/urmzd/oag/commit/ffd026baa9df1db9dd3a6e4e6aaefc34123942fe))
+
+### Bug Fixes
+
+- create /tmp/oag-demo and add oag to PATH before teasr demo ([390f299](https://github.com/urmzd/oag/commit/390f29917bdf1b7dd952c841f5f4d9d7a4bb4578))
+- use teasr action at repo root instead of nested path ([bf6439c](https://github.com/urmzd/oag/commit/bf6439c67c4cf2710075b21eca28f273242c98d7))
+- **demo**: update teasr recording to match current config-driven CLI ([b94458e](https://github.com/urmzd/oag/commit/b94458e0c7428130b239cab07e1bd1995b271579))
+
+### Documentation
+
+- update documentation for template pack engine architecture ([5683019](https://github.com/urmzd/oag/commit/5683019f9411399e3ce24c66215c4f1c31381cba))
+- update README ([e5be9b8](https://github.com/urmzd/oag/commit/e5be9b8fe58db22cc404488c6bec38d6af384fd7))
+- **skills**: align SKILL.md with agentskills.io spec ([1376443](https://github.com/urmzd/oag/commit/1376443332d5550a3863f4f3a6a360659567dd5f))
+
+### Refactoring
+
+- **cli**: migrate to template pack system ([5545112](https://github.com/urmzd/oag/commit/55451127e12df428a2eeb7b272d778672f10547a))
+- **config**: make generator id a string-based struct ([7f6888b](https://github.com/urmzd/oag/commit/7f6888b25db922354e59dea39ba70c5a8317a9f0))
+- rename oag-cli package to oag for simpler cargo install ([453c3b5](https://github.com/urmzd/oag/commit/453c3b584b3df481d78c894b13ce07dd2316b2aa))
+
+### Miscellaneous
+
+- standardize sr.yaml — add refactor bump ([487b40e](https://github.com/urmzd/oag/commit/487b40e44c1258ce90acc564744b0fad280c5f14))
+- **react-swr-client**: remove template files ([f8f6dc1](https://github.com/urmzd/oag/commit/f8f6dc12f494a8602c057664349afdf11464698d))
+- **node-client**: remove template files ([83aac50](https://github.com/urmzd/oag/commit/83aac506b3368d845ba1bb225ff34679b06d5225))
+- **fastapi-server**: remove template files ([da38a42](https://github.com/urmzd/oag/commit/da38a4270381e9e22805d01ad04ed28d4b401a1a))
+- **build**: add semantic release hooks ([d44fa71](https://github.com/urmzd/oag/commit/d44fa7118027aec4550a187320c45540c717e262))
+- **examples**: update generated petstore examples ([d9cd20f](https://github.com/urmzd/oag/commit/d9cd20fc35dbb80db6bfa62cb623744cefa59cf8))
+- remove legacy generator crates ([b3fa669](https://github.com/urmzd/oag/commit/b3fa669e79b5b76c1fa99eafe5d90f0ae9056f6e))
+- use sr-releaser GitHub App for release workflow (#6) ([73cf184](https://github.com/urmzd/oag/commit/73cf184296916706cce36c9c227eb7742db405cd))
+- update semantic-release action to sr@v2 ([b23c1e6](https://github.com/urmzd/oag/commit/b23c1e6821bc659d8b0b5398cf04a22d8e77016e))
+- **demo**: migrate recording from VHS to teasr ([1e132bc](https://github.com/urmzd/oag/commit/1e132bcb938aa6c20bf415f65341f844c71b3d2c))
+- sync Cargo.lock [skip ci] ([0c8e532](https://github.com/urmzd/oag/commit/0c8e532e834f1e07568aa4e0603d3b8dbd77ab99))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.13.0...v0.14.0)
+
+
 ## 0.13.0 (2026-03-21)
 
 ### Features
