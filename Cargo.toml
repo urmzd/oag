@@ -13,9 +13,6 @@ homepage = "https://github.com/urmzd/oag"
 [workspace.dependencies]
 # Internal crates
 oag-core = { path = "crates/oag-core", version = "0.13.0" }
-oag-node-client = { path = "crates/oag-node-client", version = "0.13.0" }
-oag-react-swr-client = { path = "crates/oag-react-swr-client", version = "0.13.0" }
-oag-fastapi-server = { path = "crates/oag-fastapi-server", version = "0.13.0" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -46,6 +43,18 @@ log = "0.4"
 # Terminal UI
 crossterm = "0.28"
 indicatif = "0.17"
+
+# Platform directories
+dirs = "6"
+
+# Config parsing
+toml = "0.8"
+
+# Regex (bundled mode)
+regex = "1"
+
+# Embed template packs
+include_dir = "0.7"
 
 # Testing
 insta = { version = "1", features = ["yaml"] }
