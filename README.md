@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">oag</h1>
   <p align="center">
-    OpenAPI 3.x code generator with a plugin-style architecture supporting TypeScript, React, and Python FastAPI.
+    OpenAPI 3.x code generator powered by a template pack engine supporting TypeScript, React, and Python FastAPI.
     <br /><br />
     <a href="https://github.com/urmzd/oag/releases">Download</a>
     &middot;
@@ -24,15 +24,15 @@ OpenAPI 3.2 shipped but most generators haven't caught up. When you need to glue
 `oag` focuses on simplicity: one config file, one command, clean output.
 
 - Parses OpenAPI 3.x specs with full `$ref` resolution
-- Plugin-style architecture: enable only the generators you need
-- **TypeScript/Node client** with zero runtime dependencies
-- **React/SWR hooks** for queries, mutations, and SSE streaming
-- **Python FastAPI server** with Pydantic v2 models
+- **Template pack engine** — generators are declarative Jinja2 template packs with TOML manifests, no Rust code needed
+- **Built-in packs**: `node-client` (TypeScript), `react-swr-client` (React/SWR hooks), `fastapi-server` (Python FastAPI)
+- **Pack inheritance** — `react-swr-client` extends `node-client` to avoid template duplication
+- **Custom packs** — install your own template packs or extract built-ins to customize (`oag templates install`)
 - First-class Server-Sent Events support via `AsyncGenerator` (TS) and `StreamingResponse` (Python)
 - **Test generation** — pytest tests for FastAPI, vitest tests for TypeScript/React (opt-out via `scaffold.test_runner: false`)
 - Scaffolds Biome + tsdown configuration for TypeScript projects, Ruff for Python
 - Configurable naming strategies and operation aliases
-- Three layout modes per generator: bundled, modular, or split
+- Three layout modes per pack: bundled, modular, or split
 
 ## Quick start
 
@@ -45,7 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 Or install from crates.io (requires Rust):
 
 ```sh
-cargo install oag-cli
+cargo install oag
 ```
 
 Windows users can download binaries directly from the
@@ -56,7 +56,7 @@ Windows users can download binaries directly from the
 
 ```sh
 git clone https://github.com/urmzd/oag.git
-cd openapi-generator
+cd oag
 cargo install --path crates/oag-cli
 ```
 
@@ -201,7 +201,7 @@ This will generate code for all configured generators. You can override the inpu
 oag generate -i other-spec.yaml
 ```
 
-**Note**: The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported for backward compatibility and automatically converted.
+**Note**: The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported for backward compatibility and automatically converted to the `generators` map format.
 
 ## CLI reference
 
@@ -212,6 +212,10 @@ oag generate -i other-spec.yaml
 | `oag inspect` | Dump the parsed intermediate representation | `-i, --input <PATH>` **(required)**, `--format yaml\|json` |
 | `oag init` | Create a `oag.yaml` config file | `--force` — overwrite existing |
 | `oag completions` | Generate shell completions | `<SHELL>` — bash, zsh, fish, powershell, elvish |
+| `oag templates list` | List available template packs (built-in + installed) | |
+| `oag templates install` | Install a pack from a local directory | `<SOURCE>` or `--builtin` to extract all built-in packs |
+| `oag templates remove` | Remove an installed template pack | `<ID>` — pack ID to remove |
+| `oag templates path` | Print the template packs directory path | |
 
 Run `oag <command> --help` for detailed usage. Set `RUST_LOG=debug` for verbose output.
 
@@ -227,14 +231,16 @@ All options are set in `oag.yaml`. The CLI supports `-i/--input` to override the
 | `naming.strategy` | `string` | `use_operation_id` | How to derive function names: `use_operation_id` or `use_route_based` |
 | `naming.aliases` | `map` | `{}` | Map of operationId to custom name overrides |
 
-### Generators
+### Generators (template packs)
 
-The `generators` map configures which generators to run and their options. Each generator has its own output directory and settings.
+The `generators` map configures which template packs to run and their options. Each generator ID corresponds to a template pack — either a built-in pack or one you've installed.
 
-**Available generators:**
+**Built-in packs:**
 - `node-client` — TypeScript/Node API client (zero dependencies)
-- `react-swr-client` — React/SWR hooks (extends node-client)
+- `react-swr-client` — React/SWR hooks (extends `node-client` via pack inheritance)
 - `fastapi-server` — Python FastAPI server stubs with Pydantic v2 models
+
+Packs are resolved in order: installed packs (in `oag templates path`) take precedence over built-in packs, allowing you to customize any built-in pack by extracting and modifying it.
 
 ### Generator options (node-client, react-swr-client, fastapi-server)
 
@@ -281,33 +287,42 @@ Once installed, use `/openapi-generate` to generate TypeScript clients, React/SW
 ## Architecture
 
 ```
-oag-cli  -->  [oag-node-client, oag-react-swr-client, oag-fastapi-server]  -->  oag-core
+oag-cli  -->  oag-core (engine + packs)
+                 ├── packs/node-client/
+                 ├── packs/react-swr-client/  (extends node-client)
+                 └── packs/fastapi-server/
 ```
 
-The workspace uses a plugin-style architecture with five crates:
+The workspace has two crates and a set of template packs:
 
-| Crate | Role |
-|-------|------|
-| [`oag-core`](crates/oag-core/) | OpenAPI parser, intermediate representation, transform pipeline, and `CodeGenerator` trait |
-| [`oag-node-client`](crates/oag-node-client/) | TypeScript/Node API client generator (zero dependencies) |
-| [`oag-react-swr-client`](crates/oag-react-swr-client/) | React/SWR hooks generator (extends node-client) |
-| [`oag-fastapi-server`](crates/oag-fastapi-server/) | Python FastAPI server generator with Pydantic v2 models |
-| [`oag-cli`](crates/oag-cli/) | Command-line interface that orchestrates all generators |
+| Component | Role |
+|-----------|------|
+| [`oag-core`](crates/oag-core/) | OpenAPI parser, intermediate representation, transform pipeline, and template pack engine |
+| [`oag-cli`](crates/oag-cli/) | Command-line interface that resolves packs and orchestrates generation |
+| [`packs/`](packs/) | Declarative template packs — Jinja2 templates + TOML manifest, no Rust code needed |
 
-`oag-core` defines the `CodeGenerator` trait:
+### Template pack engine
+
+Generators are defined as **template packs** rather than compiled Rust crates. Each pack is a directory containing:
+
+- `pack.toml` — manifest declaring metadata, type mappings, layout definitions, scaffold files, and formatter config
+- `templates/` — Jinja2 templates (`.j2` files) for each generated file
+
+The engine renders templates against a context built from the parsed OpenAPI spec and generator config. Packs support **inheritance** (`extends` in `pack.toml`) so `react-swr-client` inherits all templates from `node-client` and adds its own.
+
+Built-in packs are embedded in the binary at compile time. Users can extract and customize them with `oag templates install --builtin`, or create entirely new packs.
+
+The core engine API:
 
 ```rust
-pub trait CodeGenerator {
-    fn id(&self) -> config::GeneratorId;
-    fn generate(
-        &self,
-        ir: &ir::IrSpec,
-        config: &config::GeneratorConfig,
-    ) -> Result<Vec<GeneratedFile>, GeneratorError>;
-}
+pub fn generate(
+    ir: &IrSpec,
+    config: &GeneratorConfig,
+    pack: &TemplatePack,
+) -> Result<Vec<GeneratedFile>, GeneratorError>
 ```
 
-Each generator implements this trait with a unique ID (`node-client`, `react-swr-client`, or `fastapi-server`). The CLI loops over the configured generators in `oag.yaml` and invokes each one.
+The CLI resolves packs by ID — first checking installed packs on disk, then falling back to embedded packs.
 
 ## Examples
 

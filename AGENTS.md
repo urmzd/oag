@@ -2,39 +2,46 @@
 
 ## Identity
 
-You are an agent working on **oag** (OpenAPI Generator) — an OpenAPI 3.x code generator with a plugin-style architecture. It generates TypeScript/Node API clients, React/SWR hooks, and Python FastAPI server stubs from OpenAPI specs.
+You are an agent working on **oag** (OpenAPI Generator) — an OpenAPI 3.x code generator powered by a template pack engine. It generates TypeScript/Node API clients, React/SWR hooks, and Python FastAPI server stubs from OpenAPI specs.
 
 ## Architecture
 
-Rust workspace with five crates:
+Rust workspace with two crates and a set of declarative template packs:
 
-| Crate | Role |
-|-------|------|
-| `oag-core` | OpenAPI parser, intermediate representation (IR), transform pipeline, `CodeGenerator` trait |
-| `oag-node-client` | TypeScript/Node API client generator (zero runtime deps) |
-| `oag-react-swr-client` | React/SWR hooks generator (extends node-client) |
-| `oag-fastapi-server` | Python FastAPI server generator with Pydantic v2 models |
-| `oag-cli` | CLI entry point (`clap`) that orchestrates all generators |
+| Component | Role |
+|-----------|------|
+| `oag-core` | OpenAPI parser, intermediate representation (IR), transform pipeline, and template pack engine |
+| `oag-cli` | CLI entry point (`clap`) that resolves packs and orchestrates generation |
+| `packs/` | Declarative template packs — Jinja2 templates + TOML manifests |
 
 ```
-oag-cli --> [oag-node-client, oag-react-swr-client, oag-fastapi-server] --> oag-core
+oag-cli  -->  oag-core (engine + packs)
+                 ├── packs/node-client/
+                 ├── packs/react-swr-client/  (extends node-client)
+                 └── packs/fastapi-server/
 ```
 
-Each generator implements the `CodeGenerator` trait:
+Generators are defined as **template packs** rather than compiled Rust crates. Each pack contains a `pack.toml` manifest (metadata, type mappings, layouts, scaffold config) and `templates/` directory with Jinja2 `.j2` files. Packs support inheritance (`extends` in `pack.toml`). Built-in packs are embedded in the binary at compile time via `include_dir!`.
+
+The core engine API:
 
 ```rust
-pub trait CodeGenerator {
-    fn id(&self) -> config::GeneratorId;
-    fn generate(&self, ir: &ir::IrSpec, config: &config::GeneratorConfig) -> Result<Vec<GeneratedFile>, GeneratorError>;
-}
+pub fn generate(
+    ir: &IrSpec,
+    config: &GeneratorConfig,
+    pack: &TemplatePack,
+) -> Result<Vec<GeneratedFile>, GeneratorError>
 ```
 
 ## Key Files
 
 - `crates/oag-cli/src/main.rs` — CLI entry point
+- `crates/oag-core/src/engine/` — Template pack engine (rendering, context, pack resolution, type mapping)
 - `crates/oag-core/src/` — IR, parser, config, transform pipeline
 - `crates/oag-core/default-config.yaml` — Default `oag.yaml` config
-- `examples/` — Working examples (petstore, sse-chat, anthropic-messages, petstore-polymorphic)
+- `packs/*/pack.toml` — Template pack manifests
+- `packs/*/templates/` — Jinja2 templates
+- `examples/` — Working examples (petstore, sse-chat)
 
 ## Commands
 
@@ -60,8 +67,10 @@ pub trait CodeGenerator {
 
 ## Adding a New Generator
 
-1. Create a new crate under `crates/oag-<name>/`
-2. Implement `CodeGenerator` trait from `oag-core`
-3. Register the generator ID in `oag-core/src/config.rs` (`GeneratorId` enum)
-4. Wire it into `oag-cli/src/main.rs`
+1. Create a new directory under `packs/<name>/`
+2. Write a `pack.toml` manifest (see existing packs for reference)
+3. Add Jinja2 templates in `packs/<name>/templates/`
+4. Test with `oag generate` using your new pack ID in `oag.yaml`
 5. Add an example under `examples/`
+
+No Rust code changes are needed for new generators — packs are fully declarative.
