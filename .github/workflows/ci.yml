@@ -66,7 +66,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p oag
-      - uses: urmzd/teasr/.github/actions/teasr@main
+      - uses: urmzd/teasr@v0
       - uses: actions/upload-artifact@v4
         with:
           name: demo-gif
