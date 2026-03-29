@@ -1,5 +1,5 @@
 [package]
-name = "oag-cli"
+name = "oag"
 description = "CLI for the oag OpenAPI code generator"
 version = "0.13.0"
 edition.workspace = true
