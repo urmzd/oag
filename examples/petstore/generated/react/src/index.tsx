@@ -8,6 +8,7 @@ export {
   type RequestOptions,
   type RetryConfig,
 } from "./client";
+export * from "./guards";
 export * from "./hooks";
 export { ApiProvider, type ApiProviderProps, useApiClient } from "./provider";
 export { SSEError, type SSEOptions, streamSse } from "./sse";
