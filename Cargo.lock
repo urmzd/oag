@@ -432,7 +432,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
-name = "oag-cli"
+name = "oag"
 version = "0.13.0"
 dependencies = [
  "anyhow",
