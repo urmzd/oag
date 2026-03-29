@@ -1,4 +1,5 @@
 pub mod config;
+pub mod engine;
 pub mod error;
 pub mod ir;
 pub mod parse;
@@ -44,14 +45,4 @@ pub enum GeneratorError {
 
     #[error("generation failed: {0}")]
     Other(String),
-}
-
-/// Trait for code generators that produce files from an IR spec.
-pub trait CodeGenerator {
-    fn id(&self) -> config::GeneratorId;
-    fn generate(
-        &self,
-        ir: &ir::IrSpec,
-        config: &config::GeneratorConfig,
-    ) -> Result<Vec<GeneratedFile>, GeneratorError>;
 }

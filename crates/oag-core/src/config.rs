@@ -95,58 +95,28 @@ impl Default for OagConfig {
     }
 }
 
-/// A generator plugin identifier.
+/// A generator identifier — any string that resolves to a template pack.
 ///
-/// Each variant corresponds to a code generator crate in the workspace.
-/// Used as the key in the `generators` map in `oag.yaml`.
+/// Built-in IDs:
+/// - `node-client` — TypeScript/Node API client
+/// - `react-swr-client` — React/SWR hooks
+/// - `fastapi-server` — Python FastAPI server stubs
 ///
-/// # YAML values
-///
-/// - `node-client` — TypeScript/Node API client (zero runtime dependencies)
-/// - `react-swr-client` — React/SWR hooks (extends node-client with hooks + provider)
-/// - `fastapi-server` — Python FastAPI server stubs with Pydantic v2 models
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GeneratorId {
-    /// TypeScript/Node.js API client using native `fetch`. Zero runtime dependencies.
-    NodeClient,
-    /// React hooks built on SWR for queries, mutations, and SSE streaming.
-    /// Internally generates all node-client files plus React-specific hooks and provider.
-    ReactSwrClient,
-    /// Python FastAPI server with Pydantic v2 models and route stubs.
-    FastapiServer,
-}
+/// Custom IDs resolve to template packs installed in the data directory
+/// or specified via an explicit path.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[serde(transparent)]
+pub struct GeneratorId(pub String);
 
 impl GeneratorId {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            GeneratorId::NodeClient => "node-client",
-            GeneratorId::ReactSwrClient => "react-swr-client",
-            GeneratorId::FastapiServer => "fastapi-server",
-        }
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
 impl fmt::Display for GeneratorId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for GeneratorId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "node-client" => Ok(GeneratorId::NodeClient),
-            "react-swr-client" => Ok(GeneratorId::ReactSwrClient),
-            "fastapi-server" => Ok(GeneratorId::FastapiServer),
-            other => Err(de::Error::unknown_variant(
-                other,
-                &["node-client", "react-swr-client", "fastapi-server"],
-            )),
-        }
+        write!(f, "{}", self.0)
     }
 }
 
@@ -456,13 +426,13 @@ fn convert_legacy(legacy: LegacyConfig) -> OagConfig {
     match (&legacy.target, &legacy.output_options.layout) {
         (LegacyTargetKind::Typescript, _) => {
             generators.insert(
-                GeneratorId::NodeClient,
+                GeneratorId("node-client".into()),
                 base_gen_config(legacy.output.clone()),
             );
         }
         (LegacyTargetKind::React, _) => {
             generators.insert(
-                GeneratorId::ReactSwrClient,
+                GeneratorId("react-swr-client".into()),
                 base_gen_config(legacy.output.clone()),
             );
         }
@@ -471,15 +441,21 @@ fn convert_legacy(legacy: LegacyConfig) -> OagConfig {
             // everything together using the React generator (which includes TS files).
             // Map this to a single react-swr-client generator.
             generators.insert(
-                GeneratorId::ReactSwrClient,
+                GeneratorId("react-swr-client".into()),
                 base_gen_config(legacy.output.clone()),
             );
         }
         (LegacyTargetKind::All, LegacyOutputLayout::Split) => {
             let ts_output = format!("{}/typescript", legacy.output);
             let react_output = format!("{}/react", legacy.output);
-            generators.insert(GeneratorId::NodeClient, base_gen_config(ts_output));
-            generators.insert(GeneratorId::ReactSwrClient, base_gen_config(react_output));
+            generators.insert(
+                GeneratorId("node-client".into()),
+                base_gen_config(ts_output),
+            );
+            generators.insert(
+                GeneratorId("react-swr-client".into()),
+                base_gen_config(react_output),
+            );
         }
     }
 
@@ -576,7 +552,7 @@ generators:
         assert_eq!(config.naming.strategy, NamingStrategy::UseRouteBased);
         assert_eq!(config.generators.len(), 2);
 
-        let node = &config.generators[&GeneratorId::NodeClient];
+        let node = &config.generators[&GeneratorId("node-client".into())];
         assert_eq!(node.output, "out/node");
         assert_eq!(node.layout, OutputLayout::Modular);
         assert_eq!(node.base_url, Some("https://api.example.com".to_string()));
@@ -586,7 +562,7 @@ generators:
         assert_eq!(scaffold["formatter"], "biome");
         assert_eq!(scaffold["bundler"], "tsdown");
 
-        let react = &config.generators[&GeneratorId::ReactSwrClient];
+        let react = &config.generators[&GeneratorId("react-swr-client".into())];
         assert_eq!(react.output, "out/react");
         assert_eq!(react.layout, OutputLayout::Split);
         assert_eq!(react.split_by, Some(SplitBy::Tag));
@@ -613,9 +589,13 @@ client:
         let config: OagConfig = serde_json::from_value(value).unwrap();
         assert_eq!(config.input, "spec.yaml");
         assert_eq!(config.generators.len(), 1);
-        assert!(config.generators.contains_key(&GeneratorId::NodeClient));
+        assert!(
+            config
+                .generators
+                .contains_key(&GeneratorId("node-client".into()))
+        );
 
-        let node_gen = &config.generators[&GeneratorId::NodeClient];
+        let node_gen = &config.generators[&GeneratorId("node-client".into())];
         assert_eq!(node_gen.output, "out");
         assert_eq!(
             node_gen.base_url,
@@ -634,7 +614,11 @@ target: react
         let value: serde_json::Value = serde_yaml_ng::from_str(yaml).unwrap();
         let config: OagConfig = serde_json::from_value(value).unwrap();
         assert_eq!(config.generators.len(), 1);
-        assert!(config.generators.contains_key(&GeneratorId::ReactSwrClient));
+        assert!(
+            config
+                .generators
+                .contains_key(&GeneratorId("react-swr-client".into()))
+        );
     }
 
     #[test]
@@ -650,7 +634,11 @@ output_options:
         let config: OagConfig = serde_json::from_value(value).unwrap();
         // Single layout with "all" maps to react-swr-client (which includes TS)
         assert_eq!(config.generators.len(), 1);
-        assert!(config.generators.contains_key(&GeneratorId::ReactSwrClient));
+        assert!(
+            config
+                .generators
+                .contains_key(&GeneratorId("react-swr-client".into()))
+        );
     }
 
     #[test]
@@ -665,14 +653,22 @@ output_options:
         let value: serde_json::Value = serde_yaml_ng::from_str(yaml).unwrap();
         let config: OagConfig = serde_json::from_value(value).unwrap();
         assert_eq!(config.generators.len(), 2);
-        assert!(config.generators.contains_key(&GeneratorId::NodeClient));
-        assert!(config.generators.contains_key(&GeneratorId::ReactSwrClient));
+        assert!(
+            config
+                .generators
+                .contains_key(&GeneratorId("node-client".into()))
+        );
+        assert!(
+            config
+                .generators
+                .contains_key(&GeneratorId("react-swr-client".into()))
+        );
         assert_eq!(
-            config.generators[&GeneratorId::NodeClient].output,
+            config.generators[&GeneratorId("node-client".into())].output,
             "out/typescript"
         );
         assert_eq!(
-            config.generators[&GeneratorId::ReactSwrClient].output,
+            config.generators[&GeneratorId("react-swr-client".into())].output,
             "out/react"
         );
     }
@@ -726,13 +722,13 @@ generators:
         let value: serde_json::Value = serde_yaml_ng::from_str(yaml).unwrap();
         let config: OagConfig = serde_json::from_value(value).unwrap();
 
-        let node = &config.generators[&GeneratorId::NodeClient];
+        let node = &config.generators[&GeneratorId("node-client".into())];
         assert!(
             node.scaffold.is_none(),
             "scaffold: false should become None"
         );
 
-        let fastapi = &config.generators[&GeneratorId::FastapiServer];
+        let fastapi = &config.generators[&GeneratorId("fastapi-server".into())];
         assert!(
             fastapi.scaffold.is_none(),
             "scaffold: false should become None"
@@ -749,7 +745,7 @@ generators:
         let value: serde_json::Value = serde_yaml_ng::from_str(yaml).unwrap();
         let config: OagConfig = serde_json::from_value(value).unwrap();
 
-        let node = &config.generators[&GeneratorId::NodeClient];
+        let node = &config.generators[&GeneratorId("node-client".into())];
         assert!(node.scaffold.is_none());
     }
 }
