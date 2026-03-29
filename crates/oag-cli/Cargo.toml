@@ -14,16 +14,14 @@ path = "src/main.rs"
 
 [dependencies]
 oag-core = { workspace = true }
-oag-node-client = { workspace = true }
-oag-react-swr-client = { workspace = true }
-oag-fastapi-server = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-indexmap = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
 crossterm = { workspace = true }
 indicatif = { workspace = true }
+include_dir = { workspace = true }
+toml = { workspace = true }
