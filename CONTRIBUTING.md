@@ -12,7 +12,7 @@ Thanks for your interest in contributing to `oag`.
 
 ```sh
 git clone https://github.com/urmzd/oag.git
-cd openapi-generator
+cd oag
 just init
 ```
 
@@ -35,11 +35,12 @@ This installs git hooks and adds the `clippy` and `rustfmt` components.
 
 ```
 crates/
-  oag-core/              Core parser, IR types, transform pipeline, and CodeGenerator trait
-  oag-node-client/       TypeScript/Node client generator (zero deps)
-  oag-react-swr-client/  React/SWR hooks generator (extends node-client)
-  oag-fastapi-server/    Python FastAPI server generator (Pydantic v2)
+  oag-core/              Core parser, IR types, transform pipeline, and template pack engine
   oag-cli/               CLI binary (oag)
+packs/
+  node-client/           TypeScript/Node client template pack
+  react-swr-client/      React/SWR hooks template pack (extends node-client)
+  fastapi-server/        Python FastAPI server template pack (Pydantic v2)
 examples/
   petstore/              Node client + React client examples (Petstore 3.2)
   sse-chat/              Node client + React + SSE streaming examples
@@ -80,40 +81,21 @@ Breaking changes: append `!` after the type/scope (e.g. `feat!: drop Node 18 sup
 
 ## Adding a new generator
 
-1. Create a new crate under `crates/` (e.g., `oag-go-client`)
-2. Add it to the workspace `Cargo.toml` members
-3. Depend on `oag-core` in the new crate's `Cargo.toml`
-4. Add a new variant to `GeneratorId` in `crates/oag-core/src/config.rs`
-5. Implement the `CodeGenerator` trait:
+Generators are now **template packs** — no Rust code changes needed.
 
-```rust
-use oag_core::{CodeGenerator, GeneratedFile, GeneratorError, config, ir};
+1. Create a new directory under `packs/` (e.g., `packs/go-client/`)
+2. Write a `pack.toml` manifest defining metadata, type mappings, layouts, and scaffold config (see existing packs for reference)
+3. Add Jinja2 templates in `packs/go-client/templates/` (use `.j2` extension)
+4. Use `extends` in `pack.toml` if your pack should inherit from an existing pack
+5. Add your pack ID to `oag.yaml` under `generators:` and test with `oag generate`
+6. Add an example under `examples/`
+7. Add integration tests in `tests/integration/`
 
-pub struct GoClientGenerator;
+To install a custom pack without modifying the source:
 
-impl CodeGenerator for GoClientGenerator {
-    fn id(&self) -> config::GeneratorId {
-        config::GeneratorId::GoClient // (add this variant to the enum)
-    }
-
-    fn generate(
-        &self,
-        ir: &ir::IrSpec,
-        config: &config::GeneratorConfig,
-    ) -> Result<Vec<GeneratedFile>, GeneratorError> {
-        // ...
-    }
-}
+```sh
+oag templates install /path/to/your/pack
 ```
-
-6. Register the generator in `crates/oag-cli/src/main.rs`:
-   - Import the generator
-   - Add it to the generator registry
-   - Handle its `GeneratorId` in the match arms
-
-7. Add documentation: `crates/oag-go-client/README.md`
-8. Add integration tests in `tests/integration/`
-9. Update the `just publish` command in `justfile` to include the new crate
 
 ## Publishing
 
@@ -124,8 +106,5 @@ just publish
 ```
 
 Crates are published in dependency order:
-1. `oag-core` (foundation)
-2. `oag-node-client` (depends on core)
-3. `oag-react-swr-client` (depends on core)
-4. `oag-fastapi-server` (depends on core)
-5. `oag-cli` (depends on all generators)
+1. `oag-core` (foundation — includes template pack engine)
+2. `oag-cli` (depends on core, embeds built-in packs)
