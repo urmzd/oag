@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+{%- if react %}
+    "jsx": "react-jsx",
+{%- endif %}
+{%- if source_dir %}
+    "outDir": "dist",
+    "rootDir": "{{ source_dir }}"
+{%- else %}
+    "outDir": "dist"
+{%- endif %}
+  },
+  "include": [{% if source_dir %}"{{ source_dir }}"{% else %}"**/*"{% endif %}]
+}

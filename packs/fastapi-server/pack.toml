@@ -1,0 +1,57 @@
+[pack]
+id = "fastapi-server"
+name = "FastAPI Server"
+version = "0.13.0"
+description = "Python FastAPI server stubs with Pydantic v2 models"
+field_casing = "snake"
+operation_casing = "snake"
+
+[type_map]
+string = "str"
+number = "float"
+integer = "int"
+boolean = "bool"
+null = "None"
+datetime = "str"
+binary = "bytes"
+any = "Any"
+void = "None"
+string_literal = 'Literal["{value}"]'
+integer_literal = "Literal[{value}]"
+ref = "{name}"
+array = "list[{inner}]"
+map = "dict[str, {inner}]"
+object = "dict[str, Any]"
+object_empty = "dict[str, Any]"
+object_field_required = "{name}: {type}"
+object_field_optional = "{name}: {type}"
+object_field_separator = ", "
+union_separator = " | "
+intersection_separator = ", "
+optional_suffix = " | None = None"
+
+[filters]
+escape_docstring = { replace = '"""', with = '\\"\\"\\\"' }
+
+[layouts.modular]
+files = [
+  { path = "models.py", template = "models.py.j2" },
+  { path = "routes.py", template = "routes.py.j2" },
+  { path = "sse.py", template = "sse.py.j2" },
+  { path = "main.py", template = "app.py.j2" },
+  { path = "__init__.py", template = "__init__.py.j2" },
+]
+
+[scaffold]
+files = [
+  { path = "pyproject.toml", template = "pyproject.toml.j2" },
+  { path = "ruff.toml", template = "ruff.toml.j2", when = "scaffold.formatter == 'ruff'" },
+]
+test_files = [
+  { path = "conftest.py", template = "conftest.py.j2", when = "scaffold.test_runner" },
+  { path = "test_routes.py", template = "test_routes.py.j2", when = "scaffold.test_runner" },
+]
+
+[formatters]
+ruff_format = { detect = "ruff.toml", command = "ruff format ." }
+ruff_lint = { detect = "ruff.toml", command = "ruff check --fix ." }
