@@ -53,8 +53,8 @@ toml = "0.8"
 # Regex (bundled mode)
 regex = "1"
 
-# Embed template packs
-include_dir = "0.7"
+# HTTP client (pack downloads)
+ureq = "3"
 
 # Testing
 insta = { version = "1", features = ["yaml"] }
