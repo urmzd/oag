@@ -212,23 +212,6 @@ impl TemplatePack {
         })
     }
 
-    /// Load a template pack from embedded data (include_dir).
-    pub fn from_embedded(
-        manifest_str: &str,
-        template_files: Vec<(String, String)>,
-    ) -> Result<Self, GeneratorError> {
-        let manifest: PackManifest = toml::from_str(manifest_str).map_err(|e| {
-            GeneratorError::Other(format!("failed to parse embedded pack.toml: {e}"))
-        })?;
-
-        let templates = template_files.into_iter().collect();
-
-        Ok(Self {
-            manifest,
-            templates,
-        })
-    }
-
     /// Merge another pack into this one (for `extends` support).
     /// The extending pack's entries override the base.
     pub fn merge_from(&mut self, extending: &TemplatePack) {
