@@ -8,7 +8,7 @@ name = "demo"
 theme = "dracula"
 cols = 100
 rows = 30
-cwd = "/tmp/oag-demo"
+cwd = "examples/petstore"
 formats = [{ output_type = "gif" }]
 frame_duration = 120
 
@@ -25,10 +25,10 @@ text = """
 duration = 1500
 center = true
 
-# Validate a spec
+# Show the config
 [[scenes.interactions]]
 type = "type"
-text = "oag validate -i $SPEC"
+text = "cat oag.yaml"
 speed = 20
 
 [[scenes.interactions]]
@@ -37,12 +37,12 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 500
+duration = 800
 
-# Init + generate
+# Generate from config
 [[scenes.interactions]]
 type = "type"
-text = "oag init && oag generate -i $SPEC"
+text = "oag generate"
 speed = 20
 
 [[scenes.interactions]]
@@ -56,7 +56,7 @@ duration = 500
 # Preview generated types
 [[scenes.interactions]]
 type = "type"
-text = "head -n 25 src/generated/node/src/types.ts"
+text = "head -n 25 generated/node/src/types.ts"
 speed = 20
 
 [[scenes.interactions]]
@@ -70,7 +70,7 @@ duration = 800
 # Preview generated client
 [[scenes.interactions]]
 type = "type"
-text = "head -n 30 src/generated/node/src/client.ts"
+text = "head -n 30 generated/node/src/client.ts"
 speed = 20
 
 [[scenes.interactions]]
