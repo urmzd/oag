@@ -66,9 +66,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p oag
-      - run: mkdir -p /tmp/oag-demo
       - run: echo "${{ github.workspace }}/target/release" >> "$GITHUB_PATH"
+      - name: Install template packs
+        run: |
+          oag templates install --id node-client
+          oag templates install --id react-swr-client
       - uses: urmzd/teasr@v0
+        with:
+          version: "0.14.0"
       - uses: actions/upload-artifact@v4
         with:
           name: demo-gif
