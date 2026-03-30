@@ -15,50 +15,17 @@ use oag_core::ir::IrSpec;
 use oag_core::parse;
 use oag_core::transform::{self, TransformOptions};
 
-// ── Embedded built-in packs ──────────────────────────────────────────
+mod github;
 
-use include_dir::{Dir, include_dir};
-
-static PACKS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../packs");
-
-/// Load an embedded built-in template pack by ID.
-fn load_embedded_pack(pack_id: &str) -> Option<TemplatePack> {
-    let pack_dir = PACKS_DIR.get_dir(pack_id)?;
-
-    // include_dir stores files with full relative paths, so we need to
-    // construct the path relative to the packs root
-    let manifest_path = format!("{}/pack.toml", pack_id);
-    let manifest_str = pack_dir
-        .get_file(&manifest_path)
-        .or_else(|| pack_dir.get_file("pack.toml"))?
-        .contents_utf8()?;
-
-    let templates_path = format!("{}/templates", pack_id);
-    let templates_dir = pack_dir
-        .get_dir(&templates_path)
-        .or_else(|| pack_dir.get_dir("templates"))?;
-    let template_files: Vec<(String, String)> = templates_dir
-        .files()
-        .filter_map(|f| {
-            let name = f.path().file_name()?.to_string_lossy().to_string();
-            let content = f.contents_utf8()?.to_string();
-            Some((name, content))
-        })
-        .collect();
-
-    TemplatePack::from_embedded(manifest_str, template_files).ok()
-}
-
-/// Resolve a template pack: disk → embedded, with extends support.
+/// Resolve a template pack from disk, with extends support.
 fn resolve_pack(pack_id: &str) -> Result<TemplatePack> {
     let pack = if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
         TemplatePack::from_dir(&disk_path)
             .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?
-    } else if let Some(embedded) = load_embedded_pack(pack_id) {
-        embedded
     } else {
         anyhow::bail!(
-            "template pack '{}' not found. Run `oag templates list` to see available packs.",
+            "template pack '{}' not found. Run `oag templates install --id {}` to download it.",
+            pack_id,
             pack_id
         );
     };
@@ -140,11 +107,15 @@ enum Commands {
         format: InspectFormat,
     },
 
-    /// Create an oag.yaml config file with defaults and commented examples
+    /// Create an oag.yaml config file and download template packs from GitHub
     Init {
         /// Overwrite an existing oag.yaml file
         #[arg(long)]
         force: bool,
+
+        /// Pack IDs to download (e.g., node-client, fastapi-server)
+        #[arg(short, long)]
+        pack: Vec<String>,
     },
 
     /// Generate shell completion scripts for tab-completion (bash, zsh, fish, powershell, elvish)
@@ -164,13 +135,13 @@ enum Commands {
 enum TemplatesAction {
     /// List installed template packs
     List,
-    /// Install a template pack from a local directory or extract built-in packs
+    /// Install a template pack from a local directory or download from GitHub
     Install {
-        /// Path to a template pack directory, or --builtin to extract all built-in packs
+        /// Path to a local template pack directory
         source: Option<PathBuf>,
-        /// Extract all built-in packs to the templates directory
+        /// Download a pack by ID from GitHub (e.g., node-client)
         #[arg(long)]
-        builtin: bool,
+        id: Option<String>,
     },
     /// Remove an installed template pack
     Remove {
@@ -196,7 +167,7 @@ fn main() -> Result<()> {
         Commands::Generate { input } => cmd_generate(input),
         Commands::Validate { input } => cmd_validate(input),
         Commands::Inspect { input, format } => cmd_inspect(input, format),
-        Commands::Init { force } => cmd_init(force),
+        Commands::Init { force, pack } => cmd_init(force, pack),
         Commands::Completions { shell } => {
             let mut cmd = <Cli as clap::CommandFactory>::command();
             clap_complete::generate(shell, &mut cmd, "oag", &mut std::io::stdout());
@@ -451,7 +422,7 @@ fn build_inspect_summary(ir: &IrSpec) -> serde_json::Value {
     })
 }
 
-fn cmd_init(force: bool) -> Result<()> {
+fn cmd_init(force: bool, packs: Vec<String>) -> Result<()> {
     let config_path = PathBuf::from(CONFIG_FILE_NAME);
 
     if config_path.exists() && !force {
@@ -463,6 +434,33 @@ fn cmd_init(force: bool) -> Result<()> {
 
     fs::write(&config_path, config::default_config_content())?;
     ui::phase_ok("created", Some(&config_path.display().to_string()));
+
+    // Download requested packs
+    for pack_id in &packs {
+        install_pack_from_github(pack_id)?;
+    }
+
+    Ok(())
+}
+
+/// Download a pack from GitHub and install it, resolving `extends` dependencies.
+fn install_pack_from_github(pack_id: &str) -> Result<()> {
+    let templates_dir = resolve::templates_dir()
+        .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?;
+    let target = templates_dir.join(pack_id);
+
+    github::download_pack(pack_id, &target)?;
+    ui::phase_ok("installed", Some(&format!("{pack_id} (from GitHub)")));
+
+    // If pack extends another, download the base too
+    let pack = TemplatePack::from_dir(&target).map_err(|e| anyhow::anyhow!(e))?;
+    if let Some(ref base_id) = pack.manifest.pack.extends {
+        let base_target = templates_dir.join(base_id.as_str());
+        if !base_target.join("pack.toml").exists() {
+            install_pack_from_github(base_id)?;
+        }
+    }
+
     Ok(())
 }
 
@@ -471,7 +469,7 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
         TemplatesAction::List => {
             let installed = resolve::list_installed_packs();
             if installed.is_empty() {
-                ui::info("No template packs installed on disk.");
+                ui::info("No template packs installed.");
             } else {
                 ui::header("Installed template packs");
                 for (id, path) in &installed {
@@ -479,49 +477,23 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
                 }
             }
 
-            // Also list built-in packs
-            ui::header("Built-in packs (always available)");
-            for dir in PACKS_DIR.dirs() {
-                let id = dir.path().file_name().unwrap_or_default().to_string_lossy();
-                if let Some(pack_toml) = dir.get_file("pack.toml")
-                    && let Some(content) = pack_toml.contents_utf8()
-                    && let Ok(manifest) = toml::from_str::<engine::pack::PackManifest>(content)
-                {
-                    ui::phase_ok(
-                        &id,
-                        Some(&format!(
-                            "{} (v{})",
-                            manifest.pack.name, manifest.pack.version
-                        )),
-                    );
-                    continue;
-                }
-                ui::phase_ok(&id, None);
+            let installed_ids: Vec<&str> = installed.iter().map(|(id, _)| id.as_str()).collect();
+            ui::header("Available packs (download with `oag templates install --id <pack>`)");
+            for &pack_id in github::KNOWN_PACKS {
+                let marker = if installed_ids.contains(&pack_id) {
+                    " (installed)"
+                } else {
+                    ""
+                };
+                ui::phase_ok(pack_id, Some(marker));
             }
             Ok(())
         }
-        TemplatesAction::Install { source, builtin } => {
-            if builtin {
-                // Extract all built-in packs
-                let Some(templates_dir) = resolve::templates_dir() else {
-                    anyhow::bail!("could not determine data directory");
-                };
-                fs::create_dir_all(&templates_dir)?;
-
-                for dir in PACKS_DIR.dirs() {
-                    let id = dir
-                        .path()
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-                    let target = templates_dir.join(&id);
-                    dir.extract(&target)?;
-                    ui::phase_ok("installed", Some(&format!("{id} → {}", target.display())));
-                }
+        TemplatesAction::Install { source, id } => {
+            if let Some(pack_id) = id {
+                install_pack_from_github(&pack_id)?;
                 Ok(())
             } else if let Some(source_path) = source {
-                // Install from local directory
                 let pack_toml = source_path.join("pack.toml");
                 if !pack_toml.exists() {
                     anyhow::bail!("no pack.toml found in {}", source_path.display());
@@ -533,7 +505,7 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
                 ui::phase_ok("installed", Some(&format!("{id} → {}", target.display())));
                 Ok(())
             } else {
-                anyhow::bail!("provide a source path or use --builtin");
+                anyhow::bail!("provide a source path or use --id <pack_id>");
             }
         }
         TemplatesAction::Remove { id } => {

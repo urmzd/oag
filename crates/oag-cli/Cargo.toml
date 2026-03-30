@@ -23,5 +23,6 @@ serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
 crossterm = { workspace = true }
 indicatif = { workspace = true }
-include_dir = { workspace = true }
+ureq = { workspace = true }
+serde = { workspace = true }
 toml = { workspace = true }
