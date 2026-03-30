@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.15.0 (2026-03-30)
+
+### Features
+
+- replace embedded packs with GitHub downloads ([bca6281](https://github.com/urmzd/oag/commit/bca6281d1bbf5acf4c817d6662d35e809c584080))
+
+### Bug Fixes
+
+- **demo**: update teasr demo for config-driven pack workflow ([112f6f3](https://github.com/urmzd/oag/commit/112f6f38e4f26af7aa3ff32109248eb453bc0d69))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([ffaf504](https://github.com/urmzd/oag/commit/ffaf504ce201cba96b956639898b34bd77a4d806))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.14.0...v0.15.0)
+
+
 ## 0.14.0 (2026-03-29)
 
 ### Features
