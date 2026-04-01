@@ -3,20 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client";
 import { ApiClient, ApiError } from "./client";
 import type {
-  ContentBlockDeltaEvent,
-  ContentBlockStartEvent,
-  ContentBlockStopEvent,
   CountTokensRequest,
   CountTokensResponse,
   CreateMessageRequest,
-  ErrorEvent,
-  MessageDeltaEvent,
   MessageResponse,
-  MessageStartEvent,
-  MessageStopEvent,
   ModelInfo,
   ModelListResponse,
-  PingEvent,
 } from "./types";
 
 function createMockFetch(status = 200, body: unknown = {}) {
@@ -365,7 +357,7 @@ describe("ApiClient", () => {
         retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
       };
       const client = new ApiClient(config);
-      await client.createMessage();
+      await client.createMessage("test", {} as CreateMessageRequest);
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });

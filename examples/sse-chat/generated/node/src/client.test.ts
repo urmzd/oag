@@ -3,8 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client";
 import { ApiClient, ApiError } from "./client";
 import type {
-  ChatCompletionChunk,
-  ChatCompletionDone,
   ChatCompletionRequest,
   ChatCompletionResponse,
   FeedbackRequest,

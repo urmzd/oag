@@ -203,7 +203,7 @@ describe("ApiClient", () => {
         retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
       };
       const client = new ApiClient(config);
-{% for op in operations if op.kind == "standard" %}
+{% for op in test_operations if op.kind == "standard" %}
 {% if loop.first %}
       await client.{{ op.method_name }}({{ op.test_call_args }});
       expect(mockFetch).toHaveBeenCalledTimes(2);

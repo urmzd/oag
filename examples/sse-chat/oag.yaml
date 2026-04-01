@@ -29,3 +29,4 @@ generators:
       formatter: biome
       test_runner: vitest
       bundler: tsdown
+      react: true
