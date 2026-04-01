@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.17.0 (2026-04-01)
+
+### Features
+
+- **packs**: add validator configurations to all packs ([0833fc2](https://github.com/urmzd/oag/commit/0833fc242445738c83cb848b66681f478d23d091))
+- **cli**: add check command for validating generated output ([1a5a5ec](https://github.com/urmzd/oag/commit/1a5a5ecc167f38620dd7682bf431efdc2a771672))
+- **core**: add validator configuration support to pack manifest ([5536e28](https://github.com/urmzd/oag/commit/5536e28ba5f213354489d6b2d32860bfd6647f94))
+
+### Bug Fixes
+
+- resolve release pipeline template failures (#11) ([aed893a](https://github.com/urmzd/oag/commit/aed893a0a9b2ef4770fb18dca9bae6b832ad34f4))
+
+### Documentation
+
+- update pack manifest filename references ([8a5e977](https://github.com/urmzd/oag/commit/8a5e977eb014556d4d007d1cc46f58314ae8aefb))
+
+### Refactoring
+
+- **templates**: fix RequestInit type in SSE stream handler ([5b58bbd](https://github.com/urmzd/oag/commit/5b58bbded0e961cd998092010d99d8e25ca5ac77))
+- **cli**: support pinned pack versions and GitHub caching ([261b068](https://github.com/urmzd/oag/commit/261b0689c79e6dc979fe4aafba8c37ae258c47b7))
+- **engine**: update pack resolution to use oag.pack.toml ([34f1fb7](https://github.com/urmzd/oag/commit/34f1fb79a972203ce518079017d5c45fd6184c09))
+- **pack**: rename manifest files to oag.pack.toml ([9fabd36](https://github.com/urmzd/oag/commit/9fabd36d7dd8c97a3d83a01241fba736befaf55b))
+
+### Miscellaneous
+
+- **release**: add node setup and update pre-release validation ([7a5279b](https://github.com/urmzd/oag/commit/7a5279bede822c096b861c663e405350cc2632dd))
+- **packs**: remove deprecated pack configurations ([26321fb](https://github.com/urmzd/oag/commit/26321fbf29f222de681069bbd7fca7459c10ef2c))
+- **config**: add pre-release validation ([84103eb](https://github.com/urmzd/oag/commit/84103eb4b673dc1530c180055be6a70bfc94eba0))
+- **build**: update cargo package name references ([208cb9c](https://github.com/urmzd/oag/commit/208cb9cb896449ea785c66706d0f7886ddbb5df0))
+- **generated**: regenerate examples with guards and updated SSE ([e852169](https://github.com/urmzd/oag/commit/e852169679b1dcbf7103db958e72592b336357eb))
+- sync Cargo.lock [skip ci] ([062e637](https://github.com/urmzd/oag/commit/062e6376c7cf95440aeafe17117bb3922ee3b01a))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.16.0...v0.17.0)
+
+
 ## 0.16.0 (2026-04-01)
 
 ### Breaking Changes
