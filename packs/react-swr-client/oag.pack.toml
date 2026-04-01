@@ -1,0 +1,38 @@
+[pack]
+id = "react-swr-client"
+name = "React SWR Client"
+version = "0.13.0"
+description = "React hooks + SWR client wrapping the TypeScript API client"
+extends = "node-client"
+field_casing = "camel"
+operation_casing = "camel"
+
+[type_map]
+# Inherited from node-client
+
+[filters]
+escape_jsdoc = { replace = "*/", with = "*\\/" }
+
+[layouts.modular]
+# Base files inherited from node-client via extends
+# These are the React-specific additions
+extra_files = [
+  { path = "{source_dir}/hooks.tsx", template = "hooks.ts.j2" },
+  { path = "{source_dir}/provider.tsx", template = "provider.ts.j2" },
+  { path = "{source_dir}/index.tsx", template = "index.ts.j2" },
+]
+
+[scaffold]
+files = [
+  { path = "package.json", template = "package.json.j2" },
+  { path = "tsconfig.json", template = "tsconfig.json.j2" },
+  { path = "biome.json", template = "biome.json.j2", when = "scaffold.formatter == 'biome'" },
+  { path = "tsdown.config.ts", template = "tsdown.config.ts.j2", when = "scaffold.bundler == 'tsdown'" },
+]
+test_files = [
+  { path = "{source_dir}/client.test.ts", template = "client.test.ts.j2", when = "scaffold.test_runner" },
+  { path = "{source_dir}/hooks.test.tsx", template = "hooks.test.ts.j2", when = "scaffold.test_runner" },
+]
+
+[formatters]
+biome = { detect = "biome.json", command = "npx @biomejs/biome check --write ." }
