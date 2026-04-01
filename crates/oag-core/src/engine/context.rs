@@ -1392,7 +1392,8 @@ fn collect_test_type_imports<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> 
                 collect_test_ref_names(&resp.response_type, &mut names);
             }
             IrReturnType::Sse(sse) => {
-                collect_test_ref_names(&sse.event_type, &mut names);
+                // SSE tests only check for async iterable — event types are never used as
+                // type annotations, so skip them to avoid unused-import lint errors.
                 if let Some(ref json_resp) = sse.json_response {
                     collect_test_ref_names(&json_resp.response_type, &mut names);
                 }

@@ -202,11 +202,11 @@ export class ApiClient {
     let serializedBody: BodyInit | undefined;
     if (hasBody) {
       if (isMultipart) {
-        serializedBody = buildFormData(options!.body as Record<string, unknown>);
+        serializedBody = buildFormData(options?.body as Record<string, unknown>);
       } else if (contentType === "application/json") {
-        serializedBody = JSON.stringify(options!.body);
+        serializedBody = JSON.stringify(options?.body);
       } else {
-        serializedBody = options!.body as BodyInit;
+        serializedBody = options?.body as BodyInit;
       }
     }
 
