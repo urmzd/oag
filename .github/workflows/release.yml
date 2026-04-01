@@ -48,6 +48,10 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
       - name: Release
         id: sr
         uses: urmzd/sr@v3

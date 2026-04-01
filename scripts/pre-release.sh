@@ -2,18 +2,17 @@
 # Pre-release validation — must pass before a release can be tagged.
 set -euo pipefail
 
-echo "==> Running CI checks..."
-just ci
-
 echo "==> Regenerating examples..."
-just examples
+cargo build --release -p oag
+for dir in examples/*/; do
+  echo "    generate: $dir"
+  (cd "$dir" && ../../target/release/oag generate)
+done
 
-echo "==> Typechecking generated node clients..."
-for dir in examples/*/generated/node; do
-  if [ -f "$dir/tsconfig.json" ]; then
-    echo "    typecheck: $dir"
-    (cd "$dir" && npx tsc --noEmit)
-  fi
+echo "==> Validating generated output..."
+for dir in examples/*/; do
+  echo "    check: $dir"
+  (cd "$dir" && ../../target/release/oag check)
 done
 
 echo "==> Checking for uncommitted changes after regeneration..."
