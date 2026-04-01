@@ -1,48 +1,48 @@
 {
-  "name": "{{ name }}",
+  "name": "{{ scaffold.package_name or '' }}",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-{% if repository %}
+{% if scaffold.repository %}
   "repository": {
     "type": "git",
-    "url": "{{ repository }}"
+    "url": "{{ scaffold.repository }}"
   },
 {% endif %}
   "scripts": {
-{% if tsdown %}
+{% if scaffold.bundler == 'tsdown' %}
     "build": "tsdown",
 {% endif %}
-{% if biome %}
+{% if scaffold.formatter == 'biome' %}
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",
 {% endif %}
-{% if vitest %}
-    "test": "vitest run",
+{% if scaffold.test_runner %}
+    "test": "{{ scaffold.test_runner }} run",
 {% endif %}
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-{%- if react %}
+{%- if scaffold.react %}
     "react": "^19.0.0",
     "swr": "^2.2.0"
 {%- endif %}
   },
   "devDependencies": {
-{%- if biome %}
-    "@biomejs/biome": "^2.0.0",
+{%- if scaffold.formatter == 'biome' %}
+    "@biomejs/biome": "^2.4.0",
 {%- endif %}
-{%- if react %}
+{%- if scaffold.react %}
     "@types/react": "^19.0.0",
 {%- endif %}
-{%- if tsdown %}
+{%- if scaffold.bundler == 'tsdown' %}
     "tsdown": "^0.12.0",
 {%- endif %}
-{%- if vitest %}
+{%- if scaffold.test_runner == 'vitest' %}
     "vitest": "^3.0.0",
 {%- endif %}
     "typescript": "^5.7.0"
