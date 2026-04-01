@@ -14,7 +14,7 @@ pub fn templates_dir() -> Option<PathBuf> {
 pub fn resolve_pack_path(pack_id: &str, explicit_path: Option<&Path>) -> Option<PathBuf> {
     // 1. Explicit path
     if let Some(path) = explicit_path
-        && path.join("pack.toml").exists()
+        && path.join("oag.pack.toml").exists()
     {
         return Some(path.to_path_buf());
     }
@@ -22,7 +22,7 @@ pub fn resolve_pack_path(pack_id: &str, explicit_path: Option<&Path>) -> Option<
     // 2. Installed packs in data directory
     if let Some(dir) = templates_dir() {
         let pack_dir = dir.join(pack_id);
-        if pack_dir.join("pack.toml").exists() {
+        if pack_dir.join("oag.pack.toml").exists() {
             return Some(pack_dir);
         }
     }
@@ -44,7 +44,7 @@ pub fn list_installed_packs() -> Vec<(String, PathBuf)> {
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() && path.join("pack.toml").exists() {
+            if path.is_dir() && path.join("oag.pack.toml").exists() {
                 let id = path
                     .file_name()
                     .unwrap_or_default()

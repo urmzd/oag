@@ -13,7 +13,7 @@ pub struct TemplatePack {
     pub templates: HashMap<String, String>,
 }
 
-/// The `pack.toml` manifest.
+/// The `oag.pack.toml` manifest.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PackManifest {
     pub pack: PackMeta,
@@ -174,9 +174,9 @@ pub struct FormatterConfig {
 }
 
 impl TemplatePack {
-    /// Load a template pack from a directory containing `pack.toml` and `templates/`.
+    /// Load a template pack from a directory containing `oag.pack.toml` and `templates/`.
     pub fn from_dir(dir: &Path) -> Result<Self, GeneratorError> {
-        let manifest_path = dir.join("pack.toml");
+        let manifest_path = dir.join("oag.pack.toml");
         let manifest_str = std::fs::read_to_string(&manifest_path).map_err(|e| {
             GeneratorError::Other(format!("failed to read {}: {e}", manifest_path.display()))
         })?;
