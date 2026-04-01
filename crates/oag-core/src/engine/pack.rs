@@ -27,6 +27,8 @@ pub struct PackManifest {
     pub scaffold: ScaffoldConfig,
     #[serde(default)]
     pub formatters: HashMap<String, FormatterConfig>,
+    #[serde(default)]
+    pub validators: HashMap<String, ValidatorConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -173,6 +175,14 @@ pub struct FormatterConfig {
     pub command: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct ValidatorConfig {
+    pub detect: String,
+    pub command: String,
+    /// Optional setup command to run before validation (e.g. `npm install`).
+    pub setup: Option<String>,
+}
+
 impl TemplatePack {
     /// Load a template pack from a directory containing `oag.pack.toml` and `templates/`.
     pub fn from_dir(dir: &Path) -> Result<Self, GeneratorError> {
@@ -258,6 +268,11 @@ impl TemplatePack {
         // Merge formatters
         for (name, fmt) in &extending.manifest.formatters {
             self.manifest.formatters.insert(name.clone(), fmt.clone());
+        }
+
+        // Merge validators
+        for (name, val) in &extending.manifest.validators {
+            self.manifest.validators.insert(name.clone(), val.clone());
         }
 
         // Update pack metadata
