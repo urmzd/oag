@@ -7,6 +7,7 @@ import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 {% endif %}
 {% if has_hook_sse %}
 import { useCallback, useRef, useState } from "react";
+import type { SSEEvent } from "./sse";
 {% endif %}
 import { useApiClient } from "./provider";
 import type {
@@ -57,7 +58,7 @@ export function {{ hook.hook_name }}({% if hook.path_params_signature %}{{ hook.
 {% endif %}
 export function {{ hook.hook_name }}({{ hook.path_params_signature }}) {
   const client = useApiClient();
-  const [events, setEvents] = useState<{{ hook.event_type_array }}>([]);
+  const [events, setEvents] = useState<SSEEvent<{{ hook.event_type }}>[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);

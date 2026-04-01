@@ -5,7 +5,7 @@ import type {
 {% endfor %}
 } from "./types";
 {% if has_sse %}
-import { type SSEOptions, streamSse } from "./sse";
+import { type SSEEvent, type SSEOptions, streamSse } from "./sse";
 {% endif %}
 
 /** Structured response wrapper exposing status, headers, and parsed data. */
@@ -452,7 +452,7 @@ export class ApiClient {
     });
   }
 {% elif op.kind == "sse" %}
-  async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<{{ op.return_type }}> {
+  async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<SSEEvent<{{ op.return_type }}>> {
 {% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
