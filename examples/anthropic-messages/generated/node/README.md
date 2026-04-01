@@ -8,4 +8,4 @@ To regenerate, run:
 oag generate
 ```
 
-To customize the generated output, edit your `.urmzd.oag.yaml` configuration file.
+To customize the generated output, edit your `oag.yaml` configuration file.

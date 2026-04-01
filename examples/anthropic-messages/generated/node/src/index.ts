@@ -8,5 +8,6 @@ export {
   type RequestOptions,
   type RetryConfig,
 } from "./client";
+export * from "./guards";
 export { SSEError, type SSEOptions, streamSse } from "./sse";
 export * from "./types";
