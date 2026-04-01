@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.16.0 (2026-04-01)
+
+### Breaking Changes
+
+- **sse**: add full SSE spec support with event tracking ([35f5981](https://github.com/urmzd/oag/commit/35f59814f73e99cc4cb3f2b067066e244662de87))
+
+### Miscellaneous
+
+- **generated**: regenerate sse-chat react example ([50b3e4c](https://github.com/urmzd/oag/commit/50b3e4c39dd2924b0e8e2116b33c910975f4b3da))
+- **generated**: regenerate sse-chat node example ([496c481](https://github.com/urmzd/oag/commit/496c48174d1cdae677a17a6f0432d354ae8c723f))
+- **generated**: regenerate petstore example ([35fd289](https://github.com/urmzd/oag/commit/35fd289f8cc2db9c4081323098f95f87eedc3be0))
+- **generated**: regenerate anthropic-messages react example ([7cbdd82](https://github.com/urmzd/oag/commit/7cbdd82c113901895207a7f5e7ed7a09717becfb))
+- **generated**: regenerate anthropic-messages node example ([b0be1c6](https://github.com/urmzd/oag/commit/b0be1c6b672c046bf6037ce730485aaf79881c61))
+- remove version pinning from teasr action ([4285d2f](https://github.com/urmzd/oag/commit/4285d2fd0f30aa23aa119e603db040f05c5eccee))
+- upgrade node version from 22 to 24 (#10) ([e917fe8](https://github.com/urmzd/oag/commit/e917fe8d6cac3e80f7398197cd0565f5f5a239c3))
+- update sr action from v2 to v3 ([f7dd005](https://github.com/urmzd/oag/commit/f7dd005539fbfa4a387c254ac4367d8c8ecbda86))
+- sync Cargo.lock [skip ci] ([ec4ebe4](https://github.com/urmzd/oag/commit/ec4ebe4fb8782ea50e8e8bd6986386c031acfdc6))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.15.0...v0.16.0)
+
+
 ## 0.15.0 (2026-03-30)
 
 ### Features
