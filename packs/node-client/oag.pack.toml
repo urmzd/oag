@@ -82,3 +82,7 @@ test_files = [
 
 [formatters]
 biome = { detect = "biome.json", command = "npx @biomejs/biome check --write ." }
+
+[validators]
+biome = { detect = "biome.json", command = "npx @biomejs/biome check .", setup = "npm install" }
+typecheck = { detect = "tsconfig.json", command = "npx tsc --noEmit", setup = "npm install" }

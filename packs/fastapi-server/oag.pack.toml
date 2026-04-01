@@ -55,3 +55,7 @@ test_files = [
 [formatters]
 ruff_format = { detect = "ruff.toml", command = "ruff format ." }
 ruff_lint = { detect = "ruff.toml", command = "ruff check --fix ." }
+
+[validators]
+ruff_format = { detect = "ruff.toml", command = "ruff format --check ." }
+ruff_lint = { detect = "ruff.toml", command = "ruff check ." }
