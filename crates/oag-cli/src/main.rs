@@ -143,6 +143,9 @@ enum Commands {
         pack: Vec<String>,
     },
 
+    /// Run validators (lint, typecheck) on generated output directories
+    Check,
+
     /// Generate shell completion scripts for tab-completion (bash, zsh, fish, powershell, elvish)
     Completions {
         /// Target shell for completions
@@ -190,6 +193,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Generate { input } => cmd_generate(input),
+        Commands::Check => cmd_check(),
         Commands::Validate { input } => cmd_validate(input),
         Commands::Inspect { input, format } => cmd_inspect(input, format),
         Commands::Init { force, pack } => cmd_init(force, pack),
@@ -348,6 +352,91 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
     ui::info(
         "generated directories should not be edited manually \u{2014} changes will be overwritten",
     );
+    Ok(())
+}
+
+fn cmd_check() -> Result<()> {
+    let cfg = try_load_config()?.unwrap_or_default();
+
+    if cfg.generators.is_empty() {
+        ui::warn("No generators configured.");
+        return Ok(());
+    }
+
+    let mut failures = Vec::new();
+
+    for (gen_id, gen_config) in &cfg.generators {
+        let pack = resolve_pack(gen_id.as_str())?;
+        let output_dir = PathBuf::from(&gen_config.output);
+
+        if !output_dir.exists() {
+            ui::warn(&format!(
+                "{} does not exist — skipping",
+                output_dir.display()
+            ));
+            continue;
+        }
+
+        for (name, val_config) in &pack.manifest.validators {
+            if !output_dir.join(&val_config.detect).exists() {
+                continue;
+            }
+
+            ui::header(&format!("{gen_id}: {name}"));
+
+            if let Some(setup) = &val_config.setup {
+                let setup_parts: Vec<&str> = setup.split_whitespace().collect();
+                if !setup_parts.is_empty() {
+                    match Command::new(setup_parts[0])
+                        .args(&setup_parts[1..])
+                        .current_dir(&output_dir)
+                        .status()
+                    {
+                        Ok(s) if s.success() => {}
+                        Ok(_) => {
+                            ui::warn(&format!("setup failed: {setup}"));
+                            failures.push(format!("{gen_id}: {name} (setup)"));
+                            continue;
+                        }
+                        Err(e) => {
+                            ui::warn(&format!("{} not found: {e}", setup_parts[0]));
+                            failures.push(format!("{gen_id}: {name} (setup)"));
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            let parts: Vec<&str> = val_config.command.split_whitespace().collect();
+            if parts.is_empty() {
+                continue;
+            }
+
+            match Command::new(parts[0])
+                .args(&parts[1..])
+                .current_dir(&output_dir)
+                .status()
+            {
+                Ok(status) if status.success() => {
+                    ui::phase_ok(&format!("passed: {}", val_config.command), None);
+                }
+                Ok(_) => {
+                    ui::warn(&format!("failed: {}", val_config.command));
+                    failures.push(format!("{gen_id}: {name}"));
+                }
+                Err(e) => {
+                    ui::warn(&format!("{} not found: {e}", parts[0]));
+                    failures.push(format!("{gen_id}: {name}"));
+                }
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        anyhow::bail!("validation failed for: {}", failures.join(", "));
+    }
+
+    ui::phase_ok("all validators passed", None);
     Ok(())
 }
 
