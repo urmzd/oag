@@ -17,17 +17,25 @@ use oag_core::transform::{self, TransformOptions};
 
 mod github;
 
-/// Resolve a template pack from disk, with extends support.
-fn resolve_pack(pack_id: &str) -> Result<TemplatePack> {
-    let pack = if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
-        TemplatePack::from_dir(&disk_path)
-            .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?
+/// Resolve a template pack, with extends support.
+///
+/// Resolution order:
+/// 1. If no `@ref` and a locally installed pack exists → use it
+/// 2. Otherwise → fetch from GitHub (cached by `{pack_id}/{ref}`)
+fn resolve_pack(specifier: &str) -> Result<TemplatePack> {
+    let (pack_id, git_ref) = github::parse_pack_specifier(specifier);
+    let is_pinned = specifier.contains('@');
+
+    let pack = if !is_pinned {
+        // Check locally installed packs first
+        if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
+            TemplatePack::from_dir(&disk_path)
+                .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?
+        } else {
+            fetch_and_cache(pack_id, git_ref)?
+        }
     } else {
-        anyhow::bail!(
-            "template pack '{}' not found. Run `oag templates install --id {}` to download it.",
-            pack_id,
-            pack_id
-        );
+        fetch_and_cache(pack_id, git_ref)?
     };
 
     // Handle extends
@@ -38,6 +46,23 @@ fn resolve_pack(pack_id: &str) -> Result<TemplatePack> {
     } else {
         Ok(pack)
     }
+}
+
+/// Download a pack from GitHub into a cache directory and load it.
+/// Reuses cached copies if they already exist.
+fn fetch_and_cache(pack_id: &str, git_ref: &str) -> Result<TemplatePack> {
+    let templates_dir = resolve::templates_dir()
+        .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?;
+    let cache_dir = templates_dir.join(".cache").join(pack_id).join(git_ref);
+
+    if !cache_dir.join("oag.pack.toml").exists() {
+        ui::info(&format!("fetching {pack_id}@{git_ref} from GitHub..."));
+        github::download_pack(pack_id, git_ref, &cache_dir)?;
+        ui::phase_ok("cached", Some(&format!("{pack_id}@{git_ref}")));
+    }
+
+    TemplatePack::from_dir(&cache_dir)
+        .map_err(|e| anyhow::anyhow!("failed to load pack '{}@{}': {}", pack_id, git_ref, e))
 }
 
 // ── UI helpers (all output to stderr) ────────────────────────────────
@@ -443,20 +468,21 @@ fn cmd_init(force: bool, packs: Vec<String>) -> Result<()> {
     Ok(())
 }
 
-/// Download a pack from GitHub and install it, resolving `extends` dependencies.
-fn install_pack_from_github(pack_id: &str) -> Result<()> {
+/// Download a pack from GitHub and install it locally, resolving `extends` dependencies.
+fn install_pack_from_github(specifier: &str) -> Result<()> {
+    let (pack_id, git_ref) = github::parse_pack_specifier(specifier);
     let templates_dir = resolve::templates_dir()
         .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?;
     let target = templates_dir.join(pack_id);
 
-    github::download_pack(pack_id, &target)?;
-    ui::phase_ok("installed", Some(&format!("{pack_id} (from GitHub)")));
+    github::download_pack(pack_id, git_ref, &target)?;
+    ui::phase_ok("installed", Some(&format!("{pack_id}@{git_ref}")));
 
     // If pack extends another, download the base too
     let pack = TemplatePack::from_dir(&target).map_err(|e| anyhow::anyhow!(e))?;
     if let Some(ref base_id) = pack.manifest.pack.extends {
         let base_target = templates_dir.join(base_id.as_str());
-        if !base_target.join("pack.toml").exists() {
+        if !base_target.join("oag.pack.toml").exists() {
             install_pack_from_github(base_id)?;
         }
     }
@@ -494,9 +520,9 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
                 install_pack_from_github(&pack_id)?;
                 Ok(())
             } else if let Some(source_path) = source {
-                let pack_toml = source_path.join("pack.toml");
+                let pack_toml = source_path.join("oag.pack.toml");
                 if !pack_toml.exists() {
-                    anyhow::bail!("no pack.toml found in {}", source_path.display());
+                    anyhow::bail!("no oag.pack.toml found in {}", source_path.display());
                 }
                 let pack = TemplatePack::from_dir(&source_path).map_err(|e| anyhow::anyhow!(e))?;
                 let id = pack.manifest.pack.id.clone();
