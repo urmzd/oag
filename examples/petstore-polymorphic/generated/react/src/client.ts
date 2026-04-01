@@ -181,6 +181,10 @@ export class ApiClient {
             for (const v of value) {
               params.append(key, String(v));
             }
+          } else if (typeof value === "object") {
+            for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+              if (v !== undefined && v !== null) params.set(`${key}[${k}]`, String(v));
+            }
           } else {
             params.set(key, String(value));
           }
@@ -332,17 +336,23 @@ export class ApiClient {
 
   /** List all pets */
   async listPets(limit?: number, options?: RequestOptions): Promise<Pet[]> {
-    const path = "/pets";
+    let path = "/pets";
+    const _q = new URLSearchParams();
+    if (limit !== undefined && limit !== null) _q.set("limit", String(limit));
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
     return this.request<Pet[]>("GET", path, {
-      query: { limit: limit },
       ...options,
     });
   }
 
   async listPetsRaw(limit?: number, options?: RequestOptions): Promise<ApiResponse<Pet[]>> {
-    const path = "/pets";
+    let path = "/pets";
+    const _q = new URLSearchParams();
+    if (limit !== undefined && limit !== null) _q.set("limit", String(limit));
+    const _qs = _q.toString();
+    if (_qs) path += `?${_qs}`;
     return this.rawRequest<Pet[]>("GET", path, {
-      query: { limit: limit },
       ...options,
     });
   }

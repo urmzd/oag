@@ -96,7 +96,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
  */
 export async function* streamSse<T>(
   url: string,
-  init: RequestInit & { headers?: Record<string, string> },
+  init: Omit<RequestInit, "headers"> & { headers?: Record<string, string> },
   options?: SSEOptions,
   requestInterceptor?: RequestInterceptor,
   fetchFn: typeof globalThis.fetch = globalThis.fetch.bind(globalThis),
