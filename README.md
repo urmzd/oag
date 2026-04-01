@@ -306,10 +306,10 @@ The workspace has two crates and a set of template packs:
 
 Generators are defined as **template packs** rather than compiled Rust crates. Each pack is a directory containing:
 
-- `pack.toml` — manifest declaring metadata, type mappings, layout definitions, scaffold files, and formatter config
+- `oag.pack.toml` — manifest declaring metadata, type mappings, layout definitions, scaffold files, and formatter config
 - `templates/` — Jinja2 templates (`.j2` files) for each generated file
 
-The engine renders templates against a context built from the parsed OpenAPI spec and generator config. Packs support **inheritance** (`extends` in `pack.toml`) so `react-swr-client` inherits all templates from `node-client` and adds its own.
+The engine renders templates against a context built from the parsed OpenAPI spec and generator config. Packs support **inheritance** (`extends` in `oag.pack.toml`) so `react-swr-client` inherits all templates from `node-client` and adds its own.
 
 Built-in packs are embedded in the binary at compile time. Users can extract and customize them with `oag templates install --builtin`, or create entirely new packs.
 

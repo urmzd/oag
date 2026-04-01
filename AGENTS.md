@@ -21,7 +21,7 @@ oag-cli  -->  oag-core (engine + packs)
                  └── packs/fastapi-server/
 ```
 
-Generators are defined as **template packs** rather than compiled Rust crates. Each pack contains a `pack.toml` manifest (metadata, type mappings, layouts, scaffold config) and `templates/` directory with Jinja2 `.j2` files. Packs support inheritance (`extends` in `pack.toml`). Built-in packs are embedded in the binary at compile time via `include_dir!`.
+Generators are defined as **template packs** rather than compiled Rust crates. Each pack contains a `oag.pack.toml` manifest (metadata, type mappings, layouts, scaffold config) and `templates/` directory with Jinja2 `.j2` files. Packs support inheritance (`extends` in `oag.pack.toml`). Built-in packs are embedded in the binary at compile time via `include_dir!`.
 
 The core engine API:
 
@@ -39,7 +39,7 @@ pub fn generate(
 - `crates/oag-core/src/engine/` — Template pack engine (rendering, context, pack resolution, type mapping)
 - `crates/oag-core/src/` — IR, parser, config, transform pipeline
 - `crates/oag-core/default-config.yaml` — Default `oag.yaml` config
-- `packs/*/pack.toml` — Template pack manifests
+- `packs/*/oag.pack.toml` — Template pack manifests
 - `packs/*/templates/` — Jinja2 templates
 - `examples/` — Working examples (petstore, sse-chat)
 
@@ -68,7 +68,7 @@ pub fn generate(
 ## Adding a New Generator
 
 1. Create a new directory under `packs/<name>/`
-2. Write a `pack.toml` manifest (see existing packs for reference)
+2. Write a `oag.pack.toml` manifest (see existing packs for reference)
 3. Add Jinja2 templates in `packs/<name>/templates/`
 4. Test with `oag generate` using your new pack ID in `oag.yaml`
 5. Add an example under `examples/`

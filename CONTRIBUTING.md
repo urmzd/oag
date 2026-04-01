@@ -84,9 +84,9 @@ Breaking changes: append `!` after the type/scope (e.g. `feat!: drop Node 18 sup
 Generators are now **template packs** — no Rust code changes needed.
 
 1. Create a new directory under `packs/` (e.g., `packs/go-client/`)
-2. Write a `pack.toml` manifest defining metadata, type mappings, layouts, and scaffold config (see existing packs for reference)
+2. Write a `oag.pack.toml` manifest defining metadata, type mappings, layouts, and scaffold config (see existing packs for reference)
 3. Add Jinja2 templates in `packs/go-client/templates/` (use `.j2` extension)
-4. Use `extends` in `pack.toml` if your pack should inherit from an existing pack
+4. Use `extends` in `oag.pack.toml` if your pack should inherit from an existing pack
 5. Add your pack ID to `oag.yaml` under `generators:` and test with `oag generate`
 6. Add an example under `examples/`
 7. Add integration tests in `tests/integration/`

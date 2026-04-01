@@ -27,7 +27,7 @@ The spec-to-IR transform runs in six phases:
 
 ## Template pack engine
 
-The engine (`src/engine/`) renders declarative template packs to generate code. Each pack is a directory with a `pack.toml` manifest and Jinja2 templates.
+The engine (`src/engine/`) renders declarative template packs to generate code. Each pack is a directory with a `oag.pack.toml` manifest and Jinja2 templates.
 
 ### Engine modules
 
@@ -55,7 +55,7 @@ The engine supports three layout modes:
 - **bundled** — single concatenated file
 - **split** — separate files per operation group
 
-Packs support **inheritance** via the `extends` field in `pack.toml`, allowing packs like `react-swr-client` to inherit all templates from `node-client` and add its own.
+Packs support **inheritance** via the `extends` field in `oag.pack.toml`, allowing packs like `react-swr-client` to inherit all templates from `node-client` and add its own.
 
 ## Key types
 
