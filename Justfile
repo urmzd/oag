@@ -7,13 +7,13 @@ init: install-hooks
     rustup component add clippy rustfmt
 
 install:
-    cargo build --release -p oag-cli
+    cargo build --release -p oag
 
 build:
     cargo build --workspace
 
 run *ARGS:
-    cargo run -p oag-cli -- {{ARGS}}
+    cargo run -p oag -- {{ARGS}}
 
 test:
     cargo test --workspace
@@ -32,7 +32,7 @@ publish:
     cargo publish -p oag-node-client --dry-run
     cargo publish -p oag-react-swr-client --dry-run
     cargo publish -p oag-fastapi-server --dry-run
-    cargo publish -p oag-cli --dry-run
+    cargo publish -p oag --dry-run
 
 test-integration:
     cargo test --workspace
