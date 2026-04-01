@@ -365,7 +365,7 @@ describe("ApiClient", () => {
         retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
       };
       const client = new ApiClient(config);
-      await client.createMessage("test", {} as CreateMessageRequest);
+      await client.createMessage();
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });

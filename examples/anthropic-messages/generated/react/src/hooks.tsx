@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 import { useApiClient } from "./provider";
+import type { SSEEvent } from "./sse";
 import type {
   CountTokensRequest,
   CountTokensResponse,
@@ -17,7 +18,7 @@ import type {
 /** Create a message */
 export function useCreateMessageStream(anthropicVersion: string) {
   const client = useApiClient();
-  const [events, setEvents] = useState<CreateMessageStreamEvent[]>([]);
+  const [events, setEvents] = useState<SSEEvent<CreateMessageStreamEvent>[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
