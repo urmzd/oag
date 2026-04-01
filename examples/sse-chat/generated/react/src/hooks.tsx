@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 import { useApiClient } from "./provider";
+import type { SSEEvent } from "./sse";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -32,7 +33,7 @@ export function useGetModel(modelId: string, config?: SWRConfiguration<Model>) {
 /** Create a chat completion */
 export function useCreateChatCompletionStream() {
   const client = useApiClient();
-  const [events, setEvents] = useState<CreateChatCompletionStreamEvent[]>([]);
+  const [events, setEvents] = useState<SSEEvent<CreateChatCompletionStreamEvent>[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
