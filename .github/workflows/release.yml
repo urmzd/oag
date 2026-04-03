@@ -64,6 +64,7 @@ jobs:
           cargo update --workspace
           git add Cargo.lock
           git diff --staged --quiet || git commit -m "chore: sync Cargo.lock [skip ci]"
+          git pull --rebase
           git push
 
     outputs:
