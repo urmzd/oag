@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.17.1 (2026-04-03)
+
+### Bug Fixes
+
+- **ci**: pull --rebase before push in Cargo.lock sync step (#13) ([f98c1f7](https://github.com/urmzd/oag/commit/f98c1f759d77af43d1a7bba9041a626c1f020898))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([1201e4c](https://github.com/urmzd/oag/commit/1201e4c48cec823dc8b4e4f071b376aac9763f2b))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.17.0...v0.17.1)
+
+
 ## 0.17.0 (2026-04-01)
 
 ### Features
