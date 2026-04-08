@@ -112,6 +112,11 @@ enum Commands {
         /// Path to the OpenAPI spec file (YAML or JSON). Overrides the `input` field in the config.
         #[arg(short, long)]
         input: Option<PathBuf>,
+
+        /// Overwrite scaffold files (package.json, tsconfig.json, etc.) even if they already exist.
+        /// By default, scaffold files are only written on initial creation to preserve customizations.
+        #[arg(long)]
+        force_scaffold: bool,
     },
 
     /// Validate an OpenAPI spec and report its contents (paths, schemas, operations)
@@ -192,7 +197,10 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Generate { input } => cmd_generate(input),
+        Commands::Generate {
+            input,
+            force_scaffold,
+        } => cmd_generate(input, force_scaffold),
         Commands::Check => cmd_check(),
         Commands::Validate { input } => cmd_validate(input),
         Commands::Inspect { input, format } => cmd_inspect(input, format),
@@ -257,6 +265,28 @@ fn write_files(base: &Path, files: &[GeneratedFile]) -> Result<()> {
     Ok(())
 }
 
+/// Write scaffold files, skipping any that already exist on disk (unless `force` is true).
+/// Returns the number of files that were skipped.
+fn write_scaffold_files(base: &Path, files: &[GeneratedFile], force: bool) -> Result<usize> {
+    let mut skipped = 0;
+    for file in files {
+        let path = base.join(&file.path);
+        if !force && path.exists() {
+            ui::info(&format!("skipped (exists): {}", path.display()));
+            skipped += 1;
+            continue;
+        }
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create directory {}", parent.display()))?;
+        }
+        fs::write(&path, &file.content)
+            .with_context(|| format!("failed to write {}", path.display()))?;
+        ui::phase_ok("wrote", Some(&path.display().to_string()));
+    }
+    Ok(skipped)
+}
+
 /// Try to run formatters based on pack's formatter config or file presence.
 fn try_run_formatter(output_dir: &Path, pack: &TemplatePack) {
     for fmt_config in pack.manifest.formatters.values() {
@@ -308,7 +338,7 @@ To customize the generated output, edit your `oag.yaml` configuration file.
 "#
 }
 
-fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
+fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool) -> Result<()> {
     let cfg = try_load_config()?.unwrap_or_default();
     let input = input.unwrap_or_else(|| PathBuf::from(&cfg.input));
     let ir = load_spec(&input, &cfg)?;
@@ -325,14 +355,18 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
         ));
 
         let pack = resolve_pack(gen_id.as_str())?;
-        let files = engine::generate(&ir, gen_config, &pack).map_err(|e| anyhow::anyhow!(e))?;
+        let output = engine::generate(&ir, gen_config, &pack).map_err(|e| anyhow::anyhow!(e))?;
 
         let output_dir = PathBuf::from(&gen_config.output);
         fs::create_dir_all(&output_dir).with_context(|| {
             format!("failed to create output directory {}", output_dir.display())
         })?;
 
-        write_files(&output_dir, &files)?;
+        // Source files are always overwritten
+        write_files(&output_dir, &output.source_files)?;
+
+        // Scaffold files are write-once by default (skip if they exist)
+        let skipped = write_scaffold_files(&output_dir, &output.scaffold_files, force_scaffold)?;
 
         // Add README.md
         let readme_path = output_dir.join("README.md");
@@ -343,14 +377,20 @@ fn cmd_generate(input: Option<PathBuf>) -> Result<()> {
         // Auto-run formatters
         try_run_formatter(&output_dir, &pack);
 
+        let total = output.source_files.len() + output.scaffold_files.len() + 1;
+        let skip_note = if skipped > 0 {
+            format!(", {skipped} scaffold skipped")
+        } else {
+            String::new()
+        };
         ui::phase_ok(
-            &format!("generated {} files", files.len() + 1),
+            &format!("generated {total} files{skip_note}"),
             Some(&output_dir.display().to_string()),
         );
     }
 
     ui::info(
-        "generated directories should not be edited manually \u{2014} changes will be overwritten",
+        "source files are always regenerated \u{2014} scaffold files are preserved if they exist",
     );
     Ok(())
 }
