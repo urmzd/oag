@@ -45,6 +45,11 @@
 {%- if scaffold.test_runner == 'vitest' %}
     "vitest": "^3.0.0",
 {%- endif %}
+{%- if scaffold.extra_dev_dependencies %}
+{%- for pkg, ver in scaffold.extra_dev_dependencies|items %}
+    "{{ pkg }}": "{{ ver }}",
+{%- endfor %}
+{%- endif %}
     "typescript": "^5.7.0"
   }
 }

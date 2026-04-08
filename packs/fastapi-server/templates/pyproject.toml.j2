@@ -1,5 +1,5 @@
 [project]
-name = "{{ name }}"
+name = "{{ scaffold.package_name or title }}"
 version = "0.1.0"
 description = "Auto-generated FastAPI server"
 license = "Apache-2.0"
@@ -8,21 +8,26 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
 ]
-{% if pytest or ruff %}
+{% if scaffold.test_runner or scaffold.formatter or scaffold.extra_dev_dependencies %}
 
 [dependency-groups]
 dev = [
-{% if pytest %}
+{% if scaffold.test_runner == 'pytest' %}
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
 {% endif %}
-{% if ruff %}
+{% if scaffold.formatter == 'ruff' %}
     "ruff>=0.9",
+{% endif %}
+{% if scaffold.extra_dev_dependencies %}
+{% for pkg, ver in scaffold.extra_dev_dependencies|items %}
+    "{{ pkg }}{{ ver }}",
+{% endfor %}
 {% endif %}
 ]
 {% endif %}
-{% if pytest %}
+{% if scaffold.test_runner == 'pytest' %}
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
