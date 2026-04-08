@@ -93,6 +93,12 @@ generators:
       # Set to false to disable.
       bundler: tsdown         # tsdown | false
 
+      # Extra dev dependencies to include in package.json devDependencies.
+      # Each key is a package name, each value is a version specifier.
+      # extra_dev_dependencies:
+      #   "@testing-library/react": "^16.0"
+      #   msw: "^2.0"
+
   # react-swr-client:
   #   output: src/generated/react
   #   layout: modular           # only modular is supported for react-swr-client
@@ -112,3 +118,6 @@ generators:
   #     # package_name: my_api_server
   #     formatter: ruff         # ruff | false — auto-formats and lints after generation
   #     test_runner: pytest     # pytest | false — generates pytest tests with async httpx client
+  #     # extra_dev_dependencies:
+  #     #   factory-boy: ">=3.3"
+  #     #   httpx: ">=0.27"

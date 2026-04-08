@@ -14,6 +14,17 @@ pub struct GeneratedFile {
     pub content: String,
 }
 
+/// Output from `engine::generate()`, separating source files (always overwritten)
+/// from scaffold files (write-once by default).
+#[derive(Debug, Clone)]
+pub struct GenerateOutput {
+    /// Source files derived from the OpenAPI spec — always overwritten on each run.
+    pub source_files: Vec<GeneratedFile>,
+    /// Project scaffold files (package.json, tsconfig, etc.) — only written if they
+    /// don't already exist on disk. Use `--force-scaffold` to override.
+    pub scaffold_files: Vec<GeneratedFile>,
+}
+
 /// Normalize whitespace in generated code:
 /// - Collapse 3+ consecutive newlines into 2 (max one blank line)
 /// - Ensure trailing newline

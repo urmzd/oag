@@ -180,6 +180,12 @@ pub struct GeneratorConfig {
     /// - `formatter` — `"ruff"` or `false` to disable (default: `"ruff"`)
     /// - `test_runner` — `"pytest"` or `false` to disable (default: `"pytest"`)
     ///
+    /// **All generators**:
+    /// - `extra_dev_dependencies` — map of additional dev dependency names to version
+    ///   specs, merged into the generated `devDependencies` (npm) or `[dependency-groups] dev`
+    ///   (Python). Example: `{ "@testing-library/react": "^16.0" }` for npm,
+    ///   `{ "factory-boy": ">=3.3" }` for Python.
+    ///
     /// Set to `false` to explicitly disable all scaffolding. Omitting the field
     /// entirely also disables scaffolding.
     #[serde(default, deserialize_with = "deserialize_scaffold")]

@@ -8,16 +8,19 @@ use minijinja::Environment;
 
 use crate::config::{GeneratorConfig, OutputLayout, SplitBy};
 use crate::ir::{IrSpec, group_operations};
-use crate::{GeneratedFile, GeneratorError, normalize_generated};
+use crate::{GenerateOutput, GeneratedFile, GeneratorError, normalize_generated};
 
 use self::pack::{FilterConfig, TemplatePack};
 
 /// Generate code files from an IR spec using a template pack.
+///
+/// Returns a [`GenerateOutput`] with source files (always overwritten) and
+/// scaffold files (write-once by default).
 pub fn generate(
     ir: &IrSpec,
     config: &GeneratorConfig,
     pack: &TemplatePack,
-) -> Result<Vec<GeneratedFile>, GeneratorError> {
+) -> Result<GenerateOutput, GeneratorError> {
     let tm = &pack.manifest.type_map;
     let field_casing = &pack.manifest.pack.field_casing;
     let operation_casing = &pack.manifest.pack.operation_casing;
@@ -63,7 +66,7 @@ pub fn generate(
         ..config_ctx,
     };
 
-    let mut files = match config.layout {
+    let mut source_files = match config.layout {
         OutputLayout::Bundled => render_bundled(&env, pack, &render_ctx, source_dir)?,
         OutputLayout::Modular => render_modular(&env, pack, &render_ctx, source_dir)?,
         OutputLayout::Split => {
@@ -72,15 +75,20 @@ pub fn generate(
         }
     };
 
-    // Add scaffold files
-    files.extend(render_scaffold(&env, pack, &render_ctx, source_dir)?);
+    let mut scaffold_files = render_scaffold(&env, pack, &render_ctx, source_dir)?;
 
     // Normalize whitespace
-    for file in &mut files {
+    for file in &mut source_files {
+        file.content = normalize_generated(&file.content);
+    }
+    for file in &mut scaffold_files {
         file.content = normalize_generated(&file.content);
     }
 
-    Ok(files)
+    Ok(GenerateOutput {
+        source_files,
+        scaffold_files,
+    })
 }
 
 fn register_filter(env: &mut Environment, name: &str, config: &FilterConfig) {
