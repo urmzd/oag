@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.18.0 (2026-04-08)
+
+### Features
+
+- **packs**: support extra_dev_dependencies in templates ([742520d](https://github.com/urmzd/oag/commit/742520df69ebb0fe1afba6ecbefc1d771adc186c))
+- **cli**: add --force-scaffold flag to overwrite scaffold files ([cadd7ef](https://github.com/urmzd/oag/commit/cadd7efc6651e2c487b1d3e464892089233a3b1b))
+- **core**: support write-once scaffold files and extra_dev_dependencies ([87a22d8](https://github.com/urmzd/oag/commit/87a22d8d1b5e77467dce98e48c3e836f272703f3))
+
+### Documentation
+
+- document force-scaffold and extra_dev_dependencies features ([6e79812](https://github.com/urmzd/oag/commit/6e798125eea27ab20709f5d7b7918559370b8d4c))
+
+### Miscellaneous
+
+- sync embedded files [skip ci] ([ce49b31](https://github.com/urmzd/oag/commit/ce49b3142a95b7e5f8e5a56ae4664bebb083c97e))
+- add linguist overrides to fix language stats (#14) ([af0fd1c](https://github.com/urmzd/oag/commit/af0fd1cc4ce9c2530791f73101657b3bf8d191bc))
+- sync Cargo.lock [skip ci] ([d17e6bb](https://github.com/urmzd/oag/commit/d17e6bbee07ecc188d45f762c489bf7a9cd381c1))
+- **deps**: bump actions/create-github-app-token from 1 to 3 ([52f4286](https://github.com/urmzd/oag/commit/52f428664819c78965c8ceb5a8db1b04ea3f61bc))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.17.1...v0.18.0)
+
+
 ## 0.17.1 (2026-04-03)
 
 ### Bug Fixes
