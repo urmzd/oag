@@ -208,7 +208,7 @@ oag generate -i other-spec.yaml
 
 | Command | Description | Key flags |
 |---------|-------------|-----------|
-| `oag generate` | Generate code from an OpenAPI spec | `-i, --input <PATH>` — override spec path |
+| `oag generate` | Generate code from an OpenAPI spec | `-i, --input <PATH>` — override spec path, `--force-scaffold` — overwrite scaffold files even if they exist |
 | `oag validate` | Validate an OpenAPI spec and report its contents | `-i, --input <PATH>` **(required)** |
 | `oag inspect` | Dump the parsed intermediate representation | `-i, --input <PATH>` **(required)**, `--format yaml\|json` |
 | `oag init` | Create a `oag.yaml` config file | `--force` — overwrite existing |
@@ -259,6 +259,19 @@ Packs are resolved in order: installed packs (in `oag templates path`) take prec
 | `scaffold.test_runner` | `string` or `false` | `vitest` (TS) / `pytest` (Python) | Test runner — set to `false` to disable test generation |
 | `scaffold.bundler` | `string` or `false` | `tsdown` | Bundler config (TypeScript only) — set to `false` to disable |
 | `scaffold.existing_repo` | `bool` | `false` | Set to `true` to skip all scaffold files (package.json, tsconfig, biome, tsdown) and only emit a root `index.ts` re-export |
+| `scaffold.extra_dev_dependencies` | `map` | `{}` | Additional dev dependencies as package name to version spec (e.g., `"@testing-library/react": "^16.0"` for npm, `"factory-boy": ">=3.3"` for Python) |
+
+### Scaffold behavior
+
+Scaffold files (`package.json`, `tsconfig.json`, `biome.json`, `pyproject.toml`, etc.) are **write-once by default** — they are only created if they don't already exist on disk. This preserves any customizations you make to these files (adding scripts, dependencies, or build config) across subsequent `oag generate` runs.
+
+Source files (`types.ts`, `client.ts`, `models.py`, etc.) are always regenerated from the spec.
+
+To force-overwrite scaffold files (e.g., to pick up new template defaults):
+
+```sh
+oag generate --force-scaffold
+```
 
 ### Layout modes
 
