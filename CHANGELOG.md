@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.1 (2026-04-09)
+
+### Bug Fixes
+
+- **ci**: remove stale crate publishes and checkout release tag ([7efd31e](https://github.com/urmzd/oag/commit/7efd31ea3932c03060be0c102ac7149566aec729))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([76ae016](https://github.com/urmzd/oag/commit/76ae01613e6bb2a4c1b706bd14c4550ac6069882))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.19.0...v0.19.1)
+
+
 ## 0.19.0 (2026-04-09)
 
 ### Breaking Changes
