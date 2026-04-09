@@ -29,9 +29,6 @@ check-fmt:
 
 publish:
     cargo publish -p oag-core --dry-run
-    cargo publish -p oag-node-client --dry-run
-    cargo publish -p oag-react-swr-client --dry-run
-    cargo publish -p oag-fastapi-server --dry-run
     cargo publish -p oag --dry-run
 
 test-integration:
