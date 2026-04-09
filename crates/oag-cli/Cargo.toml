@@ -20,7 +20,6 @@ anyhow = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml_ng = { workspace = true }
 crossterm = { workspace = true }
 indicatif = { workspace = true }
 ureq = { workspace = true }

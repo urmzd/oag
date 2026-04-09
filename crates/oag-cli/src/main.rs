@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 use clap_complete::Shell;
 
 use oag_core::GeneratedFile;
@@ -126,15 +126,11 @@ enum Commands {
         input: PathBuf,
     },
 
-    /// Dump the parsed intermediate representation (IR) for debugging
+    /// Dump the parsed intermediate representation (IR) as JSON for debugging
     Inspect {
         /// Path to the OpenAPI spec file (YAML or JSON)
         #[arg(short, long)]
         input: PathBuf,
-
-        /// Output format for the IR dump
-        #[arg(long, default_value = "yaml")]
-        format: InspectFormat,
     },
 
     /// Create an oag.yaml config file and download template packs from GitHub
@@ -190,12 +186,6 @@ enum TemplatesAction {
     Path,
 }
 
-#[derive(Clone, ValueEnum)]
-enum InspectFormat {
-    Yaml,
-    Json,
-}
-
 fn main() -> Result<()> {
     env_logger::init();
 
@@ -208,7 +198,7 @@ fn main() -> Result<()> {
         } => cmd_generate(input, force_scaffold),
         Commands::Check => cmd_check(),
         Commands::Validate { input } => cmd_validate(input),
-        Commands::Inspect { input, format } => cmd_inspect(input, format),
+        Commands::Inspect { input } => cmd_inspect(input),
         Commands::Init { force, pack } => cmd_init(force, pack),
         Commands::Completions { shell } => {
             let mut cmd = <Cli as clap::CommandFactory>::command();
@@ -519,22 +509,13 @@ fn cmd_validate(input: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn cmd_inspect(input: PathBuf, format: InspectFormat) -> Result<()> {
+fn cmd_inspect(input: PathBuf) -> Result<()> {
     let cfg = OagConfig::default();
     let ir = load_spec(&input, &cfg)?;
 
     let summary = build_inspect_summary(&ir);
-
-    match format {
-        InspectFormat::Yaml => {
-            let yaml = serde_yaml_ng::to_string(&summary)?;
-            print!("{}", yaml);
-        }
-        InspectFormat::Json => {
-            let json = serde_json::to_string_pretty(&summary)?;
-            println!("{}", json);
-        }
-    }
+    let json = serde_json::to_string_pretty(&summary)?;
+    println!("{}", json);
 
     Ok(())
 }
