@@ -43,6 +43,7 @@ log = "0.4"
 # Terminal UI
 crossterm = "0.28"
 indicatif = "0.17"
+agentspec-update = "0.6.0"
 
 # Platform directories
 dirs = "6"

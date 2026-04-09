@@ -162,6 +162,11 @@ enum Commands {
         #[command(subcommand)]
         action: TemplatesAction,
     },
+
+    /// Self-update oag to the latest release
+    Update,
+    /// Print the current version
+    Version,
 }
 
 #[derive(Subcommand)]
@@ -211,6 +216,11 @@ fn main() -> Result<()> {
             Ok(())
         }
         Commands::Templates { action } => cmd_templates(action),
+        Commands::Update => cmd_update(),
+        Commands::Version => {
+            println!("oag v{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
     }
 }
 
@@ -616,6 +626,15 @@ fn install_pack_from_github(specifier: &str) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn cmd_update() -> Result<()> {
+    eprintln!("current version: {}", env!("CARGO_PKG_VERSION"));
+    match agentspec_update::self_update("urmzd/oag", env!("CARGO_PKG_VERSION"), "oag")? {
+        agentspec_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
+        agentspec_update::UpdateResult::Updated { from, to } => eprintln!("updated: {from} → {to}"),
+    }
     Ok(())
 }
 
