@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.19.0 (2026-04-09)
+
+### Breaking Changes
+
+- **inspect**: remove yaml output format support ([f4765de](https://github.com/urmzd/oag/commit/f4765de71a70188ca041b90cd748fe618f70f8fa))
+
+### Features
+
+- **cli**: add self-update and version subcommands ([a8ddd3f](https://github.com/urmzd/oag/commit/a8ddd3f784477afbe1fbd78aedf5cbb1e1d24446))
+
+### Documentation
+
+- add LICENSE to sub-crates for publishing compliance ([95bdc2c](https://github.com/urmzd/oag/commit/95bdc2c2d6215d534c4a8f7f884bc05cb2a39e91))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([4c522ee](https://github.com/urmzd/oag/commit/4c522ee8abe6d6f7c364e046cff1732fc7a283c3))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.18.0...v0.19.0)
+
+
 ## 0.18.0 (2026-04-08)
 
 ### Features
