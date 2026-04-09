@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.2 (2026-04-09)
+
+### Bug Fixes
+
+- **ci**: remove --allow-dirty from cargo publish ([23deeb4](https://github.com/urmzd/oag/commit/23deeb4ce931ebeeb6a73c85ee02245f709ad045))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([9ac07b5](https://github.com/urmzd/oag/commit/9ac07b5e460b942f54455083c751238f969eb718))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.19.1...v0.19.2)
+
+
 ## 0.19.1 (2026-04-09)
 
 ### Bug Fixes
