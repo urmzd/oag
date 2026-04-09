@@ -95,9 +95,9 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
-          cargo publish -p oag-core --allow-dirty
+          cargo publish -p oag-core
           sleep 30
-          cargo publish -p oag --allow-dirty
+          cargo publish -p oag
 
   build:
     needs: release
