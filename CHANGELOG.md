@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.1 (2026-04-12)
+
+### Refactoring
+
+- **cli**: rename `templates` command to `packs` for consistency ([11227a5](https://github.com/urmzd/oag/commit/11227a5d51db67b5ae2c84f46631f2e59600731b))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([10cc0a9](https://github.com/urmzd/oag/commit/10cc0a9715eecdedf61b7bfc68c246613914bd5f))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.0...v0.20.1)
+
+
 ## 0.20.0 (2026-04-12)
 
 ### Breaking Changes

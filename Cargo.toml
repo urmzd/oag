@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "0.20.0"
+version = "0.20.1"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/urmzd/oag"
@@ -12,7 +12,7 @@ homepage = "https://github.com/urmzd/oag"
 
 [workspace.dependencies]
 # Internal crates
-oag-core = { path = "crates/oag-core", version = "0.20.0" }
+oag-core = { path = "crates/oag-core", version = "0.20.1" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
