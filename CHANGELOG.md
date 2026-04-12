@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.0 (2026-04-12)
+
+### Breaking Changes
+
+- **config**: change default source_dir to empty string ([3e12971](https://github.com/urmzd/oag/commit/3e129719584f456f3027f2e9c82627e6b90be9ce))
+
+### Documentation
+
+- **config**: simplify default configuration example ([9c29330](https://github.com/urmzd/oag/commit/9c29330ac1d94755e1d18d22f57ff6b3316576c6))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([4908b6e](https://github.com/urmzd/oag/commit/4908b6ef653694641055aecc4643923f9689c87b))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.19.3...v0.20.0)
+
+
 ## 0.19.3 (2026-04-12)
 
 ### Documentation
