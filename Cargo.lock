@@ -772,7 +772,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "oag"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "agentspec-update",
  "anyhow",
@@ -791,7 +791,7 @@ dependencies = [
 
 [[package]]
 name = "oag-core"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "heck",
  "indexmap",
