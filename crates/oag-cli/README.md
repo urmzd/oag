@@ -127,25 +127,23 @@ oag completions powershell >> $PROFILE
 |----------|-------------|
 | `<SHELL>` | **(required)** Target shell: `bash`, `zsh`, `fish`, `powershell`, `elvish` |
 
-### `oag templates`
+### `oag packs`
 
-Manage template packs for code generation.
+Manage packs for code generation.
 
 ```sh
 # List available packs (built-in + installed)
-oag templates list
+oag packs list
 
-# Extract all built-in packs to the templates directory for customization
-oag templates install --builtin
+# Extract all built-in packs to the packs directory for customization
+oag packs install --builtin
 
 # Install a custom pack from a local directory
-oag templates install /path/to/my-pack
+oag packs install /path/to/my-pack
 
 # Remove an installed pack
-oag templates remove my-pack
+oag packs remove my-pack
 
-# Print the templates directory path
-oag templates path
 ```
 
 **Subcommands:**

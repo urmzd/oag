@@ -60,11 +60,10 @@ oag init                         create oag.yaml in the current directory
 oag init -p <pack> [-p <pack>]   also install packs
 oag init --force                 overwrite existing oag.yaml
 oag check                        run linters/typecheckers on generated output
-oag templates list               list installed and available packs
-oag templates install <path>     install a pack from a local directory
-oag templates install --id <id>  download a pack from GitHub
-oag templates remove <id>        remove a pack
-oag templates path               print the packs directory (.oag/packs/)
+oag packs list                   list installed and available packs
+oag packs install <path>         install a pack from a local directory
+oag packs install --id <id>      download a pack from GitHub
+oag packs remove <id>            remove a pack
 oag completions <shell>          generate shell completions (bash, zsh, fish, powershell, elvish)
 oag update                       self-update to latest release
 oag version                      print version
@@ -182,7 +181,7 @@ Packs support inheritance (`extends` in the manifest). `react-swr-client` extend
 To customize a built-in pack, install it locally and edit:
 
 ```sh
-oag templates install --id node-client
+oag packs install --id node-client
 # edit .oag/packs/node-client/templates/*.j2
 oag generate
 ```

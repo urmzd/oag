@@ -17,7 +17,7 @@ use oag_core::transform::{self, TransformOptions};
 
 mod github;
 
-/// Resolve a template pack, with extends support.
+/// Resolve a pack, with extends support.
 ///
 /// Resolution order:
 /// 1. If no `@ref` and a locally installed pack exists → use it
@@ -125,7 +125,7 @@ enum Commands {
         input: PathBuf,
     },
 
-    /// Create an oag.yaml config file and download template packs from GitHub
+    /// Create an oag.yaml config file and download packs from GitHub
     Init {
         /// Overwrite an existing oag.yaml file
         #[arg(long)]
@@ -145,10 +145,10 @@ enum Commands {
         shell: Shell,
     },
 
-    /// Manage template packs for code generation
-    Templates {
+    /// Manage packs for code generation
+    Packs {
         #[command(subcommand)]
-        action: TemplatesAction,
+        action: PacksAction,
     },
 
     /// Self-update oag to the latest release
@@ -158,24 +158,22 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
-enum TemplatesAction {
-    /// List installed template packs
+enum PacksAction {
+    /// List installed packs
     List,
-    /// Install a template pack from a local directory or download from GitHub
+    /// Install a pack from a local directory or download from GitHub
     Install {
-        /// Path to a local template pack directory
+        /// Path to a local pack directory
         source: Option<PathBuf>,
         /// Download a pack by ID from GitHub (e.g., node-client)
         #[arg(long)]
         id: Option<String>,
     },
-    /// Remove an installed template pack
+    /// Remove an installed pack
     Remove {
         /// Pack ID to remove
         id: String,
     },
-    /// Print the template packs directory path
-    Path,
 }
 
 fn main() -> Result<()> {
@@ -197,7 +195,7 @@ fn main() -> Result<()> {
             clap_complete::generate(shell, &mut cmd, "oag", &mut std::io::stdout());
             Ok(())
         }
-        Commands::Templates { action } => cmd_templates(action),
+        Commands::Packs { action } => cmd_packs(action),
         Commands::Update => cmd_update(),
         Commands::Version => {
             println!("oag v{}", env!("CARGO_PKG_VERSION"));
@@ -610,21 +608,21 @@ fn cmd_update() -> Result<()> {
     Ok(())
 }
 
-fn cmd_templates(action: TemplatesAction) -> Result<()> {
+fn cmd_packs(action: PacksAction) -> Result<()> {
     match action {
-        TemplatesAction::List => {
+        PacksAction::List => {
             let installed = resolve::list_installed_packs();
             if installed.is_empty() {
-                ui::info("No template packs installed.");
+                ui::info("No packs installed.");
             } else {
-                ui::header("Installed template packs");
+                ui::header("Installed packs");
                 for (id, path) in &installed {
                     ui::phase_ok(id, Some(&path.display().to_string()));
                 }
             }
 
             let installed_ids: Vec<&str> = installed.iter().map(|(id, _)| id.as_str()).collect();
-            ui::header("Available packs (download with `oag templates install --id <pack>`)");
+            ui::header("Available packs (download with `oag packs install --id <pack>`)");
             for &pack_id in github::KNOWN_PACKS {
                 let marker = if installed_ids.contains(&pack_id) {
                     " (installed)"
@@ -635,7 +633,7 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
             }
             Ok(())
         }
-        TemplatesAction::Install { source, id } => {
+        PacksAction::Install { source, id } => {
             if let Some(pack_id) = id {
                 install_pack_from_github(&pack_id)?;
                 Ok(())
@@ -654,13 +652,9 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
                 anyhow::bail!("provide a source path or use --id <pack_id>");
             }
         }
-        TemplatesAction::Remove { id } => {
+        PacksAction::Remove { id } => {
             resolve::remove_pack(&id).map_err(|e| anyhow::anyhow!(e))?;
             ui::phase_ok("removed", Some(&id));
-            Ok(())
-        }
-        TemplatesAction::Path => {
-            println!("{}", resolve::templates_dir().display());
             Ok(())
         }
     }

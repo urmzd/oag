@@ -7,14 +7,14 @@ import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
 {% endif %}
 {% if has_hook_sse %}
 import { useCallback, useRef, useState } from "react";
-import type { SSEEvent } from "./sse";
+import type { SSEEvent } from "./sse.js";
 {% endif %}
-import { useApiClient } from "./provider";
+import { useApiClient } from "./provider.js";
 import type {
 {% for type_name in hook_imported_types %}
   {{ type_name }},
 {% endfor %}
-} from "./types";
+} from "./types.js";
 {% for hook in hooks %}
 
 {% if hook.kind == "query" %}

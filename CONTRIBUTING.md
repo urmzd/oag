@@ -94,7 +94,7 @@ Generators are now **template packs** — no Rust code changes needed.
 To install a custom pack without modifying the source:
 
 ```sh
-oag templates install /path/to/your/pack
+oag packs install /path/to/your/pack
 ```
 
 ## Publishing

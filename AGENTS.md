@@ -38,7 +38,7 @@ oag validate <spec>              parse spec and report stats
 oag inspect <spec>               dump IR as JSON
 oag init [-p <pack>]             create oag.yaml, optionally install packs
 oag check                        run linters/typecheckers on output
-oag templates list|install|remove|path   manage packs in .oag/packs/
+oag packs list|install|remove            manage packs in .oag/packs/
 oag completions <shell>          shell completions
 oag update                       self-update
 ```
