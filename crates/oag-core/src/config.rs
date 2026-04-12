@@ -200,7 +200,7 @@ impl Default for GeneratorConfig {
             split_by: None,
             base_url: None,
             no_jsdoc: None,
-            source_dir: "src".to_string(),
+            source_dir: "".to_string(),
             scaffold: None,
         }
     }
