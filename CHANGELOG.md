@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.19.3 (2026-04-12)
+
+### Documentation
+
+- update architecture and CLI documentation ([c84046f](https://github.com/urmzd/oag/commit/c84046fc2a430098830c644d947b618f7c39a03e))
+
+### Refactoring
+
+- **cli**: simplify pack handling and argument flags ([9762d2c](https://github.com/urmzd/oag/commit/9762d2c7ad2c37c716b2451093842a79809e952c))
+- **pack-resolution**: migrate packs to local .oag directory ([42b866d](https://github.com/urmzd/oag/commit/42b866d753787ec7997dfb2bf85eacac029a6a29))
+
+### Miscellaneous
+
+- sync Cargo.lock [skip ci] ([1d84e67](https://github.com/urmzd/oag/commit/1d84e6772851b3647817edb401c0609d55d013b5))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.19.2...v0.19.3)
+
+
 ## 0.19.2 (2026-04-09)
 
 ### Bug Fixes
