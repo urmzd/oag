@@ -32,10 +32,10 @@ fn resolve_pack(specifier: &str) -> Result<TemplatePack> {
             TemplatePack::from_dir(&disk_path)
                 .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?
         } else {
-            fetch_and_cache(pack_id, git_ref)?
+            fetch_and_install(pack_id, git_ref)?
         }
     } else {
-        fetch_and_cache(pack_id, git_ref)?
+        fetch_and_install(pack_id, git_ref)?
     };
 
     // Handle extends
@@ -48,21 +48,16 @@ fn resolve_pack(specifier: &str) -> Result<TemplatePack> {
     }
 }
 
-/// Download a pack from GitHub into a cache directory and load it.
-/// Reuses cached copies if they already exist.
-fn fetch_and_cache(pack_id: &str, git_ref: &str) -> Result<TemplatePack> {
-    let templates_dir = resolve::templates_dir()
-        .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?;
-    let cache_dir = templates_dir.join(".cache").join(pack_id).join(git_ref);
+/// Download a pack from GitHub and install it to `.oag/packs/<id>/`.
+fn fetch_and_install(pack_id: &str, git_ref: &str) -> Result<TemplatePack> {
+    let target = resolve::templates_dir().join(pack_id);
 
-    if !cache_dir.join("oag.pack.toml").exists() {
-        ui::info(&format!("fetching {pack_id}@{git_ref} from GitHub..."));
-        github::download_pack(pack_id, git_ref, &cache_dir)?;
-        ui::phase_ok("cached", Some(&format!("{pack_id}@{git_ref}")));
-    }
+    ui::info(&format!("installing {pack_id}@{git_ref} from GitHub..."));
+    github::download_pack(pack_id, git_ref, &target)?;
+    ui::phase_ok("installed", Some(&format!("{pack_id}@{git_ref}")));
 
-    TemplatePack::from_dir(&cache_dir)
-        .map_err(|e| anyhow::anyhow!("failed to load pack '{}@{}': {}", pack_id, git_ref, e))
+    TemplatePack::from_dir(&target)
+        .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))
 }
 
 // ── UI helpers (all output to stderr) ────────────────────────────────
@@ -110,7 +105,6 @@ enum Commands {
     /// Generate code from an OpenAPI spec using oag.yaml configuration
     Generate {
         /// Path to the OpenAPI spec file (YAML or JSON). Overrides the `input` field in the config.
-        #[arg(short, long)]
         input: Option<PathBuf>,
 
         /// Overwrite scaffold files (package.json, tsconfig.json, etc.) even if they already exist.
@@ -122,14 +116,12 @@ enum Commands {
     /// Validate an OpenAPI spec and report its contents (paths, schemas, operations)
     Validate {
         /// Path to the OpenAPI spec file (YAML or JSON)
-        #[arg(short, long)]
         input: PathBuf,
     },
 
     /// Dump the parsed intermediate representation (IR) as JSON for debugging
     Inspect {
         /// Path to the OpenAPI spec file (YAML or JSON)
-        #[arg(short, long)]
         input: PathBuf,
     },
 
@@ -591,8 +583,7 @@ fn cmd_init(force: bool, packs: Vec<String>) -> Result<()> {
 /// Download a pack from GitHub and install it locally, resolving `extends` dependencies.
 fn install_pack_from_github(specifier: &str) -> Result<()> {
     let (pack_id, git_ref) = github::parse_pack_specifier(specifier);
-    let templates_dir = resolve::templates_dir()
-        .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?;
+    let templates_dir = resolve::templates_dir();
     let target = templates_dir.join(pack_id);
 
     github::download_pack(pack_id, git_ref, &target)?;
@@ -669,10 +660,7 @@ fn cmd_templates(action: TemplatesAction) -> Result<()> {
             Ok(())
         }
         TemplatesAction::Path => {
-            match resolve::templates_dir() {
-                Some(dir) => println!("{}", dir.display()),
-                None => anyhow::bail!("could not determine data directory"),
-            }
+            println!("{}", resolve::templates_dir().display());
             Ok(())
         }
     }
