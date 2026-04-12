@@ -80,151 +80,95 @@ Packs are stored in `.oag/packs/` relative to your project root. Commit them, gi
 ```yaml
 # oag configuration — https://github.com/urmzd/oag
 #
-# This file is loaded automatically from the current directory when running `oag generate`.
-# You can override the input spec with: oag generate other-spec.yaml
-#
-# Full reference: https://github.com/urmzd/oag#configuration
+# Loaded automatically when running `oag generate`.
+# Override the spec with: oag generate other-spec.yaml
 
-# ---------------------------------------------------------------------------
-# Input
-# ---------------------------------------------------------------------------
-# Path to your OpenAPI 3.x spec (YAML or JSON), relative to this config file.
 input: openapi.yaml
 
-# ---------------------------------------------------------------------------
-# Naming
-# ---------------------------------------------------------------------------
-# Controls how operation names (function/method names) are derived.
-naming:
-  # Strategy for deriving operation names:
-  #   use_operation_id  — use the operationId field from the spec (default)
-  #   use_route_based   — derive from HTTP method + path (e.g., GET /pets → getPets)
-  strategy: use_operation_id
-
-  # Custom aliases to rename specific operations. Applied after the naming strategy.
-  # Keys are the resolved operation name, values are the desired alias.
-  aliases: {}
-    # createChatCompletion: chat     # operationId → custom name
-    # listModels: models
-
-# ---------------------------------------------------------------------------
-# Generators
-# ---------------------------------------------------------------------------
-# Each key is a generator ID. Only generators listed here will run.
-# Available generators:
-#   node-client       — TypeScript/Node API client (zero runtime dependencies)
-#   react-swr-client  — React/SWR hooks (extends node-client with hooks + context provider)
-#   fastapi-server    — Python FastAPI server stubs with Pydantic v2 models
 generators:
   node-client:
-    # Directory where generated files are written. Created automatically.
-    output: src/generated/node
-
-    # How files are organized:
-    #   bundled  — single file (src/index.ts)
-    #   modular  — separate files per concern: types.ts, client.ts, sse.ts, index.ts (default)
-    #   split    — separate files per operation group (see split_by)
-    layout: modular
-
-    # Only used with layout: split. Controls how operations are grouped into files:
-    #   tag        — one file per OpenAPI tag (default)
-    #   operation  — one file per operation
-    #   route      — one file per route prefix
-    # split_by: tag
-
-    # Override the API base URL instead of reading from the spec's servers array.
-    # Useful when the spec omits a server or you need a different URL for development.
-    # base_url: https://api.example.com
-
-    # Set to true to disable JSDoc comments on generated types and methods.
-    # no_jsdoc: false
-
-    # Subdirectory within output for generated source files.
-    # Scaffold files (package.json, tsconfig, etc.) always stay at the output root.
-    # Set to "" to place source files directly at the output root.
-    # source_dir: src
-
-    # Set scaffold to false to disable all scaffolding (for existing projects).
-    # scaffold: false
-    #
-    # Scaffold controls which project configuration files are generated alongside
-    # the source code. Set individual tools to false to disable them.
-    scaffold:
-      # NPM package name. Defaults to a slugified version of the spec's info.title.
-      # package_name: my-api-client
-
-      # Repository URL included in package.json.
-      # repository: https://github.com/you/your-repo
-
-      # Set to true to skip scaffold files (package.json, tsconfig, biome, tsdown)
-      # but still emit a root index.ts re-export. Useful when adding generated code
-      # to an existing project with its own build configuration.
-      # existing_repo: false
-
-      # Code formatter. Generates biome.json and auto-formats after generation.
-      # Set to false to disable.
-      formatter: biome        # biome | false
-
-      # Test runner. Generates vitest test files and adds vitest to package.json.
-      # Set to false to disable test generation.
-      test_runner: vitest     # vitest | false
-
-      # Bundler. Generates tsdown.config.ts for building distributable packages.
-      # Set to false to disable.
-      bundler: tsdown         # tsdown | false
-
-      # Extra dev dependencies to include in package.json devDependencies.
-      # Each key is a package name, each value is a version specifier.
-      # extra_dev_dependencies:
-      #   "@testing-library/react": "^16.0"
-      #   msw: "^2.0"
+    output: src/generated
 
   # react-swr-client:
   #   output: src/generated/react
-  #   layout: modular           # only modular is supported for react-swr-client
-  #   # base_url: https://api.example.com
-  #   # no_jsdoc: false
-  #   # source_dir: src
-  #   scaffold:
-  #     # package_name: my-react-client
-  #     formatter: biome        # biome | false
-  #     test_runner: vitest     # vitest | false
-  #     bundler: tsdown         # tsdown | false
 
   # fastapi-server:
   #   output: src/generated/server
-  #   layout: modular           # only modular is supported for fastapi-server
-  #   scaffold:
-  #     # package_name: my_api_server
-  #     formatter: ruff         # ruff | false — auto-formats and lints after generation
-  #     test_runner: pytest     # pytest | false — generates pytest tests with async httpx client
-  #     # extra_dev_dependencies:
-  #     #   factory-boy: ">=3.3"
-  #     #   httpx: ">=0.27"
+
+# --- Standalone package (pnpm workspace, publishable client) ---
+#
+# To generate a standalone package instead of drop-in files, add scaffold
+# and set source_dir so the package has its own src/ with build tooling:
+#
+#   node-client:
+#     output: packages/api-client
+#     source_dir: src
+#     scaffold:
+#       package_name: "@myorg/api-client"
+#       formatter: biome        # biome | false
+#       test_runner: vitest     # vitest | false
+#       bundler: tsdown         # tsdown | false
+
+# --- Other options ---
+#
+# naming:
+#   strategy: use_operation_id  # or use_route_based
+#   aliases:
+#     createChatCompletion: chat
+#
+# Generator options:
+#   layout: modular             # bundled | modular | split
+#   split_by: tag               # tag | operation | route (only with layout: split)
+#   base_url: https://api.example.com
+#   no_jsdoc: false
 ```
 <!-- /embed-src -->
 
-### Generator options
+By default, oag generates source files directly into the output directory — no `package.json`, no build tooling, no extra nesting. Just drop-in files you import from your existing project:
 
-| Key | Description |
-|-----|-------------|
-| `output` | Output directory (required) |
-| `layout` | `bundled`, `modular` (default), or `split` |
-| `split_by` | For split layout: `tag` (default), `operation`, or `route` |
-| `base_url` | Override API base URL |
-| `no_jsdoc` | Disable JSDoc comments (TS only) |
-| `source_dir` | Subdirectory for source files, default `src` |
-| `scaffold` | Set to `false` to disable, or configure `formatter`, `test_runner`, `bundler` |
+```
+src/generated/
+  types.ts
+  client.ts
+  guards.ts
+  sse.ts
+  index.ts
+```
 
-### Scaffold behavior
+### Standalone package mode
 
-Scaffold files (`package.json`, `tsconfig.json`, etc.) are **write-once** — they're only created if they don't exist, so your customizations survive regeneration. Source files are always overwritten. Use `--force-scaffold` to reset them.
+To generate a publishable package (e.g., for a pnpm workspace), add `scaffold` and `source_dir`:
+
+```yaml
+generators:
+  node-client:
+    output: packages/api-client
+    source_dir: src
+    scaffold:
+      package_name: "@myorg/api-client"
+```
+
+This produces a self-contained package with `package.json`, `tsconfig.json`, biome, tsdown, and vitest pre-configured:
+
+```
+packages/api-client/
+  package.json
+  tsconfig.json
+  biome.json
+  tsdown.config.ts
+  src/
+    types.ts
+    client.ts
+    ...
+```
+
+Scaffold files are **write-once** — they're only created if they don't exist, so your customizations survive regeneration. Use `--force-scaffold` to reset them.
 
 ### Layout modes
 
-- **bundled** — single file
-- **modular** — separate files per concern (types, client, sse, index)
-- **split** — separate files per operation group (by tag, operation, or route)
+- **modular** (default) — separate files per concern (types, client, sse, index)
+- **bundled** — everything in a single file
+- **split** — separate files per operation group (by `tag`, `operation`, or `route`)
 
 ## Template packs
 
