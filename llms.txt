@@ -1,21 +1,19 @@
 # oag (OpenAPI Generator)
 
-> An OpenAPI 3.x code generator with a plugin-style Rust workspace architecture. Generates TypeScript/Node API clients (zero runtime dependencies), React/SWR hooks, and Python FastAPI server stubs with Pydantic v2 models. Supports full $ref resolution, Server-Sent Events, test generation, three layout modes (bundled, modular, split), and configurable naming strategies.
+> OpenAPI 3.x code generator. Generates TypeScript/Node API clients, React/SWR hooks, and Python FastAPI server stubs. Template pack engine with Jinja2 templates and TOML manifests. Packs install locally to `.oag/packs/`.
 
 ## Docs
 
-- [README](https://github.com/urmzd/oag/blob/main/README.md): Installation, CLI reference, configuration, and examples
+- [README](https://github.com/urmzd/oag/blob/main/README.md): Install, CLI, configuration, examples
 - [AGENTS.md](https://github.com/urmzd/oag/blob/main/AGENTS.md): Architecture and development guide
 - [CHANGELOG](https://github.com/urmzd/oag/blob/main/CHANGELOG.md): Version history
-- [CONTRIBUTING](https://github.com/urmzd/oag/blob/main/CONTRIBUTING.md): Setup, workflow, adding generators, and publishing
+- [CONTRIBUTING](https://github.com/urmzd/oag/blob/main/CONTRIBUTING.md): Setup and workflow
 
 ## API / Key Files
 
-- [crates/oag-core/src/](https://github.com/urmzd/oag/blob/main/crates/oag-core/src/): IR, parser, config, transform pipeline, CodeGenerator trait
+- [crates/oag-core/src/](https://github.com/urmzd/oag/blob/main/crates/oag-core/src/): IR, parser, config, transform pipeline
 - [crates/oag-cli/src/main.rs](https://github.com/urmzd/oag/blob/main/crates/oag-cli/src/main.rs): CLI entry point
-- [crates/oag-node-client/](https://github.com/urmzd/oag/blob/main/crates/oag-node-client/): TypeScript/Node client generator
-- [crates/oag-react-swr-client/](https://github.com/urmzd/oag/blob/main/crates/oag-react-swr-client/): React/SWR hooks generator
-- [crates/oag-fastapi-server/](https://github.com/urmzd/oag/blob/main/crates/oag-fastapi-server/): Python FastAPI server generator
+- [packs/](https://github.com/urmzd/oag/blob/main/packs/): Template packs (node-client, react-swr-client, fastapi-server)
 - [crates/oag-core/default-config.yaml](https://github.com/urmzd/oag/blob/main/crates/oag-core/default-config.yaml): Default oag.yaml config
 - [examples/](https://github.com/urmzd/oag/blob/main/examples/): Working examples (petstore, sse-chat)
 

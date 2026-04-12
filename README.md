@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">oag</h1>
   <p align="center">
-    OpenAPI 3.x code generator powered by a template pack engine supporting TypeScript, React, and Python FastAPI.
+    OpenAPI 3.x code generator. TypeScript, React, Python FastAPI.
     <br /><br />
     <a href="https://github.com/urmzd/oag/releases">Download</a>
     &middot;
@@ -20,63 +20,68 @@
 
 ## Why oag?
 
-OpenAPI 3.2 shipped but most generators haven't caught up. When you need to glue a frontend to a backend during a POC, you don't want to fight a generator that produces bloated code requiring heavy post-processing.
-
-`oag` focuses on simplicity: one config file, one command, clean output.
+Most OpenAPI generators produce bloated output that needs heavy post-processing. `oag` generates clean, readable code from one config file with one command.
 
 - Parses OpenAPI 3.x specs with full `$ref` resolution
-- **Template pack engine** — generators are declarative Jinja2 template packs with TOML manifests, no Rust code needed
-- **Built-in packs**: `node-client` (TypeScript), `react-swr-client` (React/SWR hooks), `fastapi-server` (Python FastAPI)
-- **Pack inheritance** — `react-swr-client` extends `node-client` to avoid template duplication
-- **Custom packs** — install your own template packs or extract built-ins to customize (`oag templates install`)
-- First-class Server-Sent Events support via `AsyncGenerator` (TS) and `StreamingResponse` (Python)
-- **Test generation** — pytest tests for FastAPI, vitest tests for TypeScript/React (opt-out via `scaffold.test_runner: false`)
-- Scaffolds Biome + tsdown configuration for TypeScript projects, Ruff for Python
-- Configurable naming strategies and operation aliases
-- Three layout modes per pack: bundled, modular, or split
+- Template pack engine — generators are Jinja2 templates, no Rust code needed
+- Built-in packs: `node-client`, `react-swr-client`, `fastapi-server`
+- First-class SSE support (`AsyncGenerator` in TS, `StreamingResponse` in Python)
+- Packs install locally to `.oag/packs/` — version them, share them, customize them
 
-## Quick start
-
-Install with a single command (Linux/macOS):
+## Install
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 ```
 
-Or install from crates.io (requires Rust):
+Or via cargo:
 
 ```sh
 cargo install oag
 ```
 
-Windows users can download binaries directly from the
-[latest release](https://github.com/urmzd/oag/releases/latest).
+Or download binaries from [releases](https://github.com/urmzd/oag/releases/latest).
 
-<details>
-<summary>Build from source</summary>
+## Quick start
 
 ```sh
-git clone https://github.com/urmzd/oag.git
-cd oag
-cargo install --path crates/oag-cli
+oag init -p node-client          # creates oag.yaml, installs pack to .oag/packs/
+oag generate                     # generates code
 ```
 
-</details>
+## CLI
 
-Initialize a config file:
-
-```sh
-oag init
+```
+oag generate [spec]              generate code (spec is optional, defaults to oag.yaml input)
+oag generate [spec] --force-scaffold   regenerate scaffold files too
+oag validate <spec>              parse an OpenAPI spec and report stats
+oag inspect <spec>               dump the parsed IR as JSON
+oag init                         create oag.yaml in the current directory
+oag init -p <pack> [-p <pack>]   also install packs
+oag init --force                 overwrite existing oag.yaml
+oag check                        run linters/typecheckers on generated output
+oag templates list               list installed and available packs
+oag templates install <path>     install a pack from a local directory
+oag templates install --id <id>  download a pack from GitHub
+oag templates remove <id>        remove a pack
+oag templates path               print the packs directory (.oag/packs/)
+oag completions <shell>          generate shell completions (bash, zsh, fish, powershell, elvish)
+oag update                       self-update to latest release
+oag version                      print version
 ```
 
-This creates `oag.yaml` in the current directory:
+Packs are stored in `.oag/packs/` relative to your project root. Commit them, gitignore them, or customize them — your call.
+
+## Configuration
+
+`oag init` creates `oag.yaml`:
 
 <!-- embed-src src="crates/oag-core/default-config.yaml" fence="yaml" -->
 ```yaml
 # oag configuration — https://github.com/urmzd/oag
 #
 # This file is loaded automatically from the current directory when running `oag generate`.
-# You can override the input spec with: oag generate -i other-spec.yaml
+# You can override the input spec with: oag generate other-spec.yaml
 #
 # Full reference: https://github.com/urmzd/oag#configuration
 
@@ -199,165 +204,69 @@ generators:
 ```
 <!-- /embed-src -->
 
-Generate code:
+### Generator options
 
-```sh
-oag generate
-```
-
-This will generate code for all configured generators. You can override the input spec:
-
-```sh
-oag generate -i other-spec.yaml
-```
-
-**Note**: The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported for backward compatibility and automatically converted to the `generators` map format.
-
-## CLI reference
-
-| Command | Description | Key flags |
-|---------|-------------|-----------|
-| `oag generate` | Generate code from an OpenAPI spec | `-i, --input <PATH>` — override spec path, `--force-scaffold` — overwrite scaffold files even if they exist |
-| `oag validate` | Validate an OpenAPI spec and report its contents | `-i, --input <PATH>` **(required)** |
-| `oag inspect` | Dump the parsed intermediate representation | `-i, --input <PATH>` **(required)**, `--format yaml\|json` |
-| `oag init` | Create a `oag.yaml` config file | `--force` — overwrite existing |
-| `oag completions` | Generate shell completions | `<SHELL>` — bash, zsh, fish, powershell, elvish |
-| `oag templates list` | List available template packs (built-in + installed) | |
-| `oag templates install` | Install a pack from a local directory | `<SOURCE>` or `--builtin` to extract all built-in packs |
-| `oag templates remove` | Remove an installed template pack | `<ID>` — pack ID to remove |
-| `oag templates path` | Print the template packs directory path | |
-
-Run `oag <command> --help` for detailed usage. Set `RUST_LOG=debug` for verbose output.
-
-## Configuration
-
-All options are set in `oag.yaml`. The CLI supports `-i/--input` to override the input spec path.
-
-### Global options
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `input` | `string` | `openapi.yaml` | Path to the OpenAPI spec (YAML or JSON) |
-| `naming.strategy` | `string` | `use_operation_id` | How to derive function names: `use_operation_id` or `use_route_based` |
-| `naming.aliases` | `map` | `{}` | Map of operationId to custom name overrides |
-
-### Generators (template packs)
-
-The `generators` map configures which template packs to run and their options. Each generator ID corresponds to a template pack — either a built-in pack or one you've installed.
-
-**Built-in packs:**
-- `node-client` — TypeScript/Node API client (zero dependencies)
-- `react-swr-client` — React/SWR hooks (extends `node-client` via pack inheritance)
-- `fastapi-server` — Python FastAPI server stubs with Pydantic v2 models
-
-Packs are resolved in order: installed packs (in `oag templates path`) take precedence over built-in packs, allowing you to customize any built-in pack by extracting and modifying it.
-
-### Generator options (node-client, react-swr-client, fastapi-server)
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `output` | `string` | **required** | Output directory for this generator |
-| `layout` | `string` | `modular` | Layout mode: `bundled` (single file), `modular` (separate files per concern), or `split` (separate files per operation group) |
-| `split_by` | `string` | `tag` | Only for `split` layout: `operation`, `tag`, or `route` |
-| `base_url` | `string` | *(from spec servers)* | Override the API base URL (TypeScript generators only) |
-| `no_jsdoc` | `bool` | `false` | Disable JSDoc comments (TypeScript generators only) |
-| `source_dir` | `string` | `"src"` | Subdirectory for generated source files — set to `""` to place files at the output root (TypeScript generators only) |
-| `scaffold.package_name` | `string` | *(from spec title)* | Custom package name (TypeScript: npm, Python: pyproject.toml) |
-| `scaffold.repository` | `string` | | Repository URL for package metadata |
-| `scaffold.formatter` | `string` or `false` | `biome` (TS) / `ruff` (Python) | Code formatter — set to `false` to disable |
-| `scaffold.test_runner` | `string` or `false` | `vitest` (TS) / `pytest` (Python) | Test runner — set to `false` to disable test generation |
-| `scaffold.bundler` | `string` or `false` | `tsdown` | Bundler config (TypeScript only) — set to `false` to disable |
-| `scaffold.existing_repo` | `bool` | `false` | Set to `true` to skip all scaffold files (package.json, tsconfig, biome, tsdown) and only emit a root `index.ts` re-export |
-| `scaffold.extra_dev_dependencies` | `map` | `{}` | Additional dev dependencies as package name to version spec (e.g., `"@testing-library/react": "^16.0"` for npm, `"factory-boy": ">=3.3"` for Python) |
+| Key | Description |
+|-----|-------------|
+| `output` | Output directory (required) |
+| `layout` | `bundled`, `modular` (default), or `split` |
+| `split_by` | For split layout: `tag` (default), `operation`, or `route` |
+| `base_url` | Override API base URL |
+| `no_jsdoc` | Disable JSDoc comments (TS only) |
+| `source_dir` | Subdirectory for source files, default `src` |
+| `scaffold` | Set to `false` to disable, or configure `formatter`, `test_runner`, `bundler` |
 
 ### Scaffold behavior
 
-Scaffold files (`package.json`, `tsconfig.json`, `biome.json`, `pyproject.toml`, etc.) are **write-once by default** — they are only created if they don't already exist on disk. This preserves any customizations you make to these files (adding scripts, dependencies, or build config) across subsequent `oag generate` runs.
-
-Source files (`types.ts`, `client.ts`, `models.py`, etc.) are always regenerated from the spec.
-
-To force-overwrite scaffold files (e.g., to pick up new template defaults):
-
-```sh
-oag generate --force-scaffold
-```
+Scaffold files (`package.json`, `tsconfig.json`, etc.) are **write-once** — they're only created if they don't exist, so your customizations survive regeneration. Source files are always overwritten. Use `--force-scaffold` to reset them.
 
 ### Layout modes
 
-- **bundled** — Everything in a single file (e.g., `src/index.ts` or `main.py`)
-- **modular** — Separate files per concern (e.g., `src/types.ts`, `src/client.ts`, `src/sse.ts`, `src/index.ts`)
-- **split** — Separate files per operation group (e.g., `src/pets.ts`, `src/users.ts`, `src/orders.ts`)
+- **bundled** — single file
+- **modular** — separate files per concern (types, client, sse, index)
+- **split** — separate files per operation group (by tag, operation, or route)
 
-For TypeScript generators, source files are placed in a `src/` subdirectory by default (configurable via `source_dir`). This matches the scaffold's tsconfig.json (`rootDir`, `include`) and tsdown.config.ts (`entry`) — all of which adapt automatically to the configured `source_dir`. Set `source_dir: ""` to place files directly at the output root. Scaffold files (`package.json`, `tsconfig.json`, `biome.json`, `tsdown.config.ts`) always remain at the output root.
+## Template packs
 
-When using `split` layout, specify `split_by`:
-- `operation` — One file per operation
-- `tag` — One file per OpenAPI tag (default)
-- `route` — One file per route prefix
+Packs live in `.oag/packs/` inside your project. Each pack is a directory with:
 
-### Backward compatibility
+- `oag.pack.toml` — manifest (metadata, type mappings, layouts, formatters)
+- `templates/` — Jinja2 `.j2` templates
 
-The old config format (with `target`, `output`, `output_options`, and `client` fields) is still supported and automatically converted to the new format.
+Packs support inheritance (`extends` in the manifest). `react-swr-client` extends `node-client` — it inherits all base templates and adds React hooks on top.
 
-## Agent Skill
+To customize a built-in pack, install it locally and edit:
 
-This project ships an [Agent Skill](https://github.com/vercel-labs/skills) for use with Claude Code, Cursor, and other compatible agents.
+```sh
+oag templates install --id node-client
+# edit .oag/packs/node-client/templates/*.j2
+oag generate
+```
 
-Available as portable agent skills in [`skills/`](skills/).
+## Examples
 
-Once installed, use `/openapi-generate` to generate TypeScript clients, React/SWR hooks, or Python FastAPI servers from your OpenAPI spec.
+See [`examples/`](examples/) for working projects:
+
+- **[`petstore`](examples/petstore/)** — Node + React clients from the Petstore 3.2 spec
+- **[`sse-chat`](examples/sse-chat/)** — SSE streaming with Node + React hooks
+
+Regenerate with `just examples`.
 
 ## Architecture
 
 ```
-oag-cli  -->  oag-core (engine + packs)
-                 ├── packs/node-client/
-                 ├── packs/react-swr-client/  (extends node-client)
-                 └── packs/fastapi-server/
+oag-cli  -->  oag-core (engine)
+                 ├── .oag/packs/node-client/
+                 ├── .oag/packs/react-swr-client/  (extends node-client)
+                 └── .oag/packs/fastapi-server/
 ```
-
-The workspace has two crates and a set of template packs:
 
 | Component | Role |
 |-----------|------|
-| [`oag-core`](crates/oag-core/) | OpenAPI parser, intermediate representation, transform pipeline, and template pack engine |
-| [`oag-cli`](crates/oag-cli/) | Command-line interface that resolves packs and orchestrates generation |
-| [`packs/`](packs/) | Declarative template packs — Jinja2 templates + TOML manifest, no Rust code needed |
+| [`oag-core`](crates/oag-core/) | Parser, IR, transforms, template engine |
+| [`oag-cli`](crates/oag-cli/) | CLI (clap), pack resolution, orchestration |
+| [`packs/`](packs/) | Built-in template packs (embedded at compile time) |
 
-### Template pack engine
+## Agent Skill
 
-Generators are defined as **template packs** rather than compiled Rust crates. Each pack is a directory containing:
-
-- `oag.pack.toml` — manifest declaring metadata, type mappings, layout definitions, scaffold files, and formatter config
-- `templates/` — Jinja2 templates (`.j2` files) for each generated file
-
-The engine renders templates against a context built from the parsed OpenAPI spec and generator config. Packs support **inheritance** (`extends` in `oag.pack.toml`) so `react-swr-client` inherits all templates from `node-client` and adds its own.
-
-Built-in packs are embedded in the binary at compile time. Users can extract and customize them with `oag templates install --builtin`, or create entirely new packs.
-
-The core engine API:
-
-```rust
-pub fn generate(
-    ir: &IrSpec,
-    config: &GeneratorConfig,
-    pack: &TemplatePack,
-) -> Result<Vec<GeneratedFile>, GeneratorError>
-```
-
-The CLI resolves packs by ID — first checking installed packs on disk, then falling back to embedded packs.
-
-## Examples
-
-Working examples with generated output are in the [`examples/`](examples/) directory:
-
-- **[`petstore`](examples/petstore/)** — Node client and React client generated from the Petstore 3.2 spec
-- **[`sse-chat`](examples/sse-chat/)** — Node client and React hooks with SSE streaming for a chat API
-
-Each example has its own `oag.yaml` configuring generators with separate output directories (e.g. `generated/node` and `generated/react`).
-
-Regenerate them with:
-
-```sh
-just examples
-```
+This project ships an [Agent Skill](https://github.com/vercel-labs/skills) for Claude Code, Cursor, and other agents. See [`skills/`](skills/).
