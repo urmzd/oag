@@ -1,15 +1,15 @@
 use std::path::{Path, PathBuf};
 
-/// Get the platform-specific template pack directory.
-pub fn templates_dir() -> Option<PathBuf> {
-    dirs::data_dir().map(|d| d.join("oag").join("templates"))
+/// Local packs directory within the current repo.
+pub fn templates_dir() -> PathBuf {
+    PathBuf::from(".oag").join("packs")
 }
 
 /// Resolve a pack directory by ID.
 ///
 /// Resolution order:
 /// 1. Explicit path (if provided in config)
-/// 2. Installed packs in the platform data directory
+/// 2. Installed packs in `.oag/packs/`
 /// 3. Returns None (caller falls back to embedded packs)
 pub fn resolve_pack_path(pack_id: &str, explicit_path: Option<&Path>) -> Option<PathBuf> {
     // 1. Explicit path
@@ -19,12 +19,10 @@ pub fn resolve_pack_path(pack_id: &str, explicit_path: Option<&Path>) -> Option<
         return Some(path.to_path_buf());
     }
 
-    // 2. Installed packs in data directory
-    if let Some(dir) = templates_dir() {
-        let pack_dir = dir.join(pack_id);
-        if pack_dir.join("oag.pack.toml").exists() {
-            return Some(pack_dir);
-        }
+    // 2. Local .oag/packs/ directory
+    let pack_dir = templates_dir().join(pack_id);
+    if pack_dir.join("oag.pack.toml").exists() {
+        return Some(pack_dir);
     }
 
     // 3. Not found on disk
@@ -33,9 +31,7 @@ pub fn resolve_pack_path(pack_id: &str, explicit_path: Option<&Path>) -> Option<
 
 /// List all installed template packs (id, path).
 pub fn list_installed_packs() -> Vec<(String, PathBuf)> {
-    let Some(dir) = templates_dir() else {
-        return Vec::new();
-    };
+    let dir = templates_dir();
     if !dir.is_dir() {
         return Vec::new();
     }
@@ -58,12 +54,9 @@ pub fn list_installed_packs() -> Vec<(String, PathBuf)> {
     packs
 }
 
-/// Install a pack from a source directory to the templates directory.
+/// Install a pack from a source directory to the local packs directory.
 pub fn install_pack(source: &Path, pack_id: &str) -> Result<PathBuf, String> {
-    let Some(dir) = templates_dir() else {
-        return Err("could not determine data directory".to_string());
-    };
-    let target = dir.join(pack_id);
+    let target = templates_dir().join(pack_id);
     if target.exists() {
         std::fs::remove_dir_all(&target)
             .map_err(|e| format!("failed to remove existing pack: {e}"))?;
@@ -74,10 +67,7 @@ pub fn install_pack(source: &Path, pack_id: &str) -> Result<PathBuf, String> {
 
 /// Remove an installed pack.
 pub fn remove_pack(pack_id: &str) -> Result<(), String> {
-    let Some(dir) = templates_dir() else {
-        return Err("could not determine data directory".to_string());
-    };
-    let target = dir.join(pack_id);
+    let target = templates_dir().join(pack_id);
     if !target.exists() {
         return Err(format!("pack '{pack_id}' is not installed"));
     }
