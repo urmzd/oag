@@ -1,3 +1,5 @@
+mod self_update;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -601,9 +603,9 @@ fn install_pack_from_github(specifier: &str) -> Result<()> {
 
 fn cmd_update() -> Result<()> {
     eprintln!("current version: {}", env!("CARGO_PKG_VERSION"));
-    match agentspec_update::self_update("urmzd/oag", env!("CARGO_PKG_VERSION"), "oag")? {
-        agentspec_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
-        agentspec_update::UpdateResult::Updated { from, to } => eprintln!("updated: {from} → {to}"),
+    match self_update::self_update("urmzd/oag", env!("CARGO_PKG_VERSION"), "oag")? {
+        self_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
+        self_update::UpdateResult::Updated { from, to } => eprintln!("updated: {from} → {to}"),
     }
     Ok(())
 }

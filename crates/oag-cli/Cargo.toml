@@ -25,4 +25,4 @@ indicatif = { workspace = true }
 ureq = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
-agentspec-update = { workspace = true }
+sha2 = { workspace = true }
