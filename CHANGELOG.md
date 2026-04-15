@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.20.2 (2026-04-15)
+
+### Refactoring
+
+- inline agentspec-update (#15) ([2b2a7e8](https://github.com/urmzd/oag/commit/2b2a7e8cc59f68618f5d241f9f0d337138f2a74c))
+
+### Miscellaneous
+
+- migrate sr config and action to v4 ([36368eb](https://github.com/urmzd/oag/commit/36368ebad7708e72821b818654c44618f899ec14))
+- sync Cargo.lock [skip ci] ([24f4ec0](https://github.com/urmzd/oag/commit/24f4ec030dcf318f38cc92f5aefb6683c7095507))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.1...v0.20.2)
+
+
 ## 0.20.1 (2026-04-12)
 
 ### Refactoring
