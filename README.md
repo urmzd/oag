@@ -75,7 +75,7 @@ Packs are stored in `.oag/packs/` relative to your project root. Commit them, gi
 
 `oag init` creates `oag.yaml`:
 
-<!-- embed-src src="crates/oag-core/default-config.yaml" fence="yaml" -->
+<!-- fsrc src="crates/oag-core/default-config.yaml" fence="yaml" -->
 ```yaml
 # oag configuration — https://github.com/urmzd/oag
 #
@@ -121,7 +121,7 @@ generators:
 #   base_url: https://api.example.com
 #   no_jsdoc: false
 ```
-<!-- /embed-src -->
+<!-- /fsrc -->
 
 By default, oag generates source files directly into the output directory — no `package.json`, no build tooling, no extra nesting. Just drop-in files you import from your existing project:
 
