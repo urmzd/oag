@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.3 (2026-04-16)
+
+### Bug Fixes
+
+- **ci**: migrate sr v4 to v7 for artifact and input support (#18) ([2b861ea](https://github.com/urmzd/oag/commit/2b861eadf3bbcbdcb5af5c6ad9bfb8ef567d6bef))
+
+### Misc
+
+- sync Cargo.lock [skip ci] ([7cfd102](https://github.com/urmzd/oag/commit/7cfd10233369f2f0b961120fe82747361a346ced))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.2...v0.20.3)
+
+
 ## 0.20.2 (2026-04-15)
 
 ### Refactoring
