@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.4 (2026-04-16)
+
+### Refactoring
+
+- replace embed-src references with fsrc (#19) ([dedfc2b](https://github.com/urmzd/oag/commit/dedfc2b42987b44a56c62015e830134836f48984))
+
+### Misc
+
+- sync Cargo.lock [skip ci] ([0dd8fc6](https://github.com/urmzd/oag/commit/0dd8fc645b81694596960707a4596194b295dda3))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.3...v0.20.4)
+
+
 ## 0.20.3 (2026-04-16)
 
 ### Bug Fixes
