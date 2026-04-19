@@ -1079,13 +1079,9 @@ fn build_hook_names(ir: &IrSpec) -> Vec<String> {
         .flat_map(|op| {
             let mut names = Vec::new();
             match &op.return_type {
-                IrReturnType::Sse(sse) => {
-                    if sse.also_has_json {
-                        names.push(format!("use{}Stream", op.name.pascal_case));
-                        names.push(format!("use{}", op.name.pascal_case));
-                    } else {
-                        names.push(format!("use{}", op.name.pascal_case));
-                    }
+                IrReturnType::Sse(sse) if sse.also_has_json => {
+                    names.push(format!("use{}Stream", op.name.pascal_case));
+                    names.push(format!("use{}", op.name.pascal_case));
                 }
                 _ => {
                     names.push(format!("use{}", op.name.pascal_case));
@@ -1315,10 +1311,8 @@ fn build_ts_test_call_args(op: &IrOperation) -> String {
     for param in &op.parameters {
         match param.location {
             IrParameterLocation::Path => args.push(mock_value_ts(&param.param_type)),
-            IrParameterLocation::Query | IrParameterLocation::Header => {
-                if param.required {
-                    args.push(mock_value_ts(&param.param_type));
-                }
+            IrParameterLocation::Query | IrParameterLocation::Header if param.required => {
+                args.push(mock_value_ts(&param.param_type));
             }
             _ => {}
         }
