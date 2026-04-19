@@ -31,6 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+    outputs:
+      released: ${{ steps.sr.outputs.released }}
+      tag: ${{ steps.sr.outputs.tag }}
     steps:
       - name: Generate app token
         id: app-token
@@ -48,56 +52,23 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - uses: Swatinem/rust-cache@v2
+
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-
-      - name: Release
-        id: sr
-        uses: urmzd/sr@v7
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-
-      - name: Sync Cargo.lock
-        if: steps.sr.outputs.released == 'true'
-        run: |
-          cargo update --workspace
-          git add Cargo.lock
-          git diff --staged --quiet || git commit -m "chore: sync Cargo.lock [skip ci]"
-          git pull --rebase
-          git push
-
-    outputs:
-      released: ${{ steps.sr.outputs.released }}
-      tag: ${{ steps.sr.outputs.tag }}
-
-  publish:
-    needs: release
-    if: needs.release.outputs.released == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.tag }}
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
 
       - name: Authenticate with crates.io
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
 
-      - name: Publish to crates.io
+      - name: Release
+        id: sr
+        uses: urmzd/sr@v7
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: |
-          cargo publish -p oag-core
-          sleep 30
-          cargo publish -p oag
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
 
   build:
     needs: release

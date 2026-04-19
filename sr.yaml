@@ -62,6 +62,12 @@ packages:
       - crates/oag-core/Cargo.toml
       - crates/oag-cli/Cargo.toml
       - Cargo.toml
+    stage_files:
+      - Cargo.lock
     hooks:
       pre_release:
         - ./scripts/pre-release.sh
+      post_release:
+        - cargo publish -p oag-core
+        - sleep 30
+        - cargo publish -p oag
