@@ -14,9 +14,13 @@
 <p align="center">
   <a href="https://github.com/urmzd/oag/actions/workflows/ci.yml"><img src="https://github.com/urmzd/oag/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://crates.io/crates/oag"><img src="https://img.shields.io/crates/v/oag" alt="crates.io"></a>
+  &nbsp;
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/urmzd/oag" alt="License"></a>
 </p>
 
-![demo](doc/demo.gif)
+<p align="center">
+  <img src="showcase/demo.gif" alt="Demo" width="80%">
+</p>
 
 ## Why oag?
 
@@ -212,4 +216,8 @@ oag-cli  -->  oag-core (engine)
 
 ## Agent Skill
 
-This project ships an [Agent Skill](https://github.com/vercel-labs/skills) for Claude Code, Cursor, and other agents. See [`skills/`](skills/).
+This repo's conventions are available as portable agent skills in [`skills/`](skills/).
+
+## License
+
+[Apache-2.0](LICENSE)
