@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.5 (2026-04-19)
+
+### Bug Fixes
+
+- collapse nested match arms for rust 1.95 collapsible_match ([1837f3e](https://github.com/urmzd/oag/commit/1837f3eb638552b2f18b1adde29e2a26952eef10))
+
+### Refactoring
+
+- move cargo publish into sr hooks.post_release ([f901b89](https://github.com/urmzd/oag/commit/f901b899cd95f6e2c02ba5a56b953b77aabd70f1))
+
+### Misc
+
+- sync Cargo.lock [skip ci] ([3658d1c](https://github.com/urmzd/oag/commit/3658d1cf9271fd8f0549bc820ae62ab35a4a2099))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.4...v0.20.5)
+
+
 ## 0.20.4 (2026-04-16)
 
 ### Refactoring
