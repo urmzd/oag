@@ -1,4 +1,4 @@
-# sr v7 configuration
+# sr configuration
 # Reference: https://github.com/urmzd/sr#configuration
 
 git:
@@ -64,10 +64,6 @@ packages:
       - Cargo.toml
     stage_files:
       - Cargo.lock
-    hooks:
-      pre_release:
-        - ./scripts/pre-release.sh
-      post_release:
-        - cargo publish -p oag-core
-        - sleep 30
-        - cargo publish -p oag
+    publish:
+      type: cargo
+      workspace: true
