@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 {% for schema in schemas %}
@@ -16,8 +16,18 @@ class {{ schema.name }}(BaseModel):
 {% if field.description %}
     # {{ field.description }}
 {% endif %}
+{% if field.is_literal %}
 {% if field.needs_alias %}
-    {{ field.name }}: {{ field.field_type_str }} = Field({% if not field.required %}default=None, {% endif %}alias="{{ field.original_name }}")
+    {{ field.name }}: {{ field.type_str }} = Field(default={{ field.default_value }}, alias="{{ field.original_name }}")
+{% else %}
+    {{ field.name }}: {{ field.type_str }} = {{ field.default_value }}
+{% endif %}
+{% elif field.needs_alias %}
+{% if field.required %}
+    {{ field.name }}: {{ field.type_str }} = Field(alias="{{ field.original_name }}")
+{% else %}
+    {{ field.name }}: {{ field.type_str }} | None = Field(default=None, alias="{{ field.original_name }}")
+{% endif %}
 {% else %}
     {{ field.name }}: {{ field.field_type_str }}
 {% endif %}
@@ -45,13 +55,16 @@ class {{ schema.name }}({% if schema.is_integer %}int{% else %}str{% endif %}, E
 {% if schema.description %}
 # {{ schema.description }}
 {% endif %}
-{{ schema.name }} = {{ schema.target }}
+{# Quote the RHS so module-level type aliases tolerate forward references to
+   model classes that are declared later in the file (e.g. a union alias that
+   precedes its member models). Pydantic v2 resolves the string annotation. #}
+{{ schema.name }} = "{{ schema.target }}"
 
 {% elif schema.kind == "union" %}
 {% if schema.description %}
 # {{ schema.description }}
 {% endif %}
-{{ schema.name }} = {{ schema.variants | join(" | ") }}
+{{ schema.name }} = "{{ schema.variants | join(" | ") }}"
 
 {% endif %}
 {% endfor %}

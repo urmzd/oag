@@ -343,25 +343,58 @@ fn build_fields(properties: &IndexMap<String, SchemaOrRef>, required: &[String])
     properties
         .iter()
         .map(|(name, prop)| {
-            let (description, read_only, write_only) = match prop {
+            let (description, read_only, write_only, default_repr) = match prop {
                 SchemaOrRef::Schema(s) => (
                     s.description.clone(),
                     s.read_only.unwrap_or(false),
                     s.write_only.unwrap_or(false),
+                    schema_default_literal(s),
                 ),
-                _ => (None, false, false),
+                _ => (None, false, false, None),
             };
             IrField {
                 name: normalize_name(name),
                 original_name: name.clone(),
                 field_type: schema_or_ref_to_ir_type(prop),
+                // Required-ness derives solely from the schema's `required` list;
+                // a `default`/`const`/single-value enum never flips it.
                 required: required.contains(name),
                 description,
                 read_only,
                 write_only,
+                default_repr,
             }
         })
         .collect()
+}
+
+/// Compute the literal default value of a property schema, if any.
+///
+/// Priority: `const` -> single-element `enum` -> scalar `default`. The value is
+/// returned as a literal `IrType` (`StringLiteral`/`IntegerLiteral`) so packs
+/// render it through the same type-map literal templates used for types. This is
+/// purely a value; it does not affect required-ness.
+fn schema_default_literal(schema: &Schema) -> Option<IrType> {
+    if let Some(ref val) = schema.const_value {
+        return json_to_literal(val);
+    }
+    if schema.enum_values.len() == 1 {
+        return json_to_literal(&schema.enum_values[0]);
+    }
+    if let Some(ref val) = schema.default_value {
+        return json_to_literal(val);
+    }
+    None
+}
+
+/// Convert a JSON scalar into a literal `IrType`, mirroring the enum/const
+/// literal mapping in `schema_to_ir_type`. Non-string/non-integer values yield
+/// `None`.
+fn json_to_literal(val: &serde_json::Value) -> Option<IrType> {
+    if let Some(s) = val.as_str() {
+        return Some(IrType::StringLiteral(s.to_string()));
+    }
+    val.as_i64().map(IrType::IntegerLiteral)
 }
 
 fn merge_all_of(

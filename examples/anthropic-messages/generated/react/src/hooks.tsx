@@ -3,8 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
-import { useApiClient } from "./provider";
-import type { SSEEvent } from "./sse";
+import { useApiClient } from "./provider.js";
+import type { SSEEvent } from "./sse.js";
 import type {
   CountTokensRequest,
   CountTokensResponse,
@@ -13,7 +13,7 @@ import type {
   MessageResponse,
   ModelInfo,
   ModelListResponse,
-} from "./types";
+} from "./types.js";
 
 /** Create a message */
 export function useCreateMessageStream(anthropicVersion: string) {

@@ -3,8 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import useSWR, { type SWRConfiguration } from "swr";
 import useSWRMutation, { type SWRMutationConfiguration } from "swr/mutation";
-import { useApiClient } from "./provider";
-import type { SSEEvent } from "./sse";
+import { useApiClient } from "./provider.js";
+import type { SSEEvent } from "./sse.js";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -12,7 +12,7 @@ import type {
   FeedbackRequest,
   Model,
   ModelList,
-} from "./types";
+} from "./types.js";
 
 /** List available models */
 export function useListModels(config?: SWRConfiguration<ModelList>) {

@@ -35,10 +35,27 @@ test-integration:
     cargo test --workspace
 
 examples: install
-    cd examples/petstore && ../../target/release/oag generate
-    cd examples/sse-chat && ../../target/release/oag generate
-    cd examples/anthropic-messages && ../../target/release/oag generate
-    cd examples/petstore-polymorphic && ../../target/release/oag generate
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bin="$PWD/target/release/oag"
+    gen() {
+      local dir="$1"; shift
+      pushd "examples/$dir" >/dev/null
+      for pack in "$@"; do
+        # Install the working-tree pack so generation reflects local changes.
+        # Pass only the source path (no --id): `packs install <path>` copies the
+        # local pack, whereas `--id` would download it from GitHub @main and the
+        # working-tree changes would be ignored. The id comes from oag.pack.toml.
+        "$bin" packs install "../../packs/$pack" >/dev/null
+      done
+      "$bin" generate
+      popd >/dev/null
+    }
+    gen petstore node-client react-swr-client
+    gen sse-chat node-client react-swr-client
+    gen anthropic-messages node-client react-swr-client
+    gen petstore-polymorphic node-client react-swr-client
+    gen literal-default node-client react-swr-client fastapi-server
 
 record: install
     rm -rf /tmp/oag-demo && mkdir -p /tmp/oag-demo

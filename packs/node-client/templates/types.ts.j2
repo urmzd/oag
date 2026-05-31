@@ -10,7 +10,7 @@ export type {{ schema.name }} = {
 {% if field.description %}
   /** {{ field.description | escape_jsdoc }} */
 {% endif %}
-  {{ field.original_name }}{% if not field.required %}?{% endif %}: {{ field.type_str }};
+  {{ field.original_name }}{% if not field.required and not field.is_literal %}?{% endif %}: {{ field.type_str }};
 {% endfor %}
 } & Record<string, {{ schema.additional_properties }}>;
 {% elif schema.additional_properties %}
@@ -21,7 +21,7 @@ export interface {{ schema.name }} {
 {% if field.description %}
   /** {{ field.description | escape_jsdoc }} */
 {% endif %}
-  {{ field.original_name }}{% if not field.required %}?{% endif %}: {{ field.type_str }};
+  {{ field.original_name }}{% if not field.required and not field.is_literal %}?{% endif %}: {{ field.type_str }};
 {% endfor %}
 }
 {% endif %}

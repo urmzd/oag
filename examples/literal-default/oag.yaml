@@ -1,0 +1,46 @@
+# oag configuration — Literal Default example
+# Demonstrates that a literal/const enum with a `default` stays present:
+#   - TypeScript (node + react):  `type: "message";`            (required literal)
+#   - Python (fastapi):           `type: Literal["message"] = "message"`
+# while non-literal defaulted fields (temperature, stream, max_tokens) stay optional.
+input: ../../crates/oag-core/tests/fixtures/literal-default.yaml
+
+naming:
+  strategy: use_operation_id
+  aliases: {}
+
+generators:
+  node-client:
+    output: generated/node
+    layout: modular
+    source_dir: src
+    base_url: https://api.example.com/v1
+    scaffold:
+      package_name: "@examples/literal-default-node-client"
+      repository: https://github.com/urmzd/oag
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
+
+  react-swr-client:
+    output: generated/react
+    layout: modular
+    source_dir: src
+    base_url: https://api.example.com/v1
+    scaffold:
+      package_name: "@examples/literal-default-react-client"
+      repository: https://github.com/urmzd/oag
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
+      react: true
+
+  fastapi-server:
+    output: generated/fastapi
+    layout: modular
+    base_url: https://api.example.com/v1
+    scaffold:
+      package_name: literal-default-fastapi-server
+      repository: https://github.com/urmzd/oag
+      formatter: ruff
+      test_runner: pytest

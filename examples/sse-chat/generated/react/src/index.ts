@@ -7,9 +7,9 @@ export {
   type ClientConfig,
   type RequestOptions,
   type RetryConfig,
-} from "./client";
-export * from "./guards";
-export * from "./hooks";
-export { ApiProvider, type ApiProviderProps, useApiClient } from "./provider";
-export { SSEError, type SSEOptions, streamSse } from "./sse";
-export * from "./types";
+} from "./client.js";
+export * from "./guards.js";
+export * from "./hooks.js";
+export { ApiProvider, type ApiProviderProps, useApiClient } from "./provider.js";
+export { SSEError, type SSEOptions, streamSse } from "./sse.js";
+export * from "./types.js";

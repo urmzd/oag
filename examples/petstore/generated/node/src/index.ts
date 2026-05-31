@@ -7,7 +7,7 @@ export {
   type ClientConfig,
   type RequestOptions,
   type RetryConfig,
-} from "./client";
-export * from "./guards";
-export { SSEError, type SSEOptions, streamSse } from "./sse";
-export * from "./types";
+} from "./client.js";
+export * from "./guards.js";
+export { SSEError, type SSEOptions, streamSse } from "./sse.js";
+export * from "./types.js";

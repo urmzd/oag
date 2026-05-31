@@ -1,0 +1,121 @@
+openapi: 3.1.0
+info:
+  title: Literal Default API
+  version: 1.0.0
+  description: >-
+    Exercises literal/const enum properties that carry a `default`. These must
+    stay present (never optional/empty): required in TypeScript, and
+    `Literal["x"] = "x"` in Pydantic. Non-literal defaulted fields stay optional.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /messages:
+    post:
+      operationId: createMessage
+      tags: [messages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Message"
+      responses:
+        "200":
+          description: The created message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+  /messages/{id}:
+    get:
+      operationId: getMessage
+      tags: [messages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+components:
+  schemas:
+    Message:
+      type: object
+      # NOTE: `content` is the ONLY required property. Every literal-with-default
+      # below is intentionally absent from `required` — the exact case that used
+      # to render as optional/empty.
+      required: [content]
+      properties:
+        type:
+          type: string
+          enum: [message]
+          default: message
+          description: Discriminator literal — single-value enum with a default.
+        objectType:
+          type: string
+          enum: [list]
+          default: list
+          description: Aliased literal (camelCase -> snake_case needs a Pydantic alias).
+        version:
+          type: integer
+          enum: [1]
+          default: 1
+          description: Integer literal with a default.
+        role:
+          type: string
+          enum: [user, assistant]
+          default: user
+          description: Multi-value enum with a default — stays optional (not a literal).
+        content:
+          type: string
+          description: Required, no default.
+        maxTokens:
+          type: integer
+          default: 1024
+          description: Non-literal scalar default — stays optional.
+        temperature:
+          type: number
+          default: 1.0
+          description: Non-literal scalar default — stays optional.
+        stream:
+          type: boolean
+          default: false
+          description: Non-literal scalar default — stays optional.
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentBlock"
+    ContentBlock:
+      oneOf:
+        - $ref: "#/components/schemas/TextBlock"
+        - $ref: "#/components/schemas/ImageBlock"
+      discriminator:
+        propertyName: type
+        mapping:
+          text: "#/components/schemas/TextBlock"
+          image: "#/components/schemas/ImageBlock"
+    TextBlock:
+      type: object
+      # Here the literal `type` IS required — it must stay required everywhere.
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: text
+        text:
+          type: string
+    ImageBlock:
+      type: object
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          const: image
+        url:
+          type: string

@@ -11,6 +11,7 @@ generators:
   node-client:
     output: generated/node
     layout: modular
+    source_dir: src
     base_url: https://api.example.com/v1
     scaffold:
       package_name: "@examples/sse-chat-node-client"
@@ -22,6 +23,7 @@ generators:
   react-swr-client:
     output: generated/react
     layout: modular
+    source_dir: src
     base_url: https://api.example.com/v1
     scaffold:
       package_name: "@examples/sse-chat-react-client"

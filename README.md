@@ -30,6 +30,7 @@ Most OpenAPI generators produce bloated output that needs heavy post-processing.
 - Template pack engine — generators are Jinja2 templates, no Rust code needed
 - Built-in packs: `node-client`, `react-swr-client`, `fastapi-server`
 - First-class SSE support (`AsyncGenerator` in TS, `StreamingResponse` in Python)
+- Literal-faithful output — a `const` or single-value `enum` (a discriminator like `type: "message"`) is always emitted with its value: required in TypeScript, `Literal["x"] = "x"` in Pydantic — never silently optional or empty
 - Packs install locally to `.oag/packs/` — version them, share them, customize them
 
 ## Install

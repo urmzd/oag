@@ -8,6 +8,7 @@ const MIXED: &str = include_str!("fixtures/mixed-endpoints.yaml");
 const ANTHROPIC: &str = include_str!("fixtures/anthropic-messages.yaml");
 const PETSTORE_POLY: &str = include_str!("fixtures/petstore-polymorphic.yaml");
 const INTEGER_DISC: &str = include_str!("fixtures/integer-discriminator.yaml");
+const LITERAL_DEFAULT: &str = include_str!("fixtures/literal-default.yaml");
 
 #[test]
 fn transform_sse_chat() {
@@ -619,6 +620,109 @@ fn integer_const_produces_integer_literal() {
         }
         _ => panic!("Square should be an Object"),
     }
+}
+
+#[test]
+fn literal_default_keeps_literals_present_and_preserves_default() {
+    let spec = parse::from_yaml(LITERAL_DEFAULT).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+
+    let message = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "Message")
+        .expect("should have Message schema");
+    let IrSchema::Object(obj) = message else {
+        panic!("Message should be an Object");
+    };
+    let field = |name: &str| {
+        obj.fields
+            .iter()
+            .find(|f| f.original_name == name)
+            .unwrap_or_else(|| panic!("Message should have {name} field"))
+    };
+
+    // --- Single-value enum with a default, NOT in `required` ---
+    // The literal type is preserved AND the default is captured, but required-ness
+    // is unchanged (still derived from the `required` list).
+    let type_field = field("type");
+    assert_eq!(
+        type_field.field_type,
+        IrType::StringLiteral("message".to_string())
+    );
+    assert!(!type_field.required, "type is not in `required`");
+    assert_eq!(
+        type_field.default_repr,
+        Some(IrType::StringLiteral("message".to_string())),
+        "literal default value should be preserved on the field"
+    );
+
+    // --- Integer single-value enum with a default ---
+    let version = field("version");
+    assert_eq!(version.field_type, IrType::IntegerLiteral(1));
+    assert_eq!(version.default_repr, Some(IrType::IntegerLiteral(1)));
+
+    // --- Aliased literal (camelCase original) ---
+    let object_type = field("objectType");
+    assert_eq!(
+        object_type.field_type,
+        IrType::StringLiteral("list".to_string())
+    );
+    assert_eq!(
+        object_type.default_repr,
+        Some(IrType::StringLiteral("list".to_string()))
+    );
+
+    // --- Required field, no default ---
+    let content = field("content");
+    assert!(content.required, "content is the only required field");
+    assert_eq!(content.field_type, IrType::String);
+    assert_eq!(content.default_repr, None);
+
+    // --- Non-literal scalar defaults: NOT literals, stay optional ---
+    let max_tokens = field("maxTokens");
+    assert_eq!(max_tokens.field_type, IrType::Integer);
+    assert!(!max_tokens.required);
+
+    let temperature = field("temperature");
+    assert_eq!(temperature.field_type, IrType::Number);
+    assert!(!temperature.required);
+    assert_eq!(
+        temperature.default_repr, None,
+        "a float default is not a string/integer literal"
+    );
+
+    // --- Multi-value enum with a default: becomes a Union, not a literal ---
+    let role = field("role");
+    assert!(
+        matches!(role.field_type, IrType::Union(_)),
+        "multi-value enum should be a Union, not a single literal"
+    );
+    assert!(!role.required);
+
+    // --- const literal that IS in `required` stays required ---
+    let text_block = ir
+        .schemas
+        .iter()
+        .find(|s| s.name().pascal_case == "TextBlock")
+        .expect("should have TextBlock schema");
+    let IrSchema::Object(tb) = text_block else {
+        panic!("TextBlock should be an Object");
+    };
+    let tb_type = tb
+        .fields
+        .iter()
+        .find(|f| f.original_name == "type")
+        .expect("TextBlock should have type field");
+    assert_eq!(
+        tb_type.field_type,
+        IrType::StringLiteral("text".to_string())
+    );
+    assert!(tb_type.required, "TextBlock.type is in `required`");
+    assert_eq!(
+        tb_type.default_repr,
+        Some(IrType::StringLiteral("text".to_string()))
+    );
 }
 
 #[test]
