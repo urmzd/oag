@@ -15,7 +15,7 @@ import type {
   ToolResultBlock,
   ToolUseBlock,
   UrlSource,
-} from "./types";
+} from "./types.js";
 
 export function isTextBlock(value: ContentBlock): value is TextBlock {
   return (value as TextBlock).type === "text";

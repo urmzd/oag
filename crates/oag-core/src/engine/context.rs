@@ -221,6 +221,23 @@ fn schema_to_ctx(schema: &IrSchema, tm: &TypeMapConfig, field_casing: &str) -> V
     }
 }
 
+/// Render a literal `IrType` as a raw value usable as a default initializer in
+/// both TypeScript and Python (e.g. `StringLiteral("a")` -> `"a"`,
+/// `IntegerLiteral(1)` -> `1`). JSON quoting is valid in both languages.
+///
+/// `default_repr` is only ever populated with string/integer literals (see
+/// `schema_default_literal`), so other variants are not expected; they render
+/// `None` to stay safe rather than emit an invalid initializer.
+fn literal_value(t: &IrType) -> Option<String> {
+    match t {
+        IrType::StringLiteral(s) => {
+            Some(serde_json::to_string(s).unwrap_or_else(|_| format!("\"{s}\"")))
+        }
+        IrType::IntegerLiteral(i) => Some(i.to_string()),
+        _ => None,
+    }
+}
+
 fn object_to_ctx(obj: &IrObjectSchema, tm: &TypeMapConfig, field_casing: &str) -> Value {
     let fields: Vec<Value> = obj
         .fields
@@ -233,14 +250,26 @@ fn object_to_ctx(obj: &IrObjectSchema, tm: &TypeMapConfig, field_casing: &str) -
             };
             let type_str = map_type(&f.field_type, tm);
             let field_type_str = map_field_type(&f.field_type, f.required, tm);
+            // A literal field (a `const` or single-value `enum`) has exactly one
+            // possible value, so it is always present — packs render it as a
+            // required field carrying that literal. `default_value` is the raw
+            // literal value (e.g. `"message"`, `1`) for use as a default
+            // initializer; `is_literal` lets a template detect this case.
+            let is_literal = matches!(
+                f.field_type,
+                IrType::StringLiteral(_) | IrType::IntegerLiteral(_)
+            );
+            let default_value = f.default_repr.as_ref().and_then(literal_value);
             context! {
                 name => field_name,
                 original_name => f.original_name.clone(),
                 type_str => type_str,
                 field_type_str => field_type_str,
                 required => f.required,
+                is_literal => is_literal,
                 description => f.description.clone(),
                 needs_alias => f.name.snake_case != f.original_name,
+                default_value => default_value,
             }
         })
         .collect();

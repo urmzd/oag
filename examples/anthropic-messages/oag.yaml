@@ -8,6 +8,7 @@ generators:
   node-client:
     output: generated/node
     layout: modular
+    source_dir: src
     base_url: https://api.anthropic.com
     scaffold:
       package_name: "@examples/anthropic-messages-node-client"
@@ -19,6 +20,7 @@ generators:
   react-swr-client:
     output: generated/react
     layout: modular
+    source_dir: src
     base_url: https://api.anthropic.com
     scaffold:
       package_name: "@examples/anthropic-messages-react-client"

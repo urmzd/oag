@@ -114,6 +114,7 @@ fn promote_type(
                     description: None,
                     read_only: false,
                     write_only: false,
+                    default_repr: None,
                 })
                 .collect();
 
@@ -200,6 +201,7 @@ mod tests {
                     description: None,
                     read_only: false,
                     write_only: false,
+                    default_repr: None,
                 }],
                 additional_properties: None,
             })],
@@ -299,6 +301,7 @@ mod tests {
                     description: None,
                     read_only: false,
                     write_only: false,
+                    default_repr: None,
                 }],
                 additional_properties: None,
             })],
@@ -341,6 +344,7 @@ mod tests {
                     description: None,
                     read_only: false,
                     write_only: false,
+                    default_repr: None,
                 }],
                 additional_properties: None,
             })],
@@ -392,6 +396,7 @@ mod tests {
                         description: None,
                         read_only: false,
                         write_only: false,
+                        default_repr: None,
                     }],
                     additional_properties: None,
                 }),

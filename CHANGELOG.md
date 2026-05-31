@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- keep literal enums present: a `const` or single-value `enum` (e.g. an OpenAI-style discriminator like `type: "message"` carrying a `default`) is now emitted as a required literal in TypeScript (`type: "message"`) and as `Literal["message"] = "message"` in Pydantic, instead of an optional/empty field. The literal/const default value is preserved through the IR (previously dropped); non-literal fields still take their required-ness from the schema's `required` list
+
 ## 0.20.5 (2026-04-19)
 
 ### Bug Fixes

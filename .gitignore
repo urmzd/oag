@@ -16,3 +16,6 @@ node_modules/
 package-lock.json
 .claude/
 .env.*
+
+# Locally-installed packs (examples install the working-tree packs on demand)
+.oag/

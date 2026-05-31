@@ -39,6 +39,11 @@ pub struct IrField {
     pub description: Option<String>,
     pub read_only: bool,
     pub write_only: bool,
+    /// The literal default value (from `const`, a single-value `enum`, or a
+    /// scalar `default`), carried as a literal `IrType` so packs can render it
+    /// via the existing type-map literal templates. `None` when the property has
+    /// no default. Required-ness is unaffected by this value.
+    pub default_repr: Option<IrType>,
 }
 
 /// A single variant value in an enum schema.
