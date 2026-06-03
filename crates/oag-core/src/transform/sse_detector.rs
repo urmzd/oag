@@ -133,10 +133,33 @@ fn extract_event_info(
 }
 
 fn find_success_response(responses: &IndexMap<String, ResponseOrRef>) -> Option<&ResponseOrRef> {
-    // Try 200, 201, 2XX, default
+    // Prefer the most common explicit success codes, then any other 2xx response
+    // (in declared order), then a 2XX wildcard, then default.
+    //
+    // OpenAPI 3.2 allows any 2xx response to carry a body — e.g. 202 Accepted
+    // returning the queued job, or 203 Non-Authoritative Information. Earlier
+    // versions only looked at 200/201, so a 202-only operation was mapped to a
+    // void return even when it declared a response body.
+    const PREFERRED: [&str; 4] = ["200", "201", "202", "203"];
+    for code in PREFERRED {
+        if let Some(response) = responses.get(code) {
+            return Some(response);
+        }
+    }
+
+    // Any remaining explicit 2xx code (204, 205, 206, ...). Bodies on these are
+    // unusual but, when present, still need mapping to satisfy the spec.
+    if let Some((_, response)) = responses.iter().find(|(code, _)| is_2xx(code)) {
+        return Some(response);
+    }
+
     responses
-        .get("200")
-        .or_else(|| responses.get("201"))
-        .or_else(|| responses.get("2XX"))
+        .get("2XX")
+        .or_else(|| responses.get("2xx"))
         .or_else(|| responses.get("default"))
+}
+
+/// Whether a response key is an explicit 2xx status code (e.g. `"204"`).
+fn is_2xx(code: &str) -> bool {
+    code.len() == 3 && code.starts_with('2') && code.as_bytes()[1..].iter().all(u8::is_ascii_digit)
 }

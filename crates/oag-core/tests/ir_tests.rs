@@ -161,6 +161,42 @@ fn transform_mixed() {
 }
 
 #[test]
+fn transform_202_with_body_is_mapped() {
+    let spec = parse::from_yaml(MIXED).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+
+    // A 202 Accepted response that declares a body must be mapped to that body
+    // type, not collapsed to void (OpenAPI 3.2 allows bodies on any 2xx code).
+    let enqueue = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "enqueueJob")
+        .expect("should have enqueueJob");
+
+    match &enqueue.return_type {
+        IrReturnType::Standard(resp) => {
+            assert!(
+                matches!(&resp.response_type, IrType::Ref(name) if name == "Job"),
+                "enqueueJob (202) should return the Job body, got {:?}",
+                resp.response_type
+            );
+        }
+        other => panic!("enqueueJob should map its 202 body, got {other:?}"),
+    }
+
+    // A 204 with no content must still be void (regression guard).
+    let delete = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "deleteItem")
+        .expect("should have deleteItem");
+    assert!(
+        matches!(delete.return_type, IrReturnType::Void),
+        "deleteItem (204, no body) should remain void"
+    );
+}
+
+#[test]
 fn transform_modules_grouping() {
     let spec = parse::from_yaml(SSE_CHAT).unwrap();
     let ir = transform::transform(&spec).unwrap();

@@ -51,7 +51,7 @@ fn parse_petstore_yaml() {
 fn parse_mixed_31_yaml() {
     let spec = parse::from_yaml(MIXED).expect("should parse 3.1 spec");
     assert_eq!(spec.openapi, "3.1.0");
-    assert_eq!(spec.paths.len(), 3);
+    assert_eq!(spec.paths.len(), 4);
 }
 
 #[test]
