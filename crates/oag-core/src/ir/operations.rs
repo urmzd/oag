@@ -75,6 +75,11 @@ pub struct IrSseReturn {
 pub struct IrResponse {
     pub response_type: IrType,
     pub description: Option<String>,
+    /// The HTTP status code this response is declared under (e.g. `202`).
+    /// Wildcards (`2XX`) and `default` collapse to `200`. Server stubs use this
+    /// to declare the correct status so a 202-with-body endpoint isn't emitted
+    /// as a 200.
+    pub status_code: u16,
 }
 
 /// A resolved path/query/header parameter.

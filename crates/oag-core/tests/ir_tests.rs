@@ -180,6 +180,10 @@ fn transform_202_with_body_is_mapped() {
                 "enqueueJob (202) should return the Job body, got {:?}",
                 resp.response_type
             );
+            assert_eq!(
+                resp.status_code, 202,
+                "the 202 status code must be retained so server stubs stay compliant"
+            );
         }
         other => panic!("enqueueJob should map its 202 body, got {other:?}"),
     }

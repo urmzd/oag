@@ -15,7 +15,11 @@ router = APIRouter()
 {% for op in operations %}
 
 {% if op.kind == "standard" %}
+{% if op.status_code and op.status_code != 200 %}
+@router.{{ op.http_method | lower }}("{{ op.path }}", status_code={{ op.status_code }})
+{% else %}
 @router.{{ op.http_method | lower }}("{{ op.path }}")
+{% endif %}
 {% if op.summary %}
 async def {{ op.name }}(
 {% else %}

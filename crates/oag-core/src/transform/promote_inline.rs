@@ -259,6 +259,7 @@ mod tests {
                         ("name".to_string(), IrType::String, true),
                     ]),
                     description: None,
+                    status_code: 200,
                 }),
                 deprecated: false,
             }],
