@@ -15,7 +15,7 @@ pub fn detect_return_type(
     responses: &IndexMap<String, ResponseOrRef>,
 ) -> IrReturnType {
     let success_response = find_success_response(responses);
-    let Some(response) = success_response else {
+    let Some((status_code, response)) = success_response else {
         return IrReturnType::Void;
     };
 
@@ -34,7 +34,7 @@ pub fn detect_return_type(
     match (sse, json) {
         (Some(sse_mt), json_mt) => {
             // SSE endpoint (possibly dual)
-            let sse_return = build_sse_return(operation_id, sse_mt, json_mt);
+            let sse_return = build_sse_return(operation_id, sse_mt, json_mt, status_code);
             IrReturnType::Sse(sse_return)
         }
         (None, Some(json_mt)) => {
@@ -50,6 +50,7 @@ pub fn detect_return_type(
             IrReturnType::Standard(IrResponse {
                 response_type,
                 description,
+                status_code,
             })
         }
         (None, None) => {
@@ -62,6 +63,7 @@ pub fn detect_return_type(
                 IrReturnType::Standard(IrResponse {
                     response_type,
                     description: None,
+                    status_code,
                 })
             } else {
                 IrReturnType::Void
@@ -74,6 +76,7 @@ fn build_sse_return(
     operation_id: &str,
     sse_mt: &MediaType,
     json_mt: Option<&MediaType>,
+    status_code: u16,
 ) -> IrSseReturn {
     // Extract event type from itemSchema (OpenAPI 3.2)
     let (event_type, variants, event_type_name) = match &sse_mt.item_schema {
@@ -95,6 +98,7 @@ fn build_sse_return(
         IrResponse {
             response_type,
             description: None,
+            status_code,
         }
     });
 
@@ -132,11 +136,62 @@ fn extract_event_info(
     }
 }
 
-fn find_success_response(responses: &IndexMap<String, ResponseOrRef>) -> Option<&ResponseOrRef> {
-    // Try 200, 201, 2XX, default
-    responses
-        .get("200")
-        .or_else(|| responses.get("201"))
-        .or_else(|| responses.get("2XX"))
-        .or_else(|| responses.get("default"))
+fn find_success_response(
+    responses: &IndexMap<String, ResponseOrRef>,
+) -> Option<(u16, &ResponseOrRef)> {
+    // Build the success candidates in priority order: the common explicit codes
+    // first, then any other 2xx code (declared order), then 2XX wildcards, then
+    // default.
+    //
+    // OpenAPI 3.2 allows any 2xx response to carry a body — e.g. 200 OK, but
+    // also 202 Accepted returning the queued job or 203 Non-Authoritative
+    // Information. Earlier versions only looked at 200/201, so a 202-only
+    // operation was mapped to a void return even when it declared a body.
+    const PREFERRED: [&str; 4] = ["200", "201", "202", "203"];
+    let ordered = PREFERRED
+        .iter()
+        .filter_map(|code| responses.get_key_value(*code))
+        .chain(
+            responses
+                .iter()
+                .filter(|(code, _)| is_2xx(code) && !PREFERRED.contains(&code.as_str())),
+        )
+        .chain(responses.get_key_value("2XX"))
+        .chain(responses.get_key_value("2xx"))
+        .chain(responses.get_key_value("default"));
+
+    // Prefer a candidate that actually declares a body, so a body on a lower
+    // priority code (e.g. a 202) is never dropped in favour of an empty higher
+    // priority code (e.g. a bodyless 200). Fall back to the highest priority
+    // candidate, which yields a void return when nothing carries a body.
+    let mut first: Option<(&String, &ResponseOrRef)> = None;
+    for (code, response) in ordered {
+        if first.is_none() {
+            first = Some((code, response));
+        }
+        if has_body(response) {
+            return Some((status_from_code(code), response));
+        }
+    }
+    first.map(|(code, response)| (status_from_code(code), response))
+}
+
+/// Parse a response key into an HTTP status code. Wildcards (`2XX`) and
+/// `default` collapse to `200`.
+fn status_from_code(code: &str) -> u16 {
+    code.parse().unwrap_or(200)
+}
+
+/// Whether a response declares a body. References are treated as bodyless since
+/// their content cannot be inspected here.
+fn has_body(response: &ResponseOrRef) -> bool {
+    match response {
+        ResponseOrRef::Response(r) => !r.content.is_empty(),
+        ResponseOrRef::Ref { .. } => false,
+    }
+}
+
+/// Whether a response key is an explicit 2xx status code (e.g. `"204"`).
+fn is_2xx(code: &str) -> bool {
+    code.len() == 3 && code.starts_with('2') && code.as_bytes()[1..].iter().all(u8::is_ascii_digit)
 }

@@ -15,7 +15,11 @@ router = APIRouter()
 {% for op in operations %}
 
 {% if op.kind == "standard" %}
-@router.{{ op.http_method }}("{{ op.path }}")
+{% if op.status_code and op.status_code != 200 %}
+@router.{{ op.http_method | lower }}("{{ op.path }}", status_code={{ op.status_code }})
+{% else %}
+@router.{{ op.http_method | lower }}("{{ op.path }}")
+{% endif %}
 {% if op.summary %}
 async def {{ op.name }}(
 {% else %}
@@ -42,7 +46,7 @@ async def {{ op.name }}(
     raise NotImplementedError
 
 {% elif op.kind == "void" %}
-@router.{{ op.http_method }}("{{ op.path }}", status_code=204)
+@router.{{ op.http_method | lower }}("{{ op.path }}", status_code=204)
 async def {{ op.name }}(
 {% for param in op.params %}
 {% if param.location == "path" %}
@@ -65,7 +69,7 @@ async def {{ op.name }}(
     raise NotImplementedError
 
 {% elif op.kind == "sse" %}
-@router.{{ op.http_method }}("{{ op.path }}")
+@router.{{ op.http_method | lower }}("{{ op.path }}")
 async def {{ op.name }}(
 {% for param in op.params %}
 {% if param.location == "path" %}

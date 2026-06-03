@@ -98,6 +98,24 @@ paths:
         "204":
           description: Deleted
 
+  /jobs:
+    post:
+      operationId: enqueueJob
+      summary: Enqueue an async job (returns 202 with a body)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewItem"
+      responses:
+        "202":
+          description: Job accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
   /events/stream:
     get:
       operationId: streamEvents
@@ -142,6 +160,15 @@ components:
         name:
           type: string
         description:
+          type: string
+
+    Job:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        status:
           type: string
 
     Event:

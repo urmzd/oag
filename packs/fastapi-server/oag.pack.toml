@@ -1,7 +1,7 @@
 [pack]
 id = "fastapi-server"
 name = "FastAPI Server"
-version = "0.13.0"
+version = "0.14.0"
 description = "Python FastAPI server stubs with Pydantic v2 models"
 field_casing = "snake"
 operation_casing = "snake"
@@ -52,10 +52,12 @@ test_files = [
   { path = "test_routes.py", template = "test_routes.py.j2", when = "scaffold.test_runner" },
 ]
 
+# Tools are fetched on demand via `uvx` (the uv equivalent of `npx`), so no
+# global `ruff` install is required locally or in CI.
 [formatters]
-ruff_format = { detect = "ruff.toml", command = "ruff format ." }
-ruff_lint = { detect = "ruff.toml", command = "ruff check --fix ." }
+ruff_lint = { detect = "ruff.toml", command = "uvx ruff check --fix ." }
+ruff_format = { detect = "ruff.toml", command = "uvx ruff format ." }
 
 [validators]
-ruff_format = { detect = "ruff.toml", command = "ruff format --check ." }
-ruff_lint = { detect = "ruff.toml", command = "ruff check ." }
+ruff_lint = { detect = "ruff.toml", command = "uvx ruff check ." }
+ruff_format = { detect = "ruff.toml", command = "uvx ruff format --check ." }
