@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.6 (2026-06-03)
+
+### Bug Fixes
+
+- repair release pipeline + map 2xx responses with bodies (202/203) (#21) ([d17179a](https://github.com/urmzd/oag/commit/d17179a9977d611eaf81026da4b2eb1e9c4e7983))
+- keep literal enums present and preserve their default value (#20) ([6ca88f2](https://github.com/urmzd/oag/commit/6ca88f26c7ee5e34a616663e28820767d26a2d48))
+
+### Misc
+
+- sync Cargo.lock to 0.20.5 ([74228df](https://github.com/urmzd/oag/commit/74228df72ca3dbbdd2f40c433767531fd69a1761))
+- **ci**: bump sr to v8, typed cargo workspace publisher, move pre-release script to CI ([6e900fa](https://github.com/urmzd/oag/commit/6e900fa043851ca7d0de4e1aac9ac17241d46d80))
+- **community**: add GitHub community-health files ([f4f9dbf](https://github.com/urmzd/oag/commit/f4f9dbf6cc2af73797b55b4a8ee6c22eec1407d5))
+- **fix**: standardize README format ([d186628](https://github.com/urmzd/oag/commit/d18662842b04796aeb629f8e5e613f375a1a0378))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.5...v0.20.6)
+
+
 ## Unreleased
 
 ### Bug Fixes
