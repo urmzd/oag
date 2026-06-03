@@ -196,6 +196,90 @@ fn transform_202_with_body_is_mapped() {
     );
 }
 
+/// Build the return type for a single-operation spec from its responses block.
+fn return_type_for(responses_yaml: &str) -> IrReturnType {
+    let spec = format!(
+        r#"
+openapi: "3.2.0"
+info:
+  title: T
+  version: "1.0"
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      responses:
+{responses_yaml}
+components:
+  schemas:
+    Thing:
+      type: object
+      properties:
+        id:
+          type: string
+"#
+    );
+    let parsed = parse::from_yaml(&spec).unwrap();
+    let ir = transform::transform(&parsed).unwrap();
+    ir.operations
+        .into_iter()
+        .find(|op| op.name.camel_case == "getThing")
+        .expect("should have getThing")
+        .return_type
+}
+
+#[test]
+fn transform_200_body_is_retained() {
+    // The primary success case: a 200 with a body is mapped, never void.
+    let rt = return_type_for(
+        r##"        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Thing""##,
+    );
+    assert!(
+        matches!(&rt, IrReturnType::Standard(r) if matches!(&r.response_type, IrType::Ref(n) if n == "Thing")),
+        "200 with a body should return the body type, got {rt:?}"
+    );
+}
+
+#[test]
+fn transform_body_bearing_2xx_wins_over_empty_200() {
+    // An empty 200 alongside a 202 that declares a body must not collapse the
+    // operation to void — the 202 body wins.
+    let rt = return_type_for(
+        r##"        "200":
+          description: accepted, no content
+        "202":
+          description: queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Thing""##,
+    );
+    assert!(
+        matches!(&rt, IrReturnType::Standard(r) if matches!(&r.response_type, IrType::Ref(n) if n == "Thing")),
+        "a bodyless 200 must not hide a 202 body, got {rt:?}"
+    );
+}
+
+#[test]
+fn transform_all_bodyless_2xx_is_void() {
+    // When no success response carries a body, the operation is void.
+    let rt = return_type_for(
+        r##"        "200":
+          description: ok
+        "204":
+          description: no content"##,
+    );
+    assert!(
+        matches!(rt, IrReturnType::Void),
+        "bodyless success responses should be void, got {rt:?}"
+    );
+}
+
 #[test]
 fn transform_modules_grouping() {
     let spec = parse::from_yaml(SSE_CHAT).unwrap();

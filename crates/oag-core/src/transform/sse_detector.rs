@@ -133,30 +133,51 @@ fn extract_event_info(
 }
 
 fn find_success_response(responses: &IndexMap<String, ResponseOrRef>) -> Option<&ResponseOrRef> {
-    // Prefer the most common explicit success codes, then any other 2xx response
-    // (in declared order), then a 2XX wildcard, then default.
+    // Build the success candidates in priority order: the common explicit codes
+    // first, then any other 2xx code (declared order), then 2XX wildcards, then
+    // default.
     //
-    // OpenAPI 3.2 allows any 2xx response to carry a body — e.g. 202 Accepted
-    // returning the queued job, or 203 Non-Authoritative Information. Earlier
-    // versions only looked at 200/201, so a 202-only operation was mapped to a
-    // void return even when it declared a response body.
+    // OpenAPI 3.2 allows any 2xx response to carry a body — e.g. 200 OK, but
+    // also 202 Accepted returning the queued job or 203 Non-Authoritative
+    // Information. Earlier versions only looked at 200/201, so a 202-only
+    // operation was mapped to a void return even when it declared a body.
     const PREFERRED: [&str; 4] = ["200", "201", "202", "203"];
-    for code in PREFERRED {
-        if let Some(response) = responses.get(code) {
+    let ordered = PREFERRED
+        .iter()
+        .filter_map(|code| responses.get(*code))
+        .chain(
+            responses
+                .iter()
+                .filter(|(code, _)| is_2xx(code) && !PREFERRED.contains(&code.as_str()))
+                .map(|(_, r)| r),
+        )
+        .chain(responses.get("2XX"))
+        .chain(responses.get("2xx"))
+        .chain(responses.get("default"));
+
+    // Prefer a candidate that actually declares a body, so a body on a lower
+    // priority code (e.g. a 202) is never dropped in favour of an empty higher
+    // priority code (e.g. a bodyless 200). Fall back to the highest priority
+    // candidate, which yields a void return when nothing carries a body.
+    let mut first = None;
+    for response in ordered {
+        if first.is_none() {
+            first = Some(response);
+        }
+        if has_body(response) {
             return Some(response);
         }
     }
+    first
+}
 
-    // Any remaining explicit 2xx code (204, 205, 206, ...). Bodies on these are
-    // unusual but, when present, still need mapping to satisfy the spec.
-    if let Some((_, response)) = responses.iter().find(|(code, _)| is_2xx(code)) {
-        return Some(response);
+/// Whether a response declares a body. References are treated as bodyless since
+/// their content cannot be inspected here.
+fn has_body(response: &ResponseOrRef) -> bool {
+    match response {
+        ResponseOrRef::Response(r) => !r.content.is_empty(),
+        ResponseOrRef::Ref { .. } => false,
     }
-
-    responses
-        .get("2XX")
-        .or_else(|| responses.get("2xx"))
-        .or_else(|| responses.get("default"))
 }
 
 /// Whether a response key is an explicit 2xx status code (e.g. `"204"`).
