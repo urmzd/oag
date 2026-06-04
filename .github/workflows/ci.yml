@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       # Regenerates every example from the working-tree packs and runs each
       # pack's validators (ruff via uvx, biome/tsc via npx). This is the same
       # gate the release runs, surfaced on pull requests so a pack or codegen
