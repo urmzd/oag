@@ -67,7 +67,7 @@ jobs:
       # the gate has already passed by the time we get here.
       - name: Release
         id: sr
-        uses: urmzd/sr@v8
+        uses: urmzd/sr@v9
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         with:
