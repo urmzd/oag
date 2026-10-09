@@ -192,6 +192,8 @@ components:
         - claude-sonnet-4-20250514
         - claude-haiku-4-20250414
         - claude-opus-4-20250514
+        - claude-haiku-5-5
+        - claude-sonnet-5-5
 
     # --- Discriminated Unions ---
 

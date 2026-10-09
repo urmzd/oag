@@ -6,7 +6,9 @@ export type Role = "user" | "assistant";
 export type ModelId =
   | "claude-sonnet-4-20250514"
   | "claude-haiku-4-20250414"
-  | "claude-opus-4-20250514";
+  | "claude-opus-4-20250514"
+  | "claude-haiku-5-5"
+  | "claude-sonnet-5-5";
 
 export type ContentBlock = TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock;
 
