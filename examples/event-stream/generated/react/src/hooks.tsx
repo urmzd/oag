@@ -7,6 +7,7 @@ import useSWRMutation, {
   type SWRMutationResponse,
 } from "swr/mutation";
 import { useApiClient } from "./provider.js";
+import type { SSEOptions } from "./sse.js";
 import type {
   InboxItem,
   ListInboxParams,
@@ -40,8 +41,11 @@ export function useDeleteInboxItem(
 }
 
 /** Stream inbox changes */
-export function useStreamInbox(params?: StreamInboxParams) {
+export function useStreamInbox(params?: StreamInboxParams, options?: Omit<SSEOptions, "signal">) {
   const client = useApiClient();
+  // Read the latest options when a stream starts without re-creating `trigger`.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const [events, setEvents] = useState<StreamInboxStreamEvent[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -54,7 +58,10 @@ export function useStreamInbox(params?: StreamInboxParams) {
     abortRef.current = new AbortController();
 
     try {
-      for await (const event of client.streamInbox(params, { signal: abortRef.current.signal })) {
+      for await (const event of client.streamInbox(params, {
+        ...optionsRef.current,
+        signal: abortRef.current.signal,
+      })) {
         setEvents((prev) => [...prev, event]);
       }
     } catch (err) {

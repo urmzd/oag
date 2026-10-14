@@ -7,7 +7,7 @@ import useSWRMutation, {
   type SWRMutationResponse,
 } from "swr/mutation";
 import { useApiClient } from "./provider.js";
-import type { SSEEvent } from "./sse.js";
+import type { SSEEvent, SSEOptions } from "./sse.js";
 import type {
   CancelBatchParams,
   CountTokensParams,
@@ -24,8 +24,14 @@ import type {
 } from "./types.js";
 
 /** Create a message */
-export function useCreateMessageStream(params: CreateMessageParams) {
+export function useCreateMessageStream(
+  params: CreateMessageParams,
+  options?: Omit<SSEOptions, "signal">,
+) {
   const client = useApiClient();
+  // Read the latest options when a stream starts without re-creating `trigger`.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const [events, setEvents] = useState<SSEEvent<CreateMessageStreamEvent>[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -40,6 +46,7 @@ export function useCreateMessageStream(params: CreateMessageParams) {
 
       try {
         for await (const event of client.createMessageStream(body, params, {
+          ...optionsRef.current,
           signal: abortRef.current.signal,
         })) {
           setEvents((prev) => [...prev, event]);

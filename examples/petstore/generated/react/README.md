@@ -12,5 +12,5 @@ To customize the generated output, edit your `oag.yaml` configuration file.
 
 Generated with these template packs:
 
-- `react-swr-client` sha256:e7f938cf8f5657255fef69a2dd3ced22659f9fe773529d0bedaf76ff5641f628
-- `node-client` sha256:fbf4273d018d439c74b51ca828d6ceea19f87dd7270631bd4b4357c08ecb133a
+- `react-swr-client` sha256:bfccec4c468d9515f7dd731d1ddc257ac3b0b23f50e5b83e06996f4c8ee193f9
+- `node-client` sha256:1e342497ca0e82b420bf414bc3d0f927a544c04445cb61ceac5cd77e66bc70d6

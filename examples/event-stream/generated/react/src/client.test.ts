@@ -358,6 +358,19 @@ describe("ApiClient", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
+    it("bounds the retry delay by the request timeout", async () => {
+      const mockFetch = vi.fn().mockResolvedValue(response(503, { "Retry-After": "5" }));
+      const client = new ApiClient({
+        baseUrl: "https://api.test.com",
+        fetch: mockFetch,
+        timeout: 50,
+        retry: { maxRetries: 2 },
+      });
+      const started = Date.now();
+      await expect(client.listInbox()).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(2000);
+    });
+
     it("does not wait out a Retry-After longer than maxRetryAfterMs", async () => {
       const mockFetch = vi.fn().mockResolvedValue(response(429, { "Retry-After": "3600" }));
       const client = retryingClient(mockFetch);
@@ -520,27 +533,51 @@ describe("SSE runtime", () => {
         chunks: [
           'event: job\ndata: {"id":"a"}\n\n',
           "event: note\ndata: plain text\n\n",
-          "event: unknown\ndata: ignored\n\n",
+          "event: unknown\ndata: kept\n\n",
           "data: eyJpZCI6ImIifQ==\n\n",
+          "data: not base64 json\n\n",
         ],
       },
     ]);
     type Event =
       | { event: "job"; data: { id: string } }
       | { event: "note"; data: string }
-      | { event: "message"; data: { id: string } };
+      | { event: "message"; data: { id: string } | string };
     const { items } = await drain(
       streamSseEvents<Event>("https://api.test.com/s", { method: "GET" }, {}, undefined, fetchFn, {
-        job: "json",
-        note: "text",
-        message: "base64-json",
+        job: ["json"],
+        note: ["text"],
+        // Two variants share `message`: their codecs are tried in order.
+        message: ["base64-json", "text"],
       }),
     );
     expect(items).toEqual([
       { event: "job", data: { id: "a" }, id: undefined, retry: undefined },
       { event: "note", data: "plain text", id: undefined, retry: undefined },
+      // Unknown names are delivered, not dropped.
+      { unmatched: { data: "kept", event: "unknown", id: undefined, retry: undefined } },
       { event: "message", data: { id: "b" }, id: undefined, retry: undefined },
+      { event: "message", data: "not base64 json", id: undefined, retry: undefined },
     ]);
+  });
+
+  it("delivers data no variant can decode as unmatched instead of throwing", async () => {
+    const { fetchFn } = sseFetch([
+      { chunks: ["event: job\ndata: {oops\n\n", 'event: job\ndata: {"id":"c"}\n\n'] },
+    ]);
+    const { items } = await drain(
+      streamSseEvents<{ event: "job"; data: { id: string } }>(
+        "https://api.test.com/s",
+        { method: "GET" },
+        {},
+        undefined,
+        fetchFn,
+        { job: ["json"] },
+      ),
+    );
+    expect(items).toHaveLength(2);
+    expect("unmatched" in items[0]).toBe(true);
+    expect(items[1]).toMatchObject({ event: "job", data: { id: "c" } });
   });
 
   it("is not retried implicitly", async () => {

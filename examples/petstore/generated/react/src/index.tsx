@@ -21,6 +21,7 @@ export {
   type SSEOptions,
   SSEStreamClosedError,
   type SSEStreamEnd,
+  type SSEUnmatchedEvent,
   streamSse,
   streamSseEvents,
   streamSseMessages,

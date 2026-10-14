@@ -12,4 +12,4 @@ To customize the generated output, edit your `oag.yaml` configuration file.
 
 Generated with these template packs:
 
-- `fastapi-server` sha256:1d79880121d117143cde9bbeadad51394cf35a1404381f322726cf9b79f42efb
+- `fastapi-server` sha256:250957bf36bacce2373eefc52a528f470b8c40458eb20b235a2f676cdb231826

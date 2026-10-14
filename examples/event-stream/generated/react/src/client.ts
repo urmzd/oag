@@ -138,8 +138,9 @@ function calculateBackoff(attempt: number, config: Required<RetryConfig>): numbe
 }
 
 function parseRetryAfter(headers: Headers): number | undefined {
-  const value = headers.get("retry-after");
-  if (value === null) return undefined;
+  const value = headers.get("retry-after")?.trim();
+  // An empty header is not a "retry now" instruction.
+  if (!value) return undefined;
   const seconds = Number(value);
   if (!Number.isNaN(seconds)) return seconds * 1000;
   const date = Date.parse(value);
@@ -317,7 +318,8 @@ export class ApiClient {
           return response;
         }
         const backoff = retryAfter ?? calculateBackoff(attempt, retryConfig);
-        await sleep(backoff, options?.signal);
+        // Wait on the combined signal so the request timeout bounds the retry delay.
+        await sleep(backoff, req.init.signal ?? undefined);
       } catch (error) {
         lastError = error;
         if (!retryConfig.retryOnNetworkError || attempt === retryConfig.maxRetries) {
@@ -331,7 +333,8 @@ export class ApiClient {
           throw error;
         }
         const backoff = calculateBackoff(attempt, retryConfig);
-        await sleep(backoff, options?.signal);
+        // Wait on the combined signal so the request timeout bounds the retry delay.
+        await sleep(backoff, req.init.signal ?? undefined);
       }
     }
 
@@ -479,7 +482,7 @@ export class ApiClient {
       options,
       this.requestInterceptor,
       this.fetchFn,
-      { inbox: "json", heartbeat: "text" },
+      { inbox: ["json"], heartbeat: ["text"] },
     );
   }
 

@@ -185,6 +185,19 @@ describe("ApiClient", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
+    it("bounds the retry delay by the request timeout", async () => {
+      const mockFetch = vi.fn().mockResolvedValue(response(503, { "Retry-After": "5" }));
+      const client = new ApiClient({
+        baseUrl: "https://api.test.com",
+        fetch: mockFetch,
+        timeout: 50,
+        retry: { maxRetries: 2 },
+      });
+      const started = Date.now();
+      await expect(client.getMessage("test")).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(2000);
+    });
+
     it("does not wait out a Retry-After longer than maxRetryAfterMs", async () => {
       const mockFetch = vi.fn().mockResolvedValue(response(429, { "Retry-After": "3600" }));
       const client = retryingClient(mockFetch);
