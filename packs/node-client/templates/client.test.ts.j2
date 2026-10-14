@@ -14,6 +14,7 @@ function createMockFetch(status = 200, body: unknown = {}) {
     headers: new Headers(),
     json: () => Promise.resolve(body),
     text: () => Promise.resolve(JSON.stringify(body)),
+    blob: () => Promise.resolve(new Blob([JSON.stringify(body)])),
     body: null,
   } as unknown as Response);
 }
@@ -74,6 +75,16 @@ describe("ApiClient", () => {
       await client.{{ op.method_name }}({{ op.test_call_args }});
       const [, init] = mockFetch.mock.calls[0];
       expect(init.body).toBeDefined();
+    });
+{% endif %}
+
+{% if op.response_format == "binary" %}
+
+    it("reads the success body as a Blob", async () => {
+      const mockFetch = createMockFetch(200, "bytes");
+      const client = createClient(mockFetch);
+      const result = await client.{{ op.method_name }}({{ op.test_call_args }});
+      expect(result).toBeInstanceOf(Blob);
     });
 {% endif %}
 

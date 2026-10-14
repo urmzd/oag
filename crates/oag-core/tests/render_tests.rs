@@ -250,3 +250,27 @@ fn shared_discriminator_mapping_emits_one_guard_per_schema() {
         "got:\n{guards}"
     );
 }
+
+#[test]
+fn binary_responses_are_read_as_blobs() {
+    // #30: octet-stream bodies were read with `response.text()` but typed Blob.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    let method = ts_method(&client, "async downloadFile(");
+    assert!(method.contains("Promise<Blob>"), "got:\n{method}");
+    assert!(method.contains(r#"parseAs: "blob""#), "got:\n{method}");
+    assert!(
+        client.contains("await response.blob()"),
+        "runtime should read blobs, got:\n{client}"
+    );
+    // JSON endpoints keep the default JSON parsing.
+    let list = ts_method(&client, "async listInbox(");
+    assert!(!list.contains("parseAs"), "got:\n{list}");
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let routes = file_ending_with(&py, "routes.py");
+    assert!(
+        routes.contains(r#"@router.get("/files/{fileId}/content", response_class=Response)"#),
+        "fastapi should return raw bytes, got:\n{routes}"
+    );
+}

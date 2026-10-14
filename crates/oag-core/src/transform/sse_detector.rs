@@ -1,4 +1,4 @@
-use crate::ir::{IrResponse, IrReturnType, IrSseReturn, IrType};
+use crate::ir::{IrResponse, IrResponseFormat, IrReturnType, IrSseReturn, IrType};
 use crate::parse::media_type::MediaType;
 use crate::parse::response::ResponseOrRef;
 use crate::parse::schema::SchemaOrRef;
@@ -51,19 +51,26 @@ pub fn detect_return_type(
                 response_type,
                 description,
                 status_code,
+                format: IrResponseFormat::Json,
             })
         }
         (None, None) => {
-            // Try any other content type
-            if let Some((_ct, mt)) = content.first() {
-                let response_type = match &mt.schema {
-                    Some(s) => schema_or_ref_to_ir_type(s),
-                    None => IrType::Any,
+            // Any other content type: classify it so binary bodies are read as
+            // bytes (and typed as such) instead of being decoded as text.
+            if let Some((ct, mt)) = content.first() {
+                let schema_type = mt.schema.as_ref().map(schema_or_ref_to_ir_type);
+                let format = IrResponseFormat::classify(ct, schema_type.as_ref());
+                let response_type = match (format, schema_type) {
+                    (IrResponseFormat::Binary, _) => IrType::Binary,
+                    (IrResponseFormat::Text, Some(IrType::Any) | None) => IrType::String,
+                    (_, Some(t)) => t,
+                    (_, None) => IrType::Any,
                 };
                 IrReturnType::Standard(IrResponse {
                     response_type,
                     description: None,
                     status_code,
+                    format,
                 })
             } else {
                 IrReturnType::Void
@@ -99,6 +106,7 @@ fn build_sse_return(
             response_type,
             description: None,
             status_code,
+            format: IrResponseFormat::Json,
         }
     });
 

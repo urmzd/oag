@@ -260,6 +260,7 @@ mod tests {
                     ]),
                     description: None,
                     status_code: 200,
+                    format: IrResponseFormat::Json,
                 }),
                 deprecated: false,
             }],

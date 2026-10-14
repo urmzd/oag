@@ -80,6 +80,62 @@ pub struct IrResponse {
     /// to declare the correct status so a 202-with-body endpoint isn't emitted
     /// as a 200.
     pub status_code: u16,
+    /// How the success body is encoded on the wire, so packs read it with the
+    /// matching API (`response.json()`, `.text()`, `.blob()`).
+    pub format: IrResponseFormat,
+}
+
+/// Wire format of a response body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IrResponseFormat {
+    /// JSON (`application/json`, `*/*+json`).
+    #[default]
+    Json,
+    /// Text (`text/*`, or a string schema under a non-binary media type).
+    Text,
+    /// Raw bytes (`application/octet-stream`, `image/*`, `format: binary`, ...).
+    Binary,
+}
+
+impl IrResponseFormat {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            IrResponseFormat::Json => "json",
+            IrResponseFormat::Text => "text",
+            IrResponseFormat::Binary => "binary",
+        }
+    }
+
+    /// Classify a media type and its schema.
+    pub fn classify(content_type: &str, schema_type: Option<&IrType>) -> Self {
+        let ct = content_type
+            .split(';')
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
+        if ct == "application/json" || ct.ends_with("+json") || ct.ends_with("/json") {
+            return IrResponseFormat::Json;
+        }
+        if matches!(schema_type, Some(IrType::Binary)) {
+            return IrResponseFormat::Binary;
+        }
+        if ct.starts_with("text/")
+            || ct.ends_with("+xml")
+            || ct == "application/xml"
+            || ct == "application/x-www-form-urlencoded"
+        {
+            return IrResponseFormat::Text;
+        }
+        match schema_type {
+            // A non-binary string under an opaque media type is still text.
+            Some(IrType::String) => IrResponseFormat::Text,
+            // Anything else declared with a JSON-ish schema keeps JSON parsing.
+            Some(t) if !matches!(t, IrType::Any) => IrResponseFormat::Json,
+            // octet-stream, image/*, application/pdf, */*, ... with no schema.
+            _ => IrResponseFormat::Binary,
+        }
+    }
 }
 
 /// A resolved path/query/header parameter.

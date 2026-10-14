@@ -909,3 +909,35 @@ fn ref_enum_param_resolves_to_its_literals() {
         IrType::Ref("InboxItem".into())
     );
 }
+
+#[test]
+fn binary_response_is_classified_as_binary() {
+    // #30
+    use oag_core::ir::IrResponseFormat;
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "downloadFile")
+        .unwrap();
+    match &op.return_type {
+        IrReturnType::Standard(resp) => {
+            assert_eq!(resp.response_type, IrType::Binary);
+            assert_eq!(resp.format, IrResponseFormat::Binary);
+        }
+        other => panic!("expected standard return, got {other:?}"),
+    }
+    assert_eq!(
+        IrResponseFormat::classify("image/png", None),
+        IrResponseFormat::Binary
+    );
+    assert_eq!(
+        IrResponseFormat::classify("text/csv", None),
+        IrResponseFormat::Text
+    );
+    assert_eq!(
+        IrResponseFormat::classify("application/problem+json", Some(&IrType::Any)),
+        IrResponseFormat::Json
+    );
+}

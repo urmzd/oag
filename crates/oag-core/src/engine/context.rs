@@ -659,6 +659,7 @@ fn build_single_operation_contexts(
                 params_signature => params_signature,
                 return_type => return_type,
                 status_code => resp.status_code,
+                response_format => resp.format.as_str(),
                 path_params => path_params,
                 query_params => query_params,
                 params => py_params,
@@ -758,6 +759,7 @@ fn build_single_operation_contexts(
                     params_signature => params_signature,
                     return_type => json_return_type,
                     status_code => json_resp.status_code,
+                    response_format => json_resp.format.as_str(),
                     path_params => path_params.clone(),
                     query_params => query_params,
                     params => py_params,
@@ -1343,6 +1345,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                 "standard",
                 &op.name.camel_case,
                 &return_type,
+                resp.format.as_str(),
             ));
         }
         IrReturnType::Void => {
@@ -1351,6 +1354,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                 "void",
                 &op.name.camel_case,
                 "void",
+                "json",
             ));
         }
         IrReturnType::Sse(sse) => {
@@ -1364,7 +1368,13 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
             } else {
                 map_type(&sse.event_type, tm)
             };
-            results.push(build_ts_test_context(op, "sse", &sse_name, &return_type));
+            results.push(build_ts_test_context(
+                op,
+                "sse",
+                &sse_name,
+                &return_type,
+                "json",
+            ));
 
             if let Some(ref json_resp) = sse.json_response {
                 let rt = map_type(&json_resp.response_type, tm);
@@ -1373,6 +1383,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                     "standard",
                     &op.name.camel_case,
                     &rt,
+                    json_resp.format.as_str(),
                 ));
             }
         }
@@ -1386,6 +1397,7 @@ fn build_ts_test_context(
     kind: &str,
     method_name: &str,
     return_type: &str,
+    response_format: &str,
 ) -> Value {
     let has_body = op.request_body.is_some();
     let test_call_args = build_ts_test_call_args(op);
@@ -1405,6 +1417,7 @@ fn build_ts_test_context(
         test_call_args => test_call_args,
         expected_url_pattern => expected_url_pattern,
         mock_response => mock_response,
+        response_format => response_format,
     }
 }
 

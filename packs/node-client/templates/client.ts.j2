@@ -17,6 +17,9 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+/** How a success body is read: JSON, text, or raw bytes (`Blob`). */
+type ResponseFormat = "json" | "text" | "blob";
+
 /** Configuration for retry behavior with exponential backoff. */
 export interface RetryConfig {
   /** Maximum number of retry attempts. Default: 3 */
@@ -171,6 +174,7 @@ export class ApiClient {
       query?: Record<string, unknown>;
       contentType?: string;
       isMultipart?: boolean;
+      parseAs?: ResponseFormat;
     },
   ): Promise<ApiResponse<T>> {
     let url = `${this.baseUrl}${path}`;
@@ -251,13 +255,13 @@ export class ApiClient {
     const retryConfig = mergeRetryConfig(this.retryConfig, options?.retry);
 
     if (retryConfig === false) {
-      return this.executeFetch<T>(req);
+      return this.executeFetch<T>(req, options?.parseAs);
     }
 
     let lastError: unknown;
     for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
       try {
-        const response = await this.executeFetch<T>(req);
+        const response = await this.executeFetch<T>(req, options?.parseAs);
         if (response.ok || attempt === retryConfig.maxRetries) {
           return response;
         }
@@ -284,13 +288,23 @@ export class ApiClient {
     throw lastError;
   }
 
-  private async executeFetch<T>(req: { url: string; init: RequestInit }): Promise<ApiResponse<T>> {
+  private async executeFetch<T>(
+    req: { url: string; init: RequestInit },
+    parseAs: ResponseFormat = "json",
+  ): Promise<ApiResponse<T>> {
     const response = await this.fetchFn(req.url, req.init);
 
     let data: T;
-    if (response.status === 204) {
+    if (response.status === 204 || response.status === 205 || req.init.method === "HEAD") {
       data = undefined as T;
+    } else if (response.ok && parseAs === "blob") {
+      // Binary bodies must not be decoded as text: that mangles the bytes.
+      data = (await response.blob()) as T;
+    } else if (response.ok && parseAs === "text") {
+      data = (await response.text()) as T;
     } else {
+      // JSON success bodies, and every error body (error payloads are JSON or
+      // text even for binary endpoints).
       const text = await response.text();
       if (text) {
         try {
@@ -320,6 +334,7 @@ export class ApiClient {
       query?: Record<string, unknown>;
       contentType?: string;
       isMultipart?: boolean;
+      parseAs?: ResponseFormat;
     },
   ): Promise<T> {
     const response = await this.rawRequest<T>(method, path, options);
@@ -380,6 +395,11 @@ export class ApiClient {
     }
 {% endif %}
     return this.request<{{ op.return_type }}>("{{ op.http_method }}", path, {
+{% if op.response_format == "binary" %}
+      parseAs: "blob",
+{% elif op.response_format == "text" %}
+      parseAs: "text",
+{% endif %}
 {% if op.has_body %}
       body,
       contentType: "{{ op.body_content_type }}",
@@ -434,6 +454,11 @@ export class ApiClient {
     }
 {% endif %}
     return this.rawRequest<{{ op.return_type }}>("{{ op.http_method }}", path, {
+{% if op.response_format == "binary" %}
+      parseAs: "blob",
+{% elif op.response_format == "text" %}
+      parseAs: "text",
+{% endif %}
 {% if op.has_body %}
       body,
       contentType: "{{ op.body_content_type }}",
