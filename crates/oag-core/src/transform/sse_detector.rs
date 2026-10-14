@@ -139,16 +139,21 @@ fn extract_event_info(
 fn find_success_response(
     responses: &IndexMap<String, ResponseOrRef>,
 ) -> Option<(u16, &ResponseOrRef)> {
-    // Build the success candidates in priority order: the common explicit codes
-    // first, then any other 2xx code (declared order), then 2XX wildcards, then
-    // default.
+    // The success type is chosen from 2xx responses only, in priority order:
+    // the common explicit codes first, then any other 2xx code (declared
+    // order), then 2XX wildcards.
     //
     // OpenAPI 3.2 allows any 2xx response to carry a body — e.g. 200 OK, but
     // also 202 Accepted returning the queued job or 203 Non-Authoritative
     // Information. Earlier versions only looked at 200/201, so a 202-only
     // operation was mapped to a void return even when it declared a body.
+    //
+    // `default` (like 4xx/5xx) describes errors whenever a 2xx is declared, so
+    // it never competes with a 2xx: a bodyless 204 next to a `default` error
+    // body is a void operation, not one returning the error type. `default` is
+    // only the success response when the operation declares no 2xx at all.
     const PREFERRED: [&str; 4] = ["200", "201", "202", "203"];
-    let ordered = PREFERRED
+    let ordered: Vec<(&String, &ResponseOrRef)> = PREFERRED
         .iter()
         .filter_map(|code| responses.get_key_value(*code))
         .chain(
@@ -158,22 +163,23 @@ fn find_success_response(
         )
         .chain(responses.get_key_value("2XX"))
         .chain(responses.get_key_value("2xx"))
-        .chain(responses.get_key_value("default"));
+        .collect();
+
+    if ordered.is_empty() {
+        return responses
+            .get_key_value("default")
+            .map(|(code, response)| (status_from_code(code), response));
+    }
 
     // Prefer a candidate that actually declares a body, so a body on a lower
     // priority code (e.g. a 202) is never dropped in favour of an empty higher
     // priority code (e.g. a bodyless 200). Fall back to the highest priority
-    // candidate, which yields a void return when nothing carries a body.
-    let mut first: Option<(&String, &ResponseOrRef)> = None;
-    for (code, response) in ordered {
-        if first.is_none() {
-            first = Some((code, response));
-        }
-        if has_body(response) {
-            return Some((status_from_code(code), response));
-        }
-    }
-    first.map(|(code, response)| (status_from_code(code), response))
+    // candidate, which yields a void return when no 2xx carries a body.
+    ordered
+        .iter()
+        .find(|(_, response)| has_body(response))
+        .or(ordered.first())
+        .map(|(code, response)| (status_from_code(code), *response))
 }
 
 /// Parse a response key into an HTTP status code. Wildcards (`2XX`) and
@@ -194,4 +200,61 @@ fn has_body(response: &ResponseOrRef) -> bool {
 /// Whether a response key is an explicit 2xx status code (e.g. `"204"`).
 fn is_2xx(code: &str) -> bool {
     code.len() == 3 && code.starts_with('2') && code.as_bytes()[1..].iter().all(u8::is_ascii_digit)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn responses(yaml: &str) -> IndexMap<String, ResponseOrRef> {
+        serde_yaml_ng::from_str(yaml).expect("responses should parse")
+    }
+
+    #[test]
+    fn bodyless_204_with_default_error_is_void() {
+        // #28: `default` must not override a bodyless 2xx as the success type.
+        let r = responses(
+            r##"
+"204": { description: Deleted }
+default:
+  description: Error
+  content: { application/json: { schema: { $ref: "#/components/schemas/ErrorBody" } } }
+"##,
+        );
+        assert!(matches!(
+            detect_return_type("deleteItem", &r),
+            IrReturnType::Void
+        ));
+    }
+
+    #[test]
+    fn error_codes_never_shape_the_success_type() {
+        let r = responses(
+            r##"
+"200": { description: OK }
+"404":
+  description: Not found
+  content: { application/json: { schema: { type: string } } }
+"##,
+        );
+        assert!(matches!(detect_return_type("op", &r), IrReturnType::Void));
+    }
+
+    #[test]
+    fn default_is_the_success_response_when_no_2xx_is_declared() {
+        let r = responses(
+            r##"
+default:
+  description: Anything
+  content: { application/json: { schema: { type: string } } }
+"##,
+        );
+        match detect_return_type("op", &r) {
+            IrReturnType::Standard(resp) => {
+                assert_eq!(resp.response_type, IrType::String);
+                assert_eq!(resp.status_code, 200);
+            }
+            other => panic!("expected a standard return, got {other:?}"),
+        }
+    }
 }

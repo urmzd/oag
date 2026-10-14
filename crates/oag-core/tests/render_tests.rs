@@ -205,3 +205,26 @@ fn node_client_serializes_ref_enum_query_param_as_primitive() {
         "no query param of listInbox is an object, got:\n{method}"
     );
 }
+
+#[test]
+fn bodyless_204_with_default_error_renders_as_void() {
+    // #28: the success type comes from 2xx only; `default` shapes errors.
+    let node = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&node, "client.ts");
+    let method = ts_method(&client, "async deleteInboxItem(");
+    assert!(
+        method.contains("Promise<void>"),
+        "deleteInboxItem should resolve to void, got:\n{method}"
+    );
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let routes = file_ending_with(&py, "routes.py");
+    assert!(
+        routes.contains("@router.delete(\"/inbox/{itemId}\", status_code=204)"),
+        "fastapi stub should declare 204, got:\n{routes}"
+    );
+    assert!(
+        !routes.contains("-> ErrorBody"),
+        "no route returns the error body as its success type, got:\n{routes}"
+    );
+}
