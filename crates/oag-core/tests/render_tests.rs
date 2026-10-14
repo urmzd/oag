@@ -16,6 +16,7 @@ use oag_core::engine::pack::TemplatePack;
 use oag_core::{parse, transform};
 
 const LITERAL_DEFAULT: &str = include_str!("fixtures/literal-default.yaml");
+const EVENT_STREAM: &str = include_str!("fixtures/event-stream.yaml");
 
 fn config_for(output: &str) -> GeneratorConfig {
     GeneratorConfig {
@@ -29,13 +30,31 @@ fn config_for(output: &str) -> GeneratorConfig {
     }
 }
 
-/// Render a pack from the working tree and return the concatenated source files.
+/// Render a pack from the working tree against the `literal-default` fixture.
 fn render(pack_rel: &str) -> Vec<oag_core::GeneratedFile> {
-    let spec = parse::from_yaml(LITERAL_DEFAULT).expect("fixture should parse");
-    let ir = transform::transform(&spec).expect("fixture should transform");
+    render_spec(pack_rel, LITERAL_DEFAULT)
+}
+
+/// Load a working-tree pack, resolving `extends` the way the CLI does.
+fn load_pack(pack_rel: &str) -> TemplatePack {
     let pack_dir = format!("{}/../../packs/{pack_rel}", env!("CARGO_MANIFEST_DIR"));
     let pack = TemplatePack::from_dir(std::path::Path::new(&pack_dir))
         .unwrap_or_else(|e| panic!("loading pack {pack_rel}: {e}"));
+    match pack.manifest.pack.extends.clone() {
+        Some(base_id) => {
+            let mut base = load_pack(&base_id);
+            base.merge_from(&pack);
+            base
+        }
+        None => pack,
+    }
+}
+
+/// Render a working-tree pack against an arbitrary spec and return its source files.
+fn render_spec(pack_rel: &str, spec_yaml: &str) -> Vec<oag_core::GeneratedFile> {
+    let spec = parse::from_yaml(spec_yaml).expect("fixture should parse");
+    let ir = transform::transform(&spec).expect("fixture should transform");
+    let pack = load_pack(pack_rel);
     let out = generate(&ir, &config_for("out"), &pack).expect("generation should succeed");
     out.source_files
 }
@@ -147,5 +166,42 @@ fn fastapi_server_renders_literal_default_as_defaulted_literal() {
     assert!(
         models.contains("content: str"),
         "required `content` should be present, got:\n{models}"
+    );
+}
+
+// ─── event-stream fixture (issues #27-#36) ───────────────────────────────
+
+/// Extract the body of a generated TypeScript method (from its signature to the
+/// next method), so assertions do not match code from a neighbouring method.
+fn ts_method(source: &str, signature_prefix: &str) -> String {
+    let start = source
+        .find(signature_prefix)
+        .unwrap_or_else(|| panic!("no method starting with `{signature_prefix}` in:\n{source}"));
+    let rest = &source[start..];
+    let end = rest[1..]
+        .find("\n  async ")
+        .map(|i| i + 1)
+        .unwrap_or(rest.len());
+    rest[..end].to_string()
+}
+
+#[test]
+fn node_client_serializes_ref_enum_query_param_as_primitive() {
+    // #27: a `$ref` to a string enum must serialize like the inline enum
+    // (`?state=open`), not be walked with `Object.entries` (`?0=o&1=p...`).
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    let method = ts_method(&client, "async listInbox(");
+    assert!(
+        method.contains(r#"_q.set("state", String("#),
+        "ref enum query param should be set as a primitive, got:\n{method}"
+    );
+    assert!(
+        method.contains(r#"_q.set("kind", String("#),
+        "ref enum query param should be set as a primitive, got:\n{method}"
+    );
+    assert!(
+        !method.contains("Object.entries"),
+        "no query param of listInbox is an object, got:\n{method}"
     );
 }

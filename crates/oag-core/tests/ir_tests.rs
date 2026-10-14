@@ -876,3 +876,36 @@ fn integer_discriminator_mapping_keys_preserved() {
         _ => panic!("Shape should be a Union"),
     }
 }
+
+const EVENT_STREAM: &str = include_str!("fixtures/event-stream.yaml");
+
+#[test]
+fn ref_enum_param_resolves_to_its_literals() {
+    // #27: a `$ref` to a string enum is a primitive on the wire.
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "listInbox")
+        .unwrap();
+    let state = op
+        .parameters
+        .iter()
+        .find(|p| p.original_name == "state")
+        .unwrap();
+    assert_eq!(state.param_type, IrType::Ref("InboxState".into()));
+    assert_eq!(
+        ir.resolve_type(&state.param_type).into_owned(),
+        IrType::Union(vec![
+            IrType::StringLiteral("open".into()),
+            IrType::StringLiteral("done".into()),
+        ])
+    );
+    // Objects stay as a reference.
+    assert_eq!(
+        ir.resolve_type(&IrType::Ref("InboxItem".into()))
+            .into_owned(),
+        IrType::Ref("InboxItem".into())
+    );
+}

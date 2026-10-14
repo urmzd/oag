@@ -380,7 +380,7 @@ fn build_operation_contexts(
         .iter()
         .enumerate()
         .flat_map(|(idx, op)| {
-            build_single_operation_contexts(op, tm, field_casing, operation_casing)
+            build_single_operation_contexts(ir, op, tm, field_casing, operation_casing)
                 .into_iter()
                 .map(move |ctx| (idx, ctx))
         })
@@ -407,8 +407,11 @@ fn build_operation_contexts(
     (operations, used_op_indices)
 }
 
-fn classify_param_type(ir_type: &IrType) -> &'static str {
-    match ir_type {
+/// Classify how a parameter value is serialized. `$ref`s are resolved first so a
+/// reference to a string enum (or an alias of a primitive) serializes exactly
+/// like the inline schema instead of being walked as an object.
+fn classify_param_type(ir_type: &IrType, ir: &IrSpec) -> &'static str {
+    match ir.resolve_type(ir_type).as_ref() {
         IrType::Array(_) => "array",
         IrType::Map(_) => "map",
         IrType::Object(_) | IrType::Ref(_) => "object",
@@ -417,7 +420,12 @@ fn classify_param_type(ir_type: &IrType) -> &'static str {
 }
 
 /// Build structured parameter data for an operation.
-fn build_params(op: &IrOperation, tm: &TypeMapConfig, field_casing: &str) -> ParamsResult {
+fn build_params(
+    ir: &IrSpec,
+    op: &IrOperation,
+    tm: &TypeMapConfig,
+    field_casing: &str,
+) -> ParamsResult {
     let mut required_parts = Vec::new();
     let mut optional_parts = Vec::new();
     let mut path_params = Vec::new();
@@ -449,7 +457,7 @@ fn build_params(op: &IrOperation, tm: &TypeMapConfig, field_casing: &str) -> Par
                 } else {
                     optional_parts.push(format!("{name}?: {type_str}"));
                 }
-                let type_kind = classify_param_type(&param.param_type);
+                let type_kind = classify_param_type(&param.param_type, ir);
                 let style = param.style.clone().unwrap_or_else(|| "form".to_string());
                 let explode = param.explode.unwrap_or(style == "form");
                 query_params.push(context! {
@@ -543,6 +551,7 @@ fn is_multipart_op(op: &IrOperation) -> bool {
 }
 
 fn build_single_operation_contexts(
+    ir: &IrSpec,
     op: &IrOperation,
     tm: &TypeMapConfig,
     field_casing: &str,
@@ -564,7 +573,7 @@ fn build_single_operation_contexts(
         has_path_params,
         has_query_params,
         has_header_params,
-    } = build_params(op, tm, field_casing);
+    } = build_params(ir, op, tm, field_casing);
 
     // Build params_signature (TS-style pre-formatted)
     let params_signature = build_ts_params_signature(op, tm, field_casing, false);
