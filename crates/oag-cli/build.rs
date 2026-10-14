@@ -45,9 +45,12 @@ fn main() {
                 writeln!(out, "    ]),").unwrap();
             }
         }
-        None => {
-            println!("cargo:warning=no packs directory found; building oag without embedded packs");
-        }
+        None => panic!(
+            "no packs directory found (looked for {} and {}); oag cannot be built without its \
+             built-in packs",
+            candidates[0].display(),
+            candidates[1].display()
+        ),
     }
     out.push_str("];\n");
 

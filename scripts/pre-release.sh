@@ -43,9 +43,11 @@ for pkg in examples/*/generated/*/package.json; do
 done
 
 echo "==> Checking for uncommitted changes after regeneration..."
-if ! git diff --quiet; then
+# `git status --porcelain` also catches new, untracked generated files
+# (`git diff` only sees changes to tracked ones).
+if [ -n "$(git status --porcelain)" ]; then
   echo "ERROR: Generated files are out of date. Run 'just examples' and commit the result."
-  git diff --stat
+  git status --short
   exit 1
 fi
 
