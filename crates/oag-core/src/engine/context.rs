@@ -316,8 +316,23 @@ fn collect_sse_event_types(
 
 // ─── Guard contexts ──────────────────────────────────────────────
 
+/// One type guard per variant schema.
+///
+/// A discriminator `mapping` may send several values to the same schema
+/// (`lifecycle.started` and `lifecycle.completed` both to `Lifecycle`), and the
+/// same schema may be a variant of more than one discriminated union. Emitting
+/// a guard per mapping entry produced duplicate `isLifecycle` functions that do
+/// not compile, so guards are grouped by variant: the guard accepts any of the
+/// unions it belongs to and checks any of its mapped values.
 fn build_guard_contexts(ir: &IrSpec) -> Value {
-    let mut guards = Vec::new();
+    struct Guard {
+        variant_name: String,
+        union_names: Vec<String>,
+        /// (property name, rendered literal, is integer)
+        checks: Vec<(String, String, bool)>,
+    }
+
+    let mut guards: Vec<Guard> = Vec::new();
     let mut import_names: Vec<String> = Vec::new();
 
     for schema in &ir.schemas {
@@ -325,30 +340,77 @@ fn build_guard_contexts(ir: &IrSpec) -> Value {
             && let Some(disc) = &u.discriminator
         {
             let union_name = u.name.pascal_case.clone();
-            if !import_names.contains(&union_name) {
-                import_names.push(union_name.clone());
-            }
 
             for (disc_value, schema_name) in &disc.mapping {
-                if u.variants
+                if !u
+                    .variants
                     .iter()
                     .any(|v| matches!(v, IrType::Ref(n) if n == schema_name))
                 {
-                    if !import_names.contains(schema_name) {
-                        import_names.push(schema_name.clone());
+                    continue;
+                }
+                if !import_names.contains(&union_name) {
+                    import_names.push(union_name.clone());
+                }
+                if !import_names.contains(schema_name) {
+                    import_names.push(schema_name.clone());
+                }
+                let is_integer = disc_value.parse::<i64>().is_ok();
+                let literal = if is_integer {
+                    disc_value.clone()
+                } else {
+                    serde_json::to_string(disc_value)
+                        .unwrap_or_else(|_| format!("\"{disc_value}\""))
+                };
+                let check = (disc.property_name.clone(), literal, is_integer);
+
+                let guard = match guards.iter_mut().find(|g| &g.variant_name == schema_name) {
+                    Some(g) => g,
+                    None => {
+                        guards.push(Guard {
+                            variant_name: schema_name.clone(),
+                            union_names: Vec::new(),
+                            checks: Vec::new(),
+                        });
+                        guards.last_mut().unwrap()
                     }
-                    let is_integer_discriminator = disc_value.parse::<i64>().is_ok();
-                    guards.push(context! {
-                        union_name => union_name.clone(),
-                        variant_name => schema_name.clone(),
-                        property_name => disc.property_name.clone(),
-                        discriminator_value => disc_value.clone(),
-                        is_integer_discriminator => is_integer_discriminator,
-                    });
+                };
+                if !guard.union_names.contains(&union_name) {
+                    guard.union_names.push(union_name.clone());
+                }
+                if !guard.checks.contains(&check) {
+                    guard.checks.push(check);
                 }
             }
         }
     }
+
+    let guards: Vec<Value> = guards
+        .into_iter()
+        .map(|g| {
+            let (first_prop, first_literal, first_is_int) = g.checks[0].clone();
+            let checks: Vec<Value> = g
+                .checks
+                .iter()
+                .map(|(prop, literal, is_int)| {
+                    context! {
+                        property_name => prop.clone(),
+                        literal => literal.clone(),
+                        is_integer_discriminator => *is_int,
+                    }
+                })
+                .collect();
+            context! {
+                union_name => g.union_names.join(" | "),
+                variant_name => g.variant_name,
+                checks => checks,
+                // First mapping entry, kept for packs that predate `checks`.
+                property_name => first_prop,
+                discriminator_value => first_literal.trim_matches('"').to_string(),
+                is_integer_discriminator => first_is_int,
+            }
+        })
+        .collect();
 
     context! {
         imports => import_names,

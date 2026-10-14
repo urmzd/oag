@@ -228,3 +228,25 @@ fn bodyless_204_with_default_error_renders_as_void() {
         "no route returns the error body as its success type, got:\n{routes}"
     );
 }
+
+#[test]
+fn shared_discriminator_mapping_emits_one_guard_per_schema() {
+    // #29: two mapping values for `LifecycleEvent` used to emit two
+    // `isLifecycleEvent` functions (TS2393). Expect one guard checking both.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let guards = file_ending_with(&files, "guards.ts");
+    assert_eq!(
+        guards.matches("export function isLifecycleEvent(").count(),
+        1,
+        "expected exactly one isLifecycleEvent guard, got:\n{guards}"
+    );
+    assert!(
+        guards.contains(r#"v.kind === "lifecycle.started" || v.kind === "lifecycle.completed""#),
+        "guard should accept every mapped value, got:\n{guards}"
+    );
+    assert_eq!(
+        guards.matches("export function isDeltaEvent(").count(),
+        1,
+        "got:\n{guards}"
+    );
+}
