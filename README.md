@@ -198,13 +198,27 @@ oag generate
 
 Resolution order for a generator key: `id@ref` (downloaded from GitHub at that ref), then `.oag/packs/<id>/`, then the pack built into the binary. A pack that is neither installed nor built in is an error, never a silent download.
 
+## Upgrading from v0.20
+
+Upgrading from v0.20.x changes generated code in five places. Regenerate, then:
+
+| Change | Before (v0.20.6) | After | Migration |
+|--------|------------------|-------|-----------|
+| Query and header parameters | positional: `listInbox("open", undefined, true)` | one params object: `listInbox({ state: "open", unread: true })` | Pass an object typed `<Operation>Params`. Path parameters and the body keep their positions. React hooks take the same object. |
+| Retries | every method, including POST, on 408/429/5xx; SSE retried implicitly | idempotent methods only (GET, HEAD, OPTIONS, PUT, DELETE); SSE never retried implicitly | Send an `Idempotency-Key` header on POSTs that are safe to retry, or set `retry: { retryMethods: [...] }`. Pass `retry` to a stream call to retry its connection. |
+| SSE with an OAS 3.2 `itemSchema` describing the whole event | `SSEEvent<ItemSchema>` | `<Operation>StreamEvent`, a union discriminated by `event` with decoded `data` | Replace hand-written mapping of `SSEEvent.event` with a `switch (event.event)`. Item schemas that describe only the payload keep `SSEEvent<T>`. |
+| Pack resolution | a missing pack was downloaded from GitHub `main` | the pack built into the binary; downloads only for an explicit `id@ref` | Nothing, unless you relied on `main`: pin `node-client@v0.21.0` or commit the pack under `.oag/packs/`. |
+| `install.sh` | installed without verification | verifies `SHA256SUMS` | Pinning `OAG_VERSION=v0.20.6` or older needs `OAG_SKIP_VERIFY=1`. |
+
+Fixes that need no migration but remove common workarounds: a `$ref` enum query parameter serializes as `?state=open`; a bodyless 204 next to a `default` error resolves to `void`; a discriminator mapping several values to one schema compiles; binary downloads resolve to a real `Blob`; base64 JSON fields get `decode<Schema><Field>()` helpers; SSE streams release their connection on early exit and report `closed-by-server` (or throw `SSEStreamClosedError` with `terminalEvents`); `SSEEvent` is exported; generated classes have no constructor parameter properties.
+
 ## Examples
 
 See [`examples/`](examples/) for working projects:
 
 - **[`petstore`](examples/petstore/)** — Node + React clients from the Petstore 3.2 spec
 - **[`sse-chat`](examples/sse-chat/)** — SSE streaming with Node + React hooks
-- **[`event-stream`](examples/event-stream/)** — OAS 3.2 SSE events typed by name, base64 JSON payloads, a binary download, a shared discriminator mapping, a `$ref` enum query parameter, and a 204 next to a `default` error
+- **[`event-stream`](examples/event-stream/)**: OAS 3.2 SSE events typed by name, base64 JSON payloads, a binary download, a shared discriminator mapping, a `$ref` enum query parameter, and a 204 next to a `default` error
 
 Regenerate with `just examples`.
 
