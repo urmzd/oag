@@ -486,11 +486,22 @@ export async function* streamSse<T>(
 export type SSEDataCodec = "text" | ContentCodec;
 
 /**
+ * A message no event variant matched: an unknown event name, or `data` that
+ * none of its variants could decode. It has no `event` field, so narrowing a
+ * typed event union on `event` is unaffected; the raw message is `unmatched`.
+ */
+export interface SSEUnmatchedEvent {
+  event?: undefined;
+  unmatched: SSEMessage;
+}
+
+/**
  * Stream SSE events typed by their `event` name (OpenAPI 3.2 `itemSchema`
- * describing the whole event). `codecs` maps each event name to how its `data`
- * is decoded; `"message"` is the name of events sent without an `event:` line
- * and `"*"` matches any other name. Events with an unknown name are skipped
- * (forward compatibility); `data` that does not decode throws `SSEError`.
+ * describing the whole event). `codecs` maps each event name to the codecs
+ * of its variants, tried in order; `"message"` is the name of events sent
+ * without an `event:` line and `"*"` matches any other name. A message whose
+ * name is unknown, or whose `data` no codec decodes, is yielded as an
+ * `SSEUnmatchedEvent` rather than dropped or thrown.
  */
 export async function* streamSseEvents<E>(
   url: string,
@@ -498,27 +509,37 @@ export async function* streamSseEvents<E>(
   options: SSEOptions | undefined,
   requestInterceptor: RequestInterceptor | undefined,
   fetchFn: typeof globalThis.fetch,
-  codecs: Record<string, SSEDataCodec>,
-): AsyncGenerator<E, SSEStreamEnd, undefined> {
+  codecs: Record<string, readonly SSEDataCodec[]>,
+): AsyncGenerator<E | SSEUnmatchedEvent, SSEStreamEnd, undefined> {
   const messages = streamSseMessages(url, init, options, requestInterceptor, fetchFn);
   try {
     while (true) {
       const next = await messages.next();
       if (next.done) return next.value;
-      const { data, event = "message", id, retry } = next.value;
-      const codec = codecs[event] ?? codecs["*"];
-      if (codec === undefined) continue;
-      let decoded: unknown = data;
-      if (codec !== "text") {
+      const message = next.value;
+      const event = message.event ?? "message";
+      const candidates = codecs[event] ?? codecs["*"] ?? [];
+      let matched = false;
+      let decoded: unknown;
+      for (const codec of candidates) {
+        if (codec === "text") {
+          decoded = message.data;
+          matched = true;
+          break;
+        }
         try {
-          decoded = decodeContent(data, codec);
-        } catch (error) {
-          throw new SSEError(
-            `Failed to decode the data of SSE event "${event}" (${codec}): ${String(error)}`,
-          );
+          decoded = decodeContent(message.data, codec);
+          matched = true;
+          break;
+        } catch {
+          // Try the next variant's codec.
         }
       }
-      yield { event, data: decoded, id, retry } as E;
+      if (matched) {
+        yield { event, data: decoded, id: message.id, retry: message.retry } as E;
+      } else {
+        yield { unmatched: message };
+      }
     }
   } finally {
     await messages.return({ reason: "closed-by-server" });

@@ -451,7 +451,7 @@ fn sse_item_schema_events_render_as_a_union_keyed_by_event_name() {
     let types = file_ending_with(&files, "types.ts");
     assert!(
         types.contains(
-            r#"export type StreamInboxStreamEvent = { event: "inbox"; data: InboxItem; id?: string; retry?: number } | { event: "heartbeat"; data: string; id?: string; retry?: number };"#
+            r#"export type StreamInboxStreamEvent = { event: "inbox"; data: InboxItem; id?: string; retry?: number } | { event: "heartbeat"; data: string; id?: string; retry?: number } | SSEUnmatchedEvent;"#
         ),
         "got:\n{types}"
     );
@@ -462,7 +462,7 @@ fn sse_item_schema_events_render_as_a_union_keyed_by_event_name() {
         "got:\n{method}"
     );
     assert!(
-        method.contains(r#"{ "inbox": "json", "heartbeat": "text" }"#),
+        method.contains(r#"{ "inbox": ["json"], "heartbeat": ["text"] }"#),
         "got:\n{method}"
     );
     assert!(
@@ -518,4 +518,46 @@ fn encoded_content_survives_promotion_and_array_items() {
     assert!(types.contains("attachments?: string[];"), "got:\n{types}");
     // `format: byte` is base64 text, not raw bytes.
     assert!(types.contains("raw?: string;"), "got:\n{types}");
+}
+
+#[test]
+fn sse_variants_sharing_a_name_try_each_codec() {
+    // #32 follow-up: two variants without an `event` property are both
+    // `message`; both codecs are kept, in order, instead of first-wins.
+    let spec = r##"
+openapi: "3.2.0"
+info: { title: T, version: "1" }
+paths:
+  /s:
+    get:
+      operationId: watch
+      responses:
+        "200":
+          description: ok
+          content:
+            text/event-stream:
+              itemSchema:
+                oneOf:
+                  - type: object
+                    properties:
+                      data: { type: string, contentMediaType: application/json, contentSchema: { $ref: "#/components/schemas/P" } }
+                  - type: object
+                    properties:
+                      data: { type: string }
+components:
+  schemas:
+    P: { type: object, properties: { n: { type: integer } } }
+"##;
+    let files = render_spec("node-client", spec);
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(r#"{ "message": ["json", "text"] }"#),
+        "got:\n{client}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("| SSEUnmatchedEvent;")
+            && types.contains(r#"import type { SSEUnmatchedEvent } from "./sse.js";"#),
+        "got:\n{types}"
+    );
 }

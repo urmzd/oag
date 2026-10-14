@@ -346,7 +346,12 @@ fn collect_sse_event_types(
                 event_types.push(context! {
                     name => event_name.clone(),
                     is_event_union => true,
-                    variants => sse.events.iter().map(|e| map_type(&sse_event_object(e), tm)).collect::<Vec<_>>(),
+                    // Messages no variant matches are delivered, not dropped:
+                    // `SSEUnmatchedEvent` has no `event`, so narrowing on
+                    // `event` is unaffected.
+                    variants => sse.events.iter().map(|e| map_type(&sse_event_object(e), tm))
+                        .chain(std::iter::once("SSEUnmatchedEvent".to_string()))
+                        .collect::<Vec<_>>(),
                     data_variants => sse.events.iter().map(|e| map_type(&e.data_type, tm)).collect::<Vec<_>>(),
                     events => sse.events.iter().map(|e| context! {
                         names => e.names.clone(),
@@ -392,9 +397,12 @@ fn sse_event_object(event: &IrSseEvent) -> IrType {
 }
 
 /// The decoder table passed to the SSE runtime for a typed event stream:
-/// `{ "inbox": "json", "heartbeat": "text" }` (`"*"` matches any name).
+/// `{ "inbox": ["json"], "message": ["json", "text"] }` (`"*"` matches any
+/// other name). Several variants can share a name (two variants without an
+/// `event` property are both `message`); their codecs are tried in
+/// declaration order.
 fn sse_event_codecs(events: &[IrSseEvent]) -> String {
-    let mut entries: Vec<String> = Vec::new();
+    let mut entries: Vec<(String, Vec<String>)> = Vec::new();
     for event in events {
         let keys: Vec<String> = if event.names.is_empty() {
             vec!["*".to_string()]
@@ -402,13 +410,23 @@ fn sse_event_codecs(events: &[IrSseEvent]) -> String {
             event.names.clone()
         };
         for key in keys {
-            let quoted = serde_json::to_string(&key).unwrap_or_else(|_| format!("\"{key}\""));
-            if !entries.iter().any(|e| e.starts_with(&format!("{quoted}:"))) {
-                entries.push(format!("{quoted}: \"{}\"", event.data_codec));
+            let codec = event.data_codec.clone();
+            match entries.iter_mut().find(|(k, _)| *k == key) {
+                Some((_, codecs)) if !codecs.contains(&codec) => codecs.push(codec),
+                Some(_) => {}
+                None => entries.push((key, vec![codec])),
             }
         }
     }
-    format!("{{ {} }}", entries.join(", "))
+    let rendered: Vec<String> = entries
+        .iter()
+        .map(|(key, codecs)| {
+            let quoted = serde_json::to_string(key).unwrap_or_else(|_| format!("\"{key}\""));
+            let list: Vec<String> = codecs.iter().map(|c| format!("\"{c}\"")).collect();
+            format!("{quoted}: [{}]", list.join(", "))
+        })
+        .collect();
+    format!("{{ {} }}", rendered.join(", "))
 }
 
 // ─── Params object types ─────────────────────────────────────────
