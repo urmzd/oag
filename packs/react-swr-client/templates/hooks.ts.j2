@@ -10,9 +10,7 @@ import useSWRMutation, {
 {% endif %}
 {% if has_hook_sse %}
 import { useCallback, useRef, useState } from "react";
-{% if hooks_use_sse_payload %}
-import type { SSEEvent } from "./sse.js";
-{% endif %}
+import type { {% if hooks_use_sse_payload %}SSEEvent, {% endif %}SSEOptions } from "./sse.js";
 {% endif %}
 import { useApiClient } from "./provider.js";
 import type {
@@ -61,8 +59,11 @@ export function {{ hook.hook_name }}({% if hook.path_params_signature %}{{ hook.
 {% if hook.description %}
 /** {{ hook.description | escape_jsdoc }} */
 {% endif %}
-export function {{ hook.hook_name }}({{ hook.path_params_signature }}) {
+export function {{ hook.hook_name }}({% if hook.path_params_signature %}{{ hook.path_params_signature }}, {% endif %}options?: Omit<SSEOptions, "signal">) {
   const client = useApiClient();
+  // Read the latest options when a stream starts without re-creating `trigger`.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const [events, setEvents] = useState<{{ hook.yield_type }}[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -75,7 +76,7 @@ export function {{ hook.hook_name }}({{ hook.path_params_signature }}) {
     abortRef.current = new AbortController();
 
     try {
-      for await (const event of client.{{ hook.method_name }}({% if hook.stream_call_args %}{{ hook.stream_call_args }}, {% endif %}{ signal: abortRef.current.signal })) {
+      for await (const event of client.{{ hook.method_name }}({% if hook.stream_call_args %}{{ hook.stream_call_args }}, {% endif %}{ ...optionsRef.current, signal: abortRef.current.signal })) {
         setEvents((prev) => [...prev, event]);
       }
     } catch (err) {
