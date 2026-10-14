@@ -2,6 +2,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client.js";
 import { ApiClient, ApiError } from "./client.js";
+{% if has_sse %}
+import { type SSEStreamEnd, SSEStreamClosedError, streamSse } from "./sse.js";
+{% endif %}
 {% if test_type_imports %}
 import type { {{ test_type_imports | join(", ") }} } from "./types.js";
 {% endif %}
@@ -243,3 +246,105 @@ describe("ApiClient", () => {
 {% endfor %}
   });
 });
+{% if has_sse %}
+
+describe("SSE runtime", () => {
+  const encoder = new TextEncoder();
+
+  /** A fetch mock serving each body in turn; `close: false` keeps a stream open. */
+  function sseFetch(bodies: { chunks: string[]; close?: boolean }[]) {
+    const cancelled: boolean[] = [];
+    let call = 0;
+    const fetchFn = vi.fn((_url: RequestInfo | URL, _init?: RequestInit) => {
+      const index = call++;
+      const { chunks, close = true } = bodies[Math.min(index, bodies.length - 1)];
+      cancelled[index] = false;
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+          if (close) controller.close();
+        },
+        cancel() {
+          cancelled[index] = true;
+        },
+      });
+      return Promise.resolve(
+        new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+      );
+    });
+    return { fetchFn, cancelled };
+  }
+
+  async function drain<T>(gen: AsyncGenerator<T, SSEStreamEnd, undefined>) {
+    const items: T[] = [];
+    while (true) {
+      const next = await gen.next();
+      if (next.done) return { items, end: next.value };
+      items.push(next.value);
+    }
+  }
+
+  it("releases the connection when the consumer stops early", async () => {
+    const { fetchFn, cancelled } = sseFetch([
+      { chunks: ['data: {"n":1}\n\n', 'data: {"n":2}\n\n'], close: false },
+    ]);
+    for await (const event of streamSse<{ n: number }>("https://api.test.com/s", { method: "GET" }, {}, undefined, fetchFn)) {
+      expect(event.data.n).toBe(1);
+      break;
+    }
+    expect(cancelled[0]).toBe(true);
+    const init = fetchFn.mock.calls[0][1] as RequestInit;
+    expect(init.signal?.aborted).toBe(true);
+  });
+
+  it("reports a stream the server closed as closed-by-server", async () => {
+    const { fetchFn } = sseFetch([{ chunks: ['id: 7\ndata: {"n":1}\n\n'] }]);
+    const { items, end } = await drain(
+      streamSse<{ n: number }>("https://api.test.com/s", { method: "GET" }, {}, undefined, fetchFn),
+    );
+    expect(items).toHaveLength(1);
+    expect(end).toEqual({ reason: "closed-by-server", lastEventId: "7" });
+  });
+
+  it("reports [DONE] as a normal end", async () => {
+    const { fetchFn } = sseFetch([{ chunks: ['data: {"n":1}\n\n', "data: [DONE]\n\n"] }]);
+    const { end } = await drain(
+      streamSse("https://api.test.com/s", { method: "GET" }, {}, undefined, fetchFn),
+    );
+    expect(end.reason).toBe("done");
+  });
+
+  it("throws SSEStreamClosedError when the stream drops before a terminal event", async () => {
+    const { fetchFn } = sseFetch([{ chunks: ['event: delta\ndata: {"n":1}\n\n'] }]);
+    const gen = streamSse("https://api.test.com/s", { method: "GET" }, { terminalEvents: ["end"] }, undefined, fetchFn);
+    await expect(drain(gen)).rejects.toBeInstanceOf(SSEStreamClosedError);
+  });
+
+  it("resumes with Last-Event-ID when reconnect is enabled", async () => {
+    const { fetchFn } = sseFetch([
+      { chunks: ['retry: 1\nid: 1\nevent: delta\ndata: {"n":1}\n\n'] },
+      { chunks: ['id: 2\nevent: end\ndata: {"n":2}\n\n'] },
+    ]);
+    const { items, end } = await drain(
+      streamSse<{ n: number }>(
+        "https://api.test.com/s",
+        { method: "GET" },
+        { terminalEvents: ["end"], reconnect: 1 },
+        undefined,
+        fetchFn,
+      ),
+    );
+    expect(items.map((e) => e.data.n)).toEqual([1, 2]);
+    expect(end).toEqual({ reason: "done", lastEventId: "2" });
+    const resumed = fetchFn.mock.calls[1][1] as RequestInit;
+    expect((resumed.headers as Record<string, string>)["Last-Event-ID"]).toBe("1");
+  });
+
+  it("is not retried implicitly", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(new Response("{}", { status: 503 }));
+    const gen = streamSse("https://api.test.com/s", { method: "POST" }, {}, undefined, fetchFn);
+    await expect(drain(gen)).rejects.toThrow("503");
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+});
+{% endif %}

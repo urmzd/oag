@@ -3,4 +3,14 @@ export * from "./types.js";
 export * from "./guards.js";
 export * from "./codecs.js";
 export { ApiError, type ApiResponse, type ClientConfig, type RequestOptions, type RetryConfig, ApiClient } from "./client.js";
-export { type SSEEvent, type SSEOptions, SSEError, streamSse } from "./sse.js";
+export {
+  type SSEEndReason,
+  type SSEEvent,
+  type SSEMessage,
+  type SSEOptions,
+  type SSEStreamEnd,
+  SSEError,
+  SSEStreamClosedError,
+  streamSse,
+  streamSseMessages,
+} from "./sse.js";

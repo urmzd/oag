@@ -415,3 +415,31 @@ fn retries_default_to_idempotent_methods_and_never_to_streams() {
         "SSE must not retry without an explicit `retry`, got:\n{sse}"
     );
 }
+
+#[test]
+fn sse_reader_releases_the_connection_and_reports_how_it_ended() {
+    // #35: the reader only called `releaseLock()`, leaking the connection on
+    // early exit, and reported a dropped stream as a normal completion.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let sse = file_ending_with(&files, "sse.ts");
+    let finally = &sse[sse.find("} finally {").expect("a finally block")..];
+    assert!(
+        finally.contains("reader?.cancel()") && finally.contains("controller.abort();"),
+        "finally must cancel the body and abort the request, got:\n{sse}"
+    );
+    assert!(
+        sse.contains("AbortSignal.any([internal, external])"),
+        "caller signal combined with the internal one, got:\n{sse}"
+    );
+    assert!(
+        sse.contains(r#"typeof AbortSignal.any === "function""#),
+        "fallback when AbortSignal.any is unavailable, got:\n{sse}"
+    );
+    assert!(
+        sse.contains("export class SSEStreamClosedError extends SSEError"),
+        "got:\n{sse}"
+    );
+    assert!(sse.contains(r#"reason: "closed-by-server""#), "got:\n{sse}");
+    let index = file_ending_with(&files, "index.ts");
+    assert!(index.contains("SSEStreamClosedError"), "got:\n{index}");
+}
