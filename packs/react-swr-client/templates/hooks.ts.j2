@@ -73,7 +73,7 @@ export function {{ hook.hook_name }}({{ hook.path_params_signature }}) {
     abortRef.current = new AbortController();
 
     try {
-      for await (const event of client.{{ hook.method_name }}({{ hook.stream_call_args }}, { signal: abortRef.current.signal })) {
+      for await (const event of client.{{ hook.method_name }}({% if hook.stream_call_args %}{{ hook.stream_call_args }}, {% endif %}{ signal: abortRef.current.signal })) {
         setEvents((prev) => [...prev, event]);
       }
     } catch (err) {

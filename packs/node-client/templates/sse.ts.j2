@@ -14,15 +14,24 @@ export interface SSEEvent<T> {
 
 /** Error thrown when an SSE connection fails. */
 export class SSEError extends Error {
+  readonly statusCode?: number;
+  readonly statusText?: string;
+  readonly body?: unknown;
+  readonly response?: Response;
+
   constructor(
     message: string,
-    public readonly statusCode?: number,
-    public readonly statusText?: string,
-    public readonly body?: unknown,
-    public readonly response?: Response,
+    statusCode?: number,
+    statusText?: string,
+    body?: unknown,
+    response?: Response,
   ) {
     super(message);
     this.name = "SSEError";
+    this.statusCode = statusCode;
+    this.statusText = statusText;
+    this.body = body;
+    this.response = response;
   }
 }
 

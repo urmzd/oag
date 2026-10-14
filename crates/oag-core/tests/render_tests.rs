@@ -314,3 +314,80 @@ fn base64_json_payloads_get_typed_codecs() {
         "got:\n{models}"
     );
 }
+
+#[test]
+fn query_parameters_are_grouped_in_a_params_object() {
+    // #36: optional query parameters are one params object, not positional.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(
+            "async listInbox(params?: ListInboxParams, options?: RequestOptions): Promise<InboxItem[]>"
+        ),
+        "got:\n{client}"
+    );
+    // Path parameters stay positional.
+    assert!(
+        client.contains("async deleteInboxItem(itemId: string, options?: RequestOptions)"),
+        "got:\n{client}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("export interface ListInboxParams {"),
+        "got:\n{types}"
+    );
+    assert!(types.contains("  state?: InboxState;"), "got:\n{types}");
+
+    let react = render_spec("react-swr-client", EVENT_STREAM);
+    let hooks = file_ending_with(&react, "hooks.tsx");
+    assert!(
+        hooks.contains("export function useListInbox(params?: ListInboxParams, config?:"),
+        "got:\n{hooks}"
+    );
+    assert!(
+        hooks.contains(r#"["/inbox", params] as const"#),
+        "SWR key should include the params object, got:\n{hooks}"
+    );
+}
+
+#[test]
+fn sse_event_is_exported_and_no_parameter_properties_are_emitted() {
+    // #36: `SSEEvent` appears in public signatures, so the index exports it;
+    // classes use plain fields so type-stripping runtimes can run the source.
+    for pack in ["node-client", "react-swr-client"] {
+        let files = render_spec(pack, EVENT_STREAM);
+        let index = files
+            .iter()
+            .find(|f| f.path.ends_with("index.ts") || f.path.ends_with("index.tsx"))
+            .map(|f| f.content.clone())
+            .unwrap();
+        assert!(index.contains("type SSEEvent"), "{pack} index:\n{index}");
+        for file in &files {
+            let re = regex_lite_constructor_param_property(&file.content);
+            assert!(
+                re.is_none(),
+                "{} declares a parameter property: {:?}",
+                file.path,
+                re
+            );
+        }
+    }
+}
+
+/// Find a `constructor(...)` whose parameter list uses an accessibility or
+/// `readonly` modifier (a TypeScript parameter property).
+fn regex_lite_constructor_param_property(source: &str) -> Option<String> {
+    let mut rest = source;
+    while let Some(i) = rest.find("constructor(") {
+        let after = &rest[i + "constructor(".len()..];
+        let end = after.find(')').unwrap_or(after.len());
+        let params = &after[..end];
+        for modifier in ["public ", "private ", "protected ", "readonly "] {
+            if params.contains(modifier) {
+                return Some(params.to_string());
+            }
+        }
+        rest = &after[end..];
+    }
+    None
+}

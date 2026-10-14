@@ -55,3 +55,15 @@ export type {{ schema.name }} = {{ schema.variants | join(" | ") }};
 export type {{ event_type.name }} = {{ event_type.variants | join(" | ") }};
 
 {% endfor %}
+{% for pt in param_types %}
+/** Query and header parameters of `{{ pt.operation }}`. */
+export interface {{ pt.name }} {
+{% for f in pt.fields %}
+{% if f.description %}
+  /** {{ f.description | escape_jsdoc }} */
+{% endif %}
+  {{ f.name }}{% if not f.required %}?{% endif %}: {{ f.type_str }};
+{% endfor %}
+}
+
+{% endfor %}

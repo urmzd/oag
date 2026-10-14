@@ -61,14 +61,18 @@ export interface ClientConfig {
 
 /** Error thrown when an API request returns a non-OK status. */
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number,
-    public readonly statusText: string,
-    public readonly body?: unknown,
-  ) {
+  // Plain fields rather than constructor parameter properties, so the client
+  // also runs under type-stripping runtimes (`node --experimental-strip-types`).
+  readonly statusCode: number;
+  readonly statusText: string;
+  readonly body?: unknown;
+
+  constructor(message: string, statusCode: number, statusText: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
+    this.statusCode = statusCode;
+    this.statusText = statusText;
+    this.body = body;
   }
 }
 

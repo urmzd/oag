@@ -45,6 +45,7 @@ pub fn build_context(
     let sse_event_types = collect_sse_event_types(ir, &schema_names, tm);
     let guards = build_guard_contexts(ir);
     let (content_codecs, codec_imports) = build_content_codec_contexts(ir, tm);
+    let param_types = build_param_type_contexts(ir, tm, field_casing);
 
     // Build operations with deduplication
     let (operations, used_op_indices) =
@@ -54,22 +55,30 @@ pub fn build_context(
     let (hooks, hook_op_indices) = build_hook_contexts(ir, tm, operation_casing);
 
     // Collect imported types from surviving operations
-    let imported_types = collect_imported_types(
-        ir.operations
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| used_op_indices.contains(i))
-            .map(|(_, op)| op),
-        tm,
+    let imported_types = with_params_types(
+        ir,
+        collect_imported_types(
+            ir.operations
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| used_op_indices.contains(i))
+                .map(|(_, op)| op),
+            tm,
+        ),
+        &used_op_indices,
     );
 
-    let hook_imported_types = collect_imported_types(
-        ir.operations
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| hook_op_indices.contains(i))
-            .map(|(_, op)| op),
-        tm,
+    let hook_imported_types = with_params_types(
+        ir,
+        collect_imported_types(
+            ir.operations
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| hook_op_indices.contains(i))
+                .map(|(_, op)| op),
+            tm,
+        ),
+        &hook_op_indices,
     );
 
     // Model imports for Python-style generators (Ref names from operations)
@@ -97,15 +106,9 @@ pub fn build_context(
     });
 
     // Test contexts
-    let (test_operations, test_op_indices) =
+    let (test_operations, _test_op_indices) =
         build_test_operation_contexts(ir, tm, operation_casing);
-    let test_type_imports = collect_test_type_imports(
-        ir.operations
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| test_op_indices.contains(i))
-            .map(|(_, op)| op),
-    );
+    let test_type_imports = collect_test_type_imports(ir, &test_operations);
     let (py_test_operations, py_model_imports) = build_python_test_contexts(ir);
     let hook_names = build_hook_names(ir);
 
@@ -125,6 +128,7 @@ pub fn build_context(
         imports => guard_imports,
         guards => guard_items,
         content_codecs => content_codecs,
+        param_types => param_types,
         codec_imports => codec_imports,
         operations => operations,
         hooks => hooks,
@@ -325,6 +329,30 @@ fn collect_sse_event_types(
         }
     }
     event_types
+}
+
+// ─── Params object types ─────────────────────────────────────────
+
+/// One `<Operation>Params` interface per operation with query or header
+/// parameters, declared in the types file so clients and hooks share it.
+fn build_param_type_contexts(ir: &IrSpec, tm: &TypeMapConfig, field_casing: &str) -> Vec<Value> {
+    let mut seen = HashSet::new();
+    ir.operations
+        .iter()
+        .filter_map(|op| {
+            build_op_args(ir, op, tm, field_casing)
+                .params_type
+                .map(|pt| (op, pt))
+        })
+        .filter(|(_, pt)| seen.insert(pt.name.clone()))
+        .map(|(op, pt)| {
+            context! {
+                name => pt.name,
+                operation => op.name.camel_case.clone(),
+                fields => pt.fields,
+            }
+        })
+        .collect()
 }
 
 // ─── Content codec contexts ──────────────────────────────────────
@@ -538,49 +566,269 @@ fn classify_param_type(ir_type: &IrType, ir: &IrSpec) -> &'static str {
     }
 }
 
+// ─── Argument model ──────────────────────────────────────────────
+
+/// Kind of a positional argument of a generated TypeScript method.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ArgKind {
+    Path,
+    Body,
+    Params,
+}
+
+/// One positional argument of a generated TypeScript method.
+#[derive(Debug, Clone)]
+struct OpArg {
+    name: String,
+    /// The argument's type (without `| undefined`).
+    type_str: String,
+    required: bool,
+    kind: ArgKind,
+    /// A mock value usable in generated tests.
+    mock: String,
+}
+
+impl OpArg {
+    fn sig(&self) -> String {
+        if self.required {
+            format!("{}: {}", self.name, self.type_str)
+        } else {
+            format!("{}?: {}", self.name, self.type_str)
+        }
+    }
+}
+
+/// The positional arguments of an operation, plus its params object type.
+///
+/// Path parameters stay positional (they are always required and ordered by
+/// the path). Query and header parameters are grouped into a single params
+/// object (`<Operation>Params`) so a long list of optional parameters is not a
+/// list of positional arguments. Required arguments come first (path, body,
+/// params), then optional ones (body, params); `options` always comes last.
+struct OpArgs {
+    args: Vec<OpArg>,
+    params_type: Option<ParamsType>,
+}
+
+struct ParamsType {
+    name: String,
+    required: bool,
+    fields: Vec<Value>,
+}
+
+impl OpArgs {
+    fn signature(&self, options_type: &str) -> String {
+        let mut parts: Vec<String> = self.args.iter().map(OpArg::sig).collect();
+        parts.push(format!("options?: {options_type}"));
+        parts.join(", ")
+    }
+
+    fn names(&self, body_name: &str) -> Vec<String> {
+        self.args
+            .iter()
+            .map(|a| {
+                if a.kind == ArgKind::Body {
+                    body_name.to_string()
+                } else {
+                    a.name.clone()
+                }
+            })
+            .collect()
+    }
+
+    fn non_body(&self) -> impl Iterator<Item = &OpArg> {
+        self.args.iter().filter(|a| a.kind != ArgKind::Body)
+    }
+
+    /// Mock values for the required arguments and the body (a valid call that
+    /// sends a body). An optional body is the first optional argument, so the
+    /// mocked arguments stay contiguous.
+    fn test_call_args(&self) -> String {
+        self.args
+            .iter()
+            .filter(|a| a.required || a.kind == ArgKind::Body)
+            .map(|a| a.mock.clone())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// Mock values for every positional argument, with `undefined` for the
+    /// optional ones, followed by `, ` when non-empty: a prefix for passing
+    /// `options` explicitly.
+    fn test_args_before_options(&self) -> String {
+        let parts: Vec<String> = self
+            .args
+            .iter()
+            .map(|a| {
+                if a.required || a.kind == ArgKind::Body {
+                    a.mock.clone()
+                } else {
+                    "undefined".to_string()
+                }
+            })
+            .collect();
+        if parts.is_empty() {
+            String::new()
+        } else {
+            format!("{}, ", parts.join(", "))
+        }
+    }
+}
+
+fn param_ident(param: &crate::ir::IrParameter, field_casing: &str) -> String {
+    match field_casing {
+        "snake" => param.name.snake_case.clone(),
+        "pascal" => param.name.pascal_case.clone(),
+        _ => param.name.camel_case.clone(),
+    }
+}
+
+/// Name of an operation's params object type. Falls back to
+/// `<Operation>RequestParams` when a schema already uses `<Operation>Params`.
+fn params_type_name(ir: &IrSpec, op: &IrOperation) -> String {
+    let name = format!("{}Params", op.name.pascal_case);
+    if ir.find_schema(&name).is_some() {
+        format!("{}RequestParams", op.name.pascal_case)
+    } else {
+        name
+    }
+}
+
+fn is_params_location(location: IrParameterLocation) -> bool {
+    matches!(
+        location,
+        IrParameterLocation::Query | IrParameterLocation::Header
+    )
+}
+
+fn build_op_args(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig, field_casing: &str) -> OpArgs {
+    let mut required = Vec::new();
+    let mut optional = Vec::new();
+
+    for param in &op.parameters {
+        if param.location == IrParameterLocation::Path {
+            required.push(OpArg {
+                name: param_ident(param, field_casing),
+                type_str: map_type(&param.param_type, tm),
+                required: true,
+                kind: ArgKind::Path,
+                mock: mock_value_ts(&ir.resolve_type(&param.param_type)),
+            });
+        }
+    }
+
+    let body_arg = op.request_body.as_ref().map(|body| OpArg {
+        name: "body".to_string(),
+        type_str: map_type(&body.body_type, tm),
+        required: body.required,
+        kind: ArgKind::Body,
+        mock: mock_value_ts(&body.body_type),
+    });
+
+    let grouped: Vec<&crate::ir::IrParameter> = op
+        .parameters
+        .iter()
+        .filter(|p| is_params_location(p.location))
+        .collect();
+    let params_type = if grouped.is_empty() {
+        None
+    } else {
+        let fields: Vec<Value> = grouped
+            .iter()
+            .map(|p| {
+                context! {
+                    name => param_ident(p, field_casing),
+                    original_name => p.original_name.clone(),
+                    type_str => map_type(&p.param_type, tm),
+                    required => p.required,
+                    location => if p.location == IrParameterLocation::Header { "header" } else { "query" },
+                    description => p.description.clone(),
+                }
+            })
+            .collect();
+        Some(ParamsType {
+            name: params_type_name(ir, op),
+            required: grouped.iter().any(|p| p.required),
+            fields,
+        })
+    };
+    let params_arg = params_type.as_ref().map(|pt| {
+        let members: Vec<String> = grouped
+            .iter()
+            .filter(|p| p.required)
+            .map(|p| {
+                format!(
+                    "{}: {}",
+                    param_ident(p, field_casing),
+                    mock_value_ts(&ir.resolve_type(&p.param_type))
+                )
+            })
+            .collect();
+        OpArg {
+            name: "params".to_string(),
+            type_str: pt.name.clone(),
+            required: pt.required,
+            kind: ArgKind::Params,
+            mock: if members.is_empty() {
+                "{}".to_string()
+            } else {
+                format!("{{ {} }}", members.join(", "))
+            },
+        }
+    });
+
+    for arg in [body_arg, params_arg].into_iter().flatten() {
+        if arg.required {
+            required.push(arg);
+        } else {
+            optional.push(arg);
+        }
+    }
+    required.extend(optional);
+
+    OpArgs {
+        args: required,
+        params_type,
+    }
+}
+
+/// Expression reading a grouped parameter out of the params object.
+fn params_expr(op_args: &OpArgs, ident: &str) -> String {
+    match &op_args.params_type {
+        Some(pt) if pt.required => format!("params.{ident}"),
+        _ => format!("params?.{ident}"),
+    }
+}
+
 /// Build structured parameter data for an operation.
 fn build_params(
     ir: &IrSpec,
     op: &IrOperation,
     tm: &TypeMapConfig,
     field_casing: &str,
+    op_args: &OpArgs,
 ) -> ParamsResult {
-    let mut required_parts = Vec::new();
-    let mut optional_parts = Vec::new();
     let mut path_params = Vec::new();
     let mut query_params = Vec::new();
     let mut header_parts = Vec::new();
 
-    let param_name = |op_param: &crate::ir::IrParameter| -> String {
-        match field_casing {
-            "snake" => op_param.name.snake_case.clone(),
-            "pascal" => op_param.name.pascal_case.clone(),
-            _ => op_param.name.camel_case.clone(),
-        }
-    };
-
     for param in &op.parameters {
-        let type_str = map_type(&param.param_type, tm);
-        let name = param_name(param);
+        let ident = param_ident(param, field_casing);
         match param.location {
             IrParameterLocation::Path => {
-                required_parts.push(format!("{name}: {type_str}"));
                 path_params.push(context! {
-                    name => name,
+                    name => ident,
                     original_name => param.original_name.clone(),
                 });
             }
             IrParameterLocation::Query => {
-                if param.required {
-                    required_parts.push(format!("{name}: {type_str}"));
-                } else {
-                    optional_parts.push(format!("{name}?: {type_str}"));
-                }
                 let type_kind = classify_param_type(&param.param_type, ir);
                 let style = param.style.clone().unwrap_or_else(|| "form".to_string());
                 let explode = param.explode.unwrap_or(style == "form");
                 query_params.push(context! {
-                    name => name,
+                    // An expression reading the value (from the params object).
+                    name => params_expr(op_args, &ident),
+                    ident => ident,
                     original_name => param.original_name.clone(),
                     style => style,
                     explode => explode,
@@ -588,12 +836,11 @@ fn build_params(
                 });
             }
             IrParameterLocation::Header => {
-                if param.required {
-                    required_parts.push(format!("{name}: {type_str}"));
-                } else {
-                    optional_parts.push(format!("{name}?: {type_str}"));
-                }
-                header_parts.push(format!("\"{}\": {}", param.original_name, name));
+                header_parts.push(format!(
+                    "\"{}\": {}",
+                    param.original_name,
+                    params_expr(op_args, &ident)
+                ));
             }
             _ => {}
         }
@@ -606,25 +853,10 @@ fn build_params(
         .map(|b| b.content_type.clone())
         .unwrap_or_else(|| "application/json".to_string());
 
-    if let Some(ref body) = op.request_body {
-        let type_str = map_type(&body.body_type, tm);
-        if body.required {
-            required_parts.push(format!("body: {type_str}"));
-        } else {
-            optional_parts.push(format!("body?: {type_str}"));
-        }
-    }
-
-    optional_parts.push("options?: RequestOptions".to_string());
-
-    let mut parts = required_parts;
-    parts.extend(optional_parts);
-
     let has_path_params = !path_params.is_empty();
     let has_query_params = !query_params.is_empty();
     let has_header_params = !header_parts.is_empty();
     let header_params_obj = header_parts.join(", ");
-    let _params_signature = parts.join(", ");
 
     // Build Python-style params (structured, not pre-formatted)
     let py_params: Vec<Value> = op
@@ -638,9 +870,8 @@ fn build_params(
                 IrParameterLocation::Header => "header",
                 IrParameterLocation::Cookie => "cookie",
             };
-            let name = param_name(param);
             context! {
-                name => name,
+                name => param_ident(param, field_casing),
                 original_name => param.original_name.clone(),
                 type_str => type_str,
                 location => location,
@@ -680,6 +911,7 @@ fn build_single_operation_contexts(
     let method_name = op_name(op, operation_casing);
     let http_method = op.method.as_str();
     let path = op.path.clone();
+    let op_args = build_op_args(ir, op, tm, field_casing);
 
     // Build TS-style params
     let ParamsResult {
@@ -692,10 +924,11 @@ fn build_single_operation_contexts(
         has_path_params,
         has_query_params,
         has_header_params,
-    } = build_params(ir, op, tm, field_casing);
+    } = build_params(ir, op, tm, field_casing, &op_args);
 
     // Build params_signature (TS-style pre-formatted)
-    let params_signature = build_ts_params_signature(op, tm, field_casing, false);
+    let params_signature = op_args.signature("RequestOptions");
+    let params_type = op_args.params_type.as_ref().map(|pt| pt.name.clone());
 
     let body_type = op
         .request_body
@@ -714,6 +947,7 @@ fn build_single_operation_contexts(
                 http_method => http_method,
                 path => path,
                 params_signature => params_signature,
+                params_type => params_type.clone(),
                 return_type => return_type,
                 status_code => resp.status_code,
                 response_format => resp.format.as_str(),
@@ -742,6 +976,7 @@ fn build_single_operation_contexts(
                 http_method => http_method,
                 path => path,
                 params_signature => params_signature,
+                params_type => params_type.clone(),
                 return_type => map_type(&IrType::Void, tm),
                 path_params => path_params,
                 query_params => query_params,
@@ -773,7 +1008,7 @@ fn build_single_operation_contexts(
             };
 
             // SSE params use SSEOptions instead of RequestOptions
-            let sse_params_sig = build_ts_params_signature(op, tm, field_casing, true);
+            let sse_params_sig = op_args.signature("SSEOptions");
 
             results.push(context! {
                 kind => "sse",
@@ -782,6 +1017,7 @@ fn build_single_operation_contexts(
                 http_method => http_method,
                 path => path,
                 params_signature => sse_params_sig,
+                params_type => params_type.clone(),
                 return_type => return_type,
                 event_type => return_type,
                 path_params => path_params,
@@ -814,6 +1050,7 @@ fn build_single_operation_contexts(
                     http_method => http_method,
                     path => path,
                     params_signature => params_signature,
+                    params_type => params_type.clone(),
                     return_type => json_return_type,
                     status_code => json_resp.status_code,
                     response_format => json_resp.format.as_str(),
@@ -840,70 +1077,6 @@ fn build_single_operation_contexts(
     results
 }
 
-/// Build a TS-style params signature string.
-fn build_ts_params_signature(
-    op: &IrOperation,
-    tm: &TypeMapConfig,
-    field_casing: &str,
-    is_sse: bool,
-) -> String {
-    let param_name = |p: &crate::ir::IrParameter| -> String {
-        match field_casing {
-            "snake" => p.name.snake_case.clone(),
-            "pascal" => p.name.pascal_case.clone(),
-            _ => p.name.camel_case.clone(),
-        }
-    };
-
-    let mut required_parts = Vec::new();
-    let mut optional_parts = Vec::new();
-
-    for param in &op.parameters {
-        let type_str = map_type(&param.param_type, tm);
-        let name = param_name(param);
-        match param.location {
-            IrParameterLocation::Path => {
-                required_parts.push(format!("{name}: {type_str}"));
-            }
-            IrParameterLocation::Query => {
-                if param.required {
-                    required_parts.push(format!("{name}: {type_str}"));
-                } else {
-                    optional_parts.push(format!("{name}?: {type_str}"));
-                }
-            }
-            IrParameterLocation::Header => {
-                if param.required {
-                    required_parts.push(format!("{name}: {type_str}"));
-                } else {
-                    optional_parts.push(format!("{name}?: {type_str}"));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if let Some(ref body) = op.request_body {
-        let type_str = map_type(&body.body_type, tm);
-        if body.required {
-            required_parts.push(format!("body: {type_str}"));
-        } else {
-            optional_parts.push(format!("body?: {type_str}"));
-        }
-    }
-
-    let options_type = if is_sse {
-        "options?: SSEOptions"
-    } else {
-        "options?: RequestOptions"
-    };
-    optional_parts.push(options_type.to_string());
-
-    let mut parts = required_parts;
-    parts.extend(optional_parts);
-    parts.join(", ")
-}
-
 // ─── Hook contexts (React) ───────────────────────────────────────
 
 fn build_hook_contexts(
@@ -919,7 +1092,7 @@ fn build_hook_contexts(
         .iter()
         .enumerate()
         .flat_map(|(idx, op)| {
-            build_single_hook_contexts(op, tm)
+            build_single_hook_contexts(ir, op, tm)
                 .into_iter()
                 .map(move |ctx| (idx, ctx))
         })
@@ -946,14 +1119,14 @@ fn build_hook_contexts(
     (hooks, used_op_indices)
 }
 
-fn build_single_hook_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value> {
+fn build_single_hook_contexts(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value> {
     let mut results = Vec::new();
 
     match (&op.method, &op.return_type) {
         // GET → useSWR query hook
         (HttpMethod::Get, IrReturnType::Standard(resp)) => {
             let return_type = map_type(&resp.response_type, tm);
-            let (params_sig, swr_key, call_args) = build_hook_query_params(op, tm);
+            let (params_sig, swr_key, call_args) = build_hook_query_params(ir, op, tm);
             results.push(context! {
                 kind => "query",
                 hook_name => format!("use{}", op.name.pascal_case),
@@ -979,7 +1152,7 @@ fn build_single_hook_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                 .unwrap_or_else(|| map_type(&IrType::Void, tm));
 
             let (path_params_sig, swr_key, call_args, swr_key_type) =
-                build_hook_mutation_params(op, tm);
+                build_hook_mutation_params(ir, op, tm);
             results.push(context! {
                 kind => "mutation",
                 hook_name => format!("use{}", op.name.pascal_case),
@@ -1017,7 +1190,7 @@ fn build_single_hook_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                 format!("use{}", op.name.pascal_case)
             };
             let (path_params_sig, trigger_params, stream_call_args, deps) =
-                build_hook_sse_params(op, tm);
+                build_hook_sse_params(ir, op, tm);
 
             results.push(context! {
                 kind => "sse",
@@ -1037,7 +1210,7 @@ fn build_single_hook_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                 let return_type = map_type(&json_resp.response_type, tm);
                 match op.method {
                     HttpMethod::Get => {
-                        let (params_sig, swr_key, call_args) = build_hook_query_params(op, tm);
+                        let (params_sig, swr_key, call_args) = build_hook_query_params(ir, op, tm);
                         results.push(context! {
                             kind => "query",
                             hook_name => format!("use{}", op.name.pascal_case),
@@ -1057,7 +1230,7 @@ fn build_single_hook_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                             .map(|b| map_type(&b.body_type, tm))
                             .unwrap_or_else(|| map_type(&IrType::Void, tm));
                         let (path_params_sig, swr_key, call_args, swr_key_type) =
-                            build_hook_mutation_params(op, tm);
+                            build_hook_mutation_params(ir, op, tm);
                         results.push(context! {
                             kind => "mutation",
                             hook_name => format!("use{}", op.name.pascal_case),
@@ -1080,87 +1253,45 @@ fn build_single_hook_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
     results
 }
 
-fn build_hook_query_params(op: &IrOperation, tm: &TypeMapConfig) -> (String, String, String) {
-    let mut required_sig = Vec::new();
-    let mut optional_sig = Vec::new();
-    let mut required_call = Vec::new();
-    let mut optional_call = Vec::new();
-    let mut key_parts = Vec::new();
-
-    for param in &op.parameters {
-        match param.location {
-            IrParameterLocation::Path
-            | IrParameterLocation::Query
-            | IrParameterLocation::Header => {
-                let ts = map_type(&param.param_type, tm);
-                let is_required = param.required || param.location == IrParameterLocation::Path;
-                if is_required {
-                    required_sig.push(format!("{}: {}", param.name.camel_case, ts));
-                    required_call.push(param.name.camel_case.clone());
-                } else {
-                    optional_sig.push(format!("{}?: {}", param.name.camel_case, ts));
-                    optional_call.push(param.name.camel_case.clone());
-                }
-                key_parts.push(param.name.camel_case.clone());
-            }
-            _ => {}
-        }
-    }
-
-    let mut sig_parts = required_sig;
-    sig_parts.extend(optional_sig);
-    let mut call_parts = required_call;
-    call_parts.extend(optional_call);
-
+/// Query hook arguments: the signature (all non-options arguments), the SWR key,
+/// and the client call arguments.
+fn build_hook_query_params(
+    ir: &IrSpec,
+    op: &IrOperation,
+    tm: &TypeMapConfig,
+) -> (String, String, String) {
+    let args = build_op_args(ir, op, tm, "camel");
+    let sig: Vec<String> = args.non_body().map(OpArg::sig).collect();
+    let key_parts: Vec<String> = args.non_body().map(|a| a.name.clone()).collect();
     let swr_key = if key_parts.is_empty() {
         format!("\"{}\"", op.path)
     } else {
         format!("[\"{}\", {}] as const", op.path, key_parts.join(", "))
     };
-
-    (sig_parts.join(", "), swr_key, call_parts.join(", "))
+    (sig.join(", "), swr_key, args.names("body").join(", "))
 }
 
+/// Mutation hook arguments: the signature (non-body arguments), the SWR key,
+/// the client call arguments (the body comes from the trigger `arg`), and the
+/// SWR key type.
 fn build_hook_mutation_params(
+    ir: &IrSpec,
     op: &IrOperation,
     tm: &TypeMapConfig,
 ) -> (String, String, String, String) {
-    let mut required_sig = Vec::new();
-    let mut optional_sig = Vec::new();
-    let mut required_call = Vec::new();
-    let mut optional_call = Vec::new();
-    let mut key_parts = Vec::new();
-    let mut key_type_parts = Vec::new();
-
-    for param in &op.parameters {
-        match param.location {
-            IrParameterLocation::Path
-            | IrParameterLocation::Query
-            | IrParameterLocation::Header => {
-                let ts = map_type(&param.param_type, tm);
-                let is_required = param.required || param.location == IrParameterLocation::Path;
-                if is_required {
-                    required_sig.push(format!("{}: {}", param.name.camel_case, ts));
-                    required_call.push(param.name.camel_case.clone());
-                } else {
-                    optional_sig.push(format!("{}?: {}", param.name.camel_case, ts));
-                    optional_call.push(param.name.camel_case.clone());
-                }
-                key_parts.push(param.name.camel_case.clone());
-                key_type_parts.push(ts);
+    let args = build_op_args(ir, op, tm, "camel");
+    let sig: Vec<String> = args.non_body().map(OpArg::sig).collect();
+    let key_parts: Vec<String> = args.non_body().map(|a| a.name.clone()).collect();
+    let key_type_parts: Vec<String> = args
+        .non_body()
+        .map(|a| {
+            if a.required {
+                a.type_str.clone()
+            } else {
+                format!("{} | undefined", a.type_str)
             }
-            _ => {}
-        }
-    }
-
-    let mut sig_parts = required_sig;
-    sig_parts.extend(optional_sig);
-    let mut call_parts = required_call;
-    call_parts.extend(optional_call);
-
-    if op.request_body.is_some() {
-        call_parts.push("arg".to_string());
-    }
+        })
+        .collect();
 
     let swr_key = if key_parts.is_empty() {
         format!("\"{}\"", op.path)
@@ -1174,62 +1305,34 @@ fn build_hook_mutation_params(
     };
 
     (
-        sig_parts.join(", "),
+        sig.join(", "),
         swr_key,
-        call_parts.join(", "),
+        args.names("arg").join(", "),
         swr_key_type,
     )
 }
 
-fn build_hook_sse_params(op: &IrOperation, tm: &TypeMapConfig) -> (String, String, String, String) {
-    let mut required_sig = Vec::new();
-    let mut optional_sig = Vec::new();
-    let mut required_call = Vec::new();
-    let mut optional_call = Vec::new();
-    let mut deps_parts = Vec::new();
-
-    for param in &op.parameters {
-        match param.location {
-            IrParameterLocation::Path
-            | IrParameterLocation::Query
-            | IrParameterLocation::Header => {
-                let ts = map_type(&param.param_type, tm);
-                let is_required = param.required || param.location == IrParameterLocation::Path;
-                if is_required {
-                    required_sig.push(format!("{}: {}", param.name.camel_case, ts));
-                    required_call.push(param.name.camel_case.clone());
-                } else {
-                    optional_sig.push(format!("{}?: {}", param.name.camel_case, ts));
-                    optional_call.push(param.name.camel_case.clone());
-                }
-                deps_parts.push(format!(", {}", param.name.camel_case));
-            }
-            _ => {}
-        }
-    }
-
-    let mut sig_parts = required_sig;
-    sig_parts.extend(optional_sig);
-    let mut stream_call_parts = required_call;
-    stream_call_parts.extend(optional_call);
-
-    let trigger_params = if let Some(ref body) = op.request_body {
-        let ts = map_type(&body.body_type, tm);
-        stream_call_parts.push("body".to_string());
-        if body.required {
-            format!("body: {}", ts)
-        } else {
-            format!("body?: {}", ts)
-        }
-    } else {
-        String::new()
-    };
-
+/// SSE hook arguments: the hook signature (non-body arguments), the trigger's
+/// parameters (the body), the client call arguments, and the effect deps.
+fn build_hook_sse_params(
+    ir: &IrSpec,
+    op: &IrOperation,
+    tm: &TypeMapConfig,
+) -> (String, String, String, String) {
+    let args = build_op_args(ir, op, tm, "camel");
+    let sig: Vec<String> = args.non_body().map(OpArg::sig).collect();
+    let deps: String = args.non_body().map(|a| format!(", {}", a.name)).collect();
+    let trigger_params = args
+        .args
+        .iter()
+        .find(|a| a.kind == ArgKind::Body)
+        .map(OpArg::sig)
+        .unwrap_or_default();
     (
-        sig_parts.join(", "),
+        sig.join(", "),
         trigger_params,
-        stream_call_parts.join(", "),
-        deps_parts.join(""),
+        args.names("body").join(", "),
+        deps,
     )
 }
 
@@ -1256,6 +1359,24 @@ fn build_hook_names(ir: &IrSpec) -> Vec<String> {
 
 // ─── Import collection ───────────────────────────────────────────
 
+/// Add the params object types of the given operations to an import list.
+fn with_params_types(
+    ir: &IrSpec,
+    mut types: Vec<String>,
+    op_indices: &HashSet<usize>,
+) -> Vec<String> {
+    for (i, op) in ir.operations.iter().enumerate() {
+        if op_indices.contains(&i) && op.parameters.iter().any(|p| is_params_location(p.location)) {
+            let name = params_type_name(ir, op);
+            if !types.contains(&name) {
+                types.push(name);
+            }
+        }
+    }
+    types.sort();
+    types
+}
+
 fn collect_imported_types<'a>(
     ops: impl Iterator<Item = &'a IrOperation>,
     _tm: &TypeMapConfig,
@@ -1267,7 +1388,14 @@ fn collect_imported_types<'a>(
         if let Some(ref body) = op.request_body {
             collect_refs_from_ir_type(&body.body_type, &mut types);
         }
-        for param in &op.parameters {
+        // Query and header parameters live in the params object type (see
+        // `with_params_types`); only positional path parameters are referenced
+        // directly by the client and hooks.
+        for param in op
+            .parameters
+            .iter()
+            .filter(|p| p.location == IrParameterLocation::Path)
+        {
             collect_refs_from_ir_type(&param.param_type, &mut types);
         }
     }
@@ -1364,7 +1492,7 @@ fn build_test_operation_contexts(
         .iter()
         .enumerate()
         .flat_map(|(idx, op)| {
-            build_single_test_contexts(op, tm)
+            build_single_test_contexts(ir, op, tm)
                 .into_iter()
                 .map(move |ctx| (idx, ctx))
         })
@@ -1391,13 +1519,15 @@ fn build_test_operation_contexts(
     (operations, used_op_indices)
 }
 
-fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value> {
+fn build_single_test_contexts(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value> {
+    let args = build_op_args(ir, op, tm, "camel");
     let mut results = Vec::new();
 
     match &op.return_type {
         IrReturnType::Standard(resp) => {
             let return_type = map_type(&resp.response_type, tm);
             results.push(build_ts_test_context(
+                &args,
                 op,
                 "standard",
                 &op.name.camel_case,
@@ -1407,6 +1537,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
         }
         IrReturnType::Void => {
             results.push(build_ts_test_context(
+                &args,
                 op,
                 "void",
                 &op.name.camel_case,
@@ -1426,6 +1557,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
                 map_type(&sse.event_type, tm)
             };
             results.push(build_ts_test_context(
+                &args,
                 op,
                 "sse",
                 &sse_name,
@@ -1436,6 +1568,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
             if let Some(ref json_resp) = sse.json_response {
                 let rt = map_type(&json_resp.response_type, tm);
                 results.push(build_ts_test_context(
+                    &args,
                     op,
                     "standard",
                     &op.name.camel_case,
@@ -1450,6 +1583,7 @@ fn build_single_test_contexts(op: &IrOperation, tm: &TypeMapConfig) -> Vec<Value
 }
 
 fn build_ts_test_context(
+    args: &OpArgs,
     op: &IrOperation,
     kind: &str,
     method_name: &str,
@@ -1457,8 +1591,9 @@ fn build_ts_test_context(
     response_format: &str,
 ) -> Value {
     let has_body = op.request_body.is_some();
-    let test_call_args = build_ts_test_call_args(op);
-    let expected_url_pattern = build_ts_expected_url_pattern(op);
+    let test_call_args = args.test_call_args();
+    let test_args_before_options = args.test_args_before_options();
+    let expected_url_pattern = build_ts_expected_url_pattern(args, op);
     let mock_response = mock_value_ts(&if return_type == "void" {
         IrType::Void
     } else {
@@ -1472,36 +1607,25 @@ fn build_ts_test_context(
         return_type => return_type,
         has_body => has_body,
         test_call_args => test_call_args,
+        test_args_before_options => test_args_before_options,
         expected_url_pattern => expected_url_pattern,
         mock_response => mock_response,
         response_format => response_format,
     }
 }
 
-fn build_ts_test_call_args(op: &IrOperation) -> String {
-    let mut args = Vec::new();
-    for param in &op.parameters {
-        match param.location {
-            IrParameterLocation::Path => args.push(mock_value_ts(&param.param_type)),
-            IrParameterLocation::Query | IrParameterLocation::Header if param.required => {
-                args.push(mock_value_ts(&param.param_type));
-            }
-            _ => {}
-        }
-    }
-    if let Some(ref body) = op.request_body {
-        args.push(mock_value_ts(&body.body_type));
-    }
-    args.join(", ")
-}
-
-fn build_ts_expected_url_pattern(op: &IrOperation) -> String {
+fn build_ts_expected_url_pattern(args: &OpArgs, op: &IrOperation) -> String {
     let mut path = op.path.clone();
-    for param in &op.parameters {
-        if param.location == IrParameterLocation::Path {
-            let placeholder = format!("{{{}}}", param.original_name);
-            path = path.replace(&placeholder, &mock_path_value_ts(&param.param_type));
-        }
+    let path_args = args.args.iter().filter(|a| a.kind == ArgKind::Path);
+    let path_params = op
+        .parameters
+        .iter()
+        .filter(|p| p.location == IrParameterLocation::Path);
+    for (param, arg) in path_params.zip(path_args) {
+        let placeholder = format!("{{{}}}", param.original_name);
+        // The mock is a TS literal (`"test"`, `1`); the URL carries its value.
+        let value = arg.mock.trim_matches('"').to_string();
+        path = path.replace(&placeholder, &value);
     }
     path
 }
@@ -1528,13 +1652,6 @@ fn mock_value_ts(ir_type: &IrType) -> String {
     }
 }
 
-fn mock_path_value_ts(ir_type: &IrType) -> String {
-    match ir_type {
-        IrType::Integer | IrType::Number => "1".to_string(),
-        _ => "test".to_string(),
-    }
-}
-
 fn guess_mock_type(return_type: &str) -> IrType {
     match return_type {
         "string" => IrType::String,
@@ -1546,44 +1663,38 @@ fn guess_mock_type(return_type: &str) -> IrType {
     }
 }
 
-fn collect_test_type_imports<'a>(ops: impl Iterator<Item = &'a IrOperation>) -> Vec<String> {
+/// Type names the generated tests reference: exactly the `{} as Name` casts in
+/// their mock values, so no import goes unused.
+fn collect_test_type_imports(ir: &IrSpec, test_operations: &[Value]) -> Vec<String> {
     let mut names = std::collections::BTreeSet::new();
-
-    for op in ops {
-        if let Some(ref body) = op.request_body {
-            collect_test_ref_names(&body.body_type, &mut names);
-        }
-        match &op.return_type {
-            IrReturnType::Standard(resp) => {
-                collect_test_ref_names(&resp.response_type, &mut names);
-            }
-            IrReturnType::Sse(sse) => {
-                // SSE tests only check for async iterable — event types are never used as
-                // type annotations, so skip them to avoid unused-import lint errors.
-                if let Some(ref json_resp) = sse.json_response {
-                    collect_test_ref_names(&json_resp.response_type, &mut names);
+    for op in test_operations {
+        for key in [
+            "test_call_args",
+            "test_args_before_options",
+            "mock_response",
+        ] {
+            let Some(text) = op
+                .get_attr(key)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+            else {
+                continue;
+            };
+            let mut rest = text.as_str();
+            while let Some(i) = rest.find(" as ") {
+                rest = &rest[i + 4..];
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                // Only generated types: `{} as Blob` refers to the global.
+                if ir.find_schema(&name).is_some() {
+                    names.insert(name);
                 }
             }
-            IrReturnType::Void => {}
         }
     }
-
     names.into_iter().collect()
-}
-
-fn collect_test_ref_names(ir_type: &IrType, names: &mut std::collections::BTreeSet<String>) {
-    match ir_type {
-        IrType::Ref(name) => {
-            names.insert(name.clone());
-        }
-        IrType::Array(inner) => collect_test_ref_names(inner, names),
-        IrType::Union(variants) | IrType::Intersection(variants) => {
-            for v in variants {
-                collect_test_ref_names(v, names);
-            }
-        }
-        _ => {}
-    }
 }
 
 // ─── Python test contexts ────────────────────────────────────────
