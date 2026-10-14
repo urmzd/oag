@@ -39,6 +39,8 @@ Most OpenAPI generators produce bloated output that needs heavy post-processing.
 curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 ```
 
+The installer verifies the binary against the release's `SHA256SUMS` and aborts on a mismatch. Releases up to v0.20.6 predate checksums; install one of them with `OAG_SKIP_VERIFY=1`. Every release asset also has a `.sha256` sidecar, which `oag update` checks.
+
 Or via cargo:
 
 ```sh
