@@ -152,6 +152,45 @@ pub fn write_source_record(target: &Path, source: &PackSource, sha256: &str) -> 
         .with_context(|| format!("failed to write {}", target.join(SOURCE_FILE).display()))
 }
 
+/// The install record written next to a pack (`oag.source.toml`).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct SourceRecord {
+    pub source: Option<String>,
+    pub oag_version: Option<String>,
+    pub sha256: Option<String>,
+    #[serde(rename = "ref")]
+    pub git_ref: Option<String>,
+}
+
+/// Read a pack's install record, if it has one.
+pub fn read_source_record(dir: &Path) -> Option<SourceRecord> {
+    let text = fs::read_to_string(dir.join(SOURCE_FILE)).ok()?;
+    toml::from_str(&text).ok()
+}
+
+/// Why a local pack that shadows a built-in pack is stale, if it is.
+///
+/// A pack in `.oag/packs/` takes precedence over the built-in pack of the
+/// same id. Templates from another oag version can render code that does not
+/// compile against this engine (or silently keep old runtime behaviour), and
+/// oag v0.20 and earlier downloaded every missing pack into `.oag/packs/`, so
+/// most upgraded projects carry such a copy. A local copy of a built-in pack
+/// is therefore only used when it was installed by this oag version.
+pub fn stale_reason(id: &str, dir: &Path) -> Option<String> {
+    if !embedded_ids().contains(&id) {
+        return None;
+    }
+    let current = env!("CARGO_PKG_VERSION");
+    match read_source_record(dir).and_then(|r| r.oag_version) {
+        None => Some(
+            "has no install record (it was downloaded by oag v0.20 or earlier, or copied by hand)"
+                .to_string(),
+        ),
+        Some(v) if v != current => Some(format!("was installed by oag v{v}")),
+        Some(_) => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,6 +218,36 @@ mod tests {
                 "{id}"
             );
         }
+    }
+
+    #[test]
+    fn local_copy_of_a_built_in_pack_without_a_current_record_is_stale() {
+        let dir = std::env::temp_dir().join(format!("oag-stale-{}", std::process::id()));
+        assert!(write_embedded("node-client", &dir).unwrap());
+        assert!(
+            stale_reason("node-client", &dir)
+                .unwrap()
+                .contains("no install record")
+        );
+
+        fs::write(
+            dir.join(SOURCE_FILE),
+            "source = \"github\"\noag_version = \"0.0.1\"\n",
+        )
+        .unwrap();
+        assert!(
+            stale_reason("node-client", &dir)
+                .unwrap()
+                .contains("oag v0.0.1")
+        );
+
+        let sha = dir_digest(&dir).unwrap();
+        write_source_record(&dir, &PackSource::Embedded, &sha).unwrap();
+        assert_eq!(stale_reason("node-client", &dir), None);
+
+        // Custom packs (ids that are not built in) are never stale.
+        assert_eq!(stale_reason("my-pack", &dir), None);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

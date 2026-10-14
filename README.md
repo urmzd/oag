@@ -196,18 +196,18 @@ oag packs install --id node-client   # copies the built-in pack, no network
 oag generate
 ```
 
-Resolution order for a generator key: `id@ref` (downloaded from GitHub at that ref), then `.oag/packs/<id>/`, then the pack built into the binary. A pack that is neither installed nor built in is an error, never a silent download.
+Resolution order for a generator key: `id@ref` (downloaded from GitHub at that ref, cached by ref and digest, with its `extends` base pinned to the same ref), then `.oag/packs/<id>/`, then the pack built into the binary. A pack that is neither installed nor built in is an error, never a silent download. A local copy of a built-in pack must have been installed by the running oag version (`oag packs install` records it in `oag.source.toml`); an older copy is refused with instructions, unless you pass `oag generate --allow-stale-packs`.
 
 ## Upgrading from v0.20
 
-Upgrading from v0.20.x changes generated code in five places. Regenerate, then:
+Upgrading from v0.20.x changes generated code in five places. First, clear the packs v0.20 left behind: v0.20 downloaded every missing pack into `.oag/packs/`, and a local copy of a built-in pack takes precedence over the one built into oag. oag now refuses such a copy (it has no install record, or another oag version installed it) because its templates generate code that does not compile against the new engine and keeps the old retry policy. Delete `.oag/packs/<id>` for each built-in pack you did not customize; for one you did, run `oag packs install --id <id>` and reapply your edits. Then regenerate with `oag generate --force-scaffold`, so scaffolded files such as `client.test.ts` and `package.json` follow the new API (they are otherwise written only once). Then:
 
 | Change | Before (v0.20.6) | After | Migration |
 |--------|------------------|-------|-----------|
 | Query and header parameters | positional: `listInbox("open", undefined, true)` | one params object: `listInbox({ state: "open", unread: true })` | Pass an object typed `<Operation>Params`. Path parameters and the body keep their positions. React hooks take the same object. |
 | Retries | every method, including POST, on 408/429/5xx; SSE retried implicitly | idempotent methods only (GET, HEAD, OPTIONS, PUT, DELETE); SSE never retried implicitly | Send an `Idempotency-Key` header on POSTs that are safe to retry, or set `retry: { retryMethods: [...] }`. Pass `retry` to a stream call to retry its connection. |
 | SSE with an OAS 3.2 `itemSchema` describing the whole event | `SSEEvent<ItemSchema>` | `<Operation>StreamEvent`, a union discriminated by `event` with decoded `data` | Replace hand-written mapping of `SSEEvent.event` with a `switch (event.event)`. Item schemas that describe only the payload keep `SSEEvent<T>`. |
-| Pack resolution | a missing pack was downloaded from GitHub `main` | the pack built into the binary; downloads only for an explicit `id@ref` | Nothing, unless you relied on `main`: pin `node-client@v0.21.0` or commit the pack under `.oag/packs/`. |
+| Pack resolution | a missing pack was downloaded from GitHub `main` | the pack built into the binary; downloads only for an explicit `id@ref` | Delete stale copies in `.oag/packs/` (see above). To use another version deliberately, pin it (`node-client@v0.21.0` as the generator key) or pass `--allow-stale-packs` for a copy you keep under `.oag/packs/`. |
 | `install.sh` | installed without verification | verifies `SHA256SUMS` | Pinning `OAG_VERSION=v0.20.6` or older needs `OAG_SKIP_VERIFY=1`. |
 
 Fixes that need no migration but remove common workarounds: a `$ref` enum query parameter serializes as `?state=open`; a bodyless 204 next to a `default` error resolves to `void`; a discriminator mapping several values to one schema compiles; binary downloads resolve to a real `Blob`; base64 JSON fields get `decode<Schema><Field>()` helpers; SSE streams release their connection on early exit and report `closed-by-server` (or throw `SSEStreamClosedError` with `terminalEvents`); `SSEEvent` is exported; generated classes have no constructor parameter properties.

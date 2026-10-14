@@ -29,19 +29,51 @@ struct ResolvedPack {
     provenance: Vec<(String, PackSource, String)>,
 }
 
+/// Options for pack resolution.
+#[derive(Debug, Clone, Copy, Default)]
+struct ResolveOptions {
+    /// Use a local copy of a built-in pack even when another oag version
+    /// installed it (see `packs::stale_reason`).
+    allow_stale: bool,
+}
+
 /// Resolve a pack, with extends support.
 ///
 /// Resolution never touches the network unless the specifier pins a ref:
-/// 1. `id@ref` → download that ref from GitHub (explicit and pinned)
-/// 2. a pack directory in `.oag/packs/<id>/` (installed or committed)
+/// 1. `id@ref` → that ref from GitHub (explicit and pinned; cached in
+///    `.oag/packs/<id>/` by ref and digest). Its `extends` base is pinned to
+///    the same ref.
+/// 2. a pack directory in `.oag/packs/<id>/` (installed or committed). A copy
+///    of a built-in pack installed by another oag version is refused unless
+///    `allow_stale` is set.
 /// 3. the pack built into this oag binary
-fn resolve_pack(specifier: &str) -> Result<ResolvedPack> {
+fn resolve_pack(specifier: &str, opts: ResolveOptions) -> Result<ResolvedPack> {
     let (pack_id, git_ref) = github::parse_pack_specifier(specifier);
 
     let (pack, source, sha256) = if let Some(git_ref) = git_ref {
-        let (pack, sha256) = fetch_and_install(pack_id, git_ref)?;
+        let (pack, sha256) = fetch_and_install(pack_id, git_ref, false)?;
         (pack, PackSource::GitHub(git_ref.to_string()), sha256)
     } else if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
+        if let Some(reason) = packs::stale_reason(pack_id, &disk_path) {
+            if !opts.allow_stale {
+                anyhow::bail!(
+                    "{dir} {reason}, and it overrides the {pack_id} pack built into oag v{v}.\n\
+                     Templates from another oag version can generate code that does not compile \
+                     against this one, or keep old runtime behaviour.\n\
+                     Fix: delete {dir} to use the built-in pack, or run \
+                     `oag packs install --id {pack_id}` to replace it with this version's copy \
+                     (reapply your edits if you customized it).\n\
+                     To keep it deliberately, pin it (`{pack_id}@<ref>` in oag.yaml) or pass \
+                     --allow-stale-packs.",
+                    dir = disk_path.display(),
+                    v = env!("CARGO_PKG_VERSION"),
+                );
+            }
+            ui::warn(&format!(
+                "{} {reason}; using it because of --allow-stale-packs",
+                disk_path.display()
+            ));
+        }
         let pack = TemplatePack::from_dir(&disk_path)
             .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?;
         (pack, PackSource::Local, packs::dir_digest(&disk_path)?)
@@ -61,9 +93,14 @@ fn resolve_pack(specifier: &str) -> Result<ResolvedPack> {
 
     let mut provenance = vec![(pack_id.to_string(), source, sha256)];
 
-    // Handle extends
+    // Handle extends: a pinned pack's base is pinned to the same ref, so the
+    // pair always comes from one revision.
     if let Some(ref base_id) = pack.manifest.pack.extends {
-        let mut base = resolve_pack(base_id)?;
+        let base_spec = match git_ref {
+            Some(r) => format!("{base_id}@{r}"),
+            None => base_id.clone(),
+        };
+        let mut base = resolve_pack(&base_spec, opts)?;
         base.pack.merge_from(&pack);
         provenance.append(&mut base.provenance);
         Ok(ResolvedPack {
@@ -75,19 +112,34 @@ fn resolve_pack(specifier: &str) -> Result<ResolvedPack> {
     }
 }
 
-/// Download a pack from GitHub at an explicit ref and install it to
-/// `.oag/packs/<id>/`, recording the source and digest.
-fn fetch_and_install(pack_id: &str, git_ref: &str) -> Result<(TemplatePack, String)> {
+/// Install a pack from GitHub at an explicit ref into `.oag/packs/<id>/`,
+/// recording the source and digest. Unless `force` is set, a copy already
+/// downloaded at the same ref whose digest still matches its record is reused
+/// without touching the network.
+fn fetch_and_install(pack_id: &str, git_ref: &str, force: bool) -> Result<(TemplatePack, String)> {
     let target = resolve::templates_dir().join(pack_id);
 
-    ui::info(&format!("installing {pack_id}@{git_ref} from GitHub..."));
-    github::download_pack(pack_id, git_ref, &target)?;
-    let sha256 = packs::dir_digest(&target)?;
-    packs::write_source_record(&target, &PackSource::GitHub(git_ref.to_string()), &sha256)?;
-    ui::phase_ok(
-        "installed",
-        Some(&format!("{pack_id}@{git_ref} · sha256:{}", short(&sha256))),
-    );
+    let cached = (!force)
+        .then(|| packs::read_source_record(&target))
+        .flatten()
+        .filter(|r| r.source.as_deref() == Some("github") && r.git_ref.as_deref() == Some(git_ref))
+        .and_then(|r| r.sha256)
+        .filter(|sha| packs::dir_digest(&target).ok().as_ref() == Some(sha));
+
+    let sha256 = match cached {
+        Some(sha256) => sha256,
+        None => {
+            ui::info(&format!("installing {pack_id}@{git_ref} from GitHub..."));
+            github::download_pack(pack_id, git_ref, &target)?;
+            let sha256 = packs::dir_digest(&target)?;
+            packs::write_source_record(&target, &PackSource::GitHub(git_ref.to_string()), &sha256)?;
+            ui::phase_ok(
+                "installed",
+                Some(&format!("{pack_id}@{git_ref} · sha256:{}", short(&sha256))),
+            );
+            sha256
+        }
+    };
 
     let pack = TemplatePack::from_dir(&target)
         .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?;
@@ -150,6 +202,11 @@ enum Commands {
         /// By default, scaffold files are only written on initial creation to preserve customizations.
         #[arg(long)]
         force_scaffold: bool,
+
+        /// Use a copy of a built-in pack in .oag/packs/ even when it was installed by
+        /// another oag version (or has no install record).
+        #[arg(long)]
+        allow_stale_packs: bool,
     },
 
     /// Validate an OpenAPI spec and report its contents (paths, schemas, operations)
@@ -224,7 +281,14 @@ fn main() -> Result<()> {
         Commands::Generate {
             input,
             force_scaffold,
-        } => cmd_generate(input, force_scaffold),
+            allow_stale_packs,
+        } => cmd_generate(
+            input,
+            force_scaffold,
+            ResolveOptions {
+                allow_stale: allow_stale_packs,
+            },
+        ),
         Commands::Check => cmd_check(),
         Commands::Validate { input } => cmd_validate(input),
         Commands::Inspect { input } => cmd_inspect(input),
@@ -379,7 +443,7 @@ Generated with these template packs:
     )
 }
 
-fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool) -> Result<()> {
+fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool, opts: ResolveOptions) -> Result<()> {
     let cfg = try_load_config()?.unwrap_or_default();
     let input = input.unwrap_or_else(|| PathBuf::from(&cfg.input));
     let ir = load_spec(&input, &cfg)?;
@@ -395,7 +459,7 @@ fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool) -> Result<()> {
             gen_id, gen_config.output
         ));
 
-        let resolved = resolve_pack(gen_id.as_str())?;
+        let resolved = resolve_pack(gen_id.as_str(), opts)?;
         for (id, source, sha256) in &resolved.provenance {
             ui::info(&format!("pack {id} · {source} · sha256:{}", short(sha256)));
         }
@@ -451,7 +515,8 @@ fn cmd_check() -> Result<()> {
     let mut failures = Vec::new();
 
     for (gen_id, gen_config) in &cfg.generators {
-        let pack = resolve_pack(gen_id.as_str())?.pack;
+        // Validators only read the manifest, so a stale local pack is fine here.
+        let pack = resolve_pack(gen_id.as_str(), ResolveOptions { allow_stale: true })?.pack;
         let output_dir = PathBuf::from(&gen_config.output);
 
         if !output_dir.exists() {
@@ -656,15 +721,18 @@ fn install_pack_by_id(specifier: &str) -> Result<()> {
         );
     } else {
         let version_tag = format!("v{}", env!("CARGO_PKG_VERSION"));
-        fetch_and_install(pack_id, git_ref.unwrap_or(&version_tag))?;
+        fetch_and_install(pack_id, git_ref.unwrap_or(&version_tag), true)?;
     }
 
     // If pack extends another, install the base too
     let pack = TemplatePack::from_dir(&target).map_err(|e| anyhow::anyhow!(e))?;
     if let Some(ref base_id) = pack.manifest.pack.extends {
         let base_target = templates_dir.join(base_id.as_str());
-        if !base_target.join("oag.pack.toml").exists() {
-            install_pack_by_id(base_id)?;
+        match git_ref {
+            // A pinned pack's base comes from the same ref.
+            Some(r) => install_pack_by_id(&format!("{base_id}@{r}"))?,
+            None if !base_target.join("oag.pack.toml").exists() => install_pack_by_id(base_id)?,
+            None => {}
         }
     }
 
