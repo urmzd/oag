@@ -32,6 +32,14 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
                     &mut new_schemas,
                     &mut used_names,
                 );
+                if let Some(ref mut content) = field.content {
+                    promote_type(
+                        &format!("{field_context}Content"),
+                        &mut content.schema,
+                        &mut new_schemas,
+                        &mut used_names,
+                    );
+                }
             }
         }
     }
@@ -115,6 +123,7 @@ fn promote_type(
                     read_only: false,
                     write_only: false,
                     default_repr: None,
+                    content: None,
                 })
                 .collect();
 
@@ -202,6 +211,7 @@ mod tests {
                     read_only: false,
                     write_only: false,
                     default_repr: None,
+                    content: None,
                 }],
                 additional_properties: None,
             })],
@@ -304,6 +314,7 @@ mod tests {
                     read_only: false,
                     write_only: false,
                     default_repr: None,
+                    content: None,
                 }],
                 additional_properties: None,
             })],
@@ -347,6 +358,7 @@ mod tests {
                     read_only: false,
                     write_only: false,
                     default_repr: None,
+                    content: None,
                 }],
                 additional_properties: None,
             })],
@@ -399,6 +411,7 @@ mod tests {
                         read_only: false,
                         write_only: false,
                         default_repr: None,
+                        content: None,
                     }],
                     additional_properties: None,
                 }),

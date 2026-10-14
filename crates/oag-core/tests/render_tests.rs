@@ -274,3 +274,43 @@ fn binary_responses_are_read_as_blobs() {
         "fastapi should return raw bytes, got:\n{routes}"
     );
 }
+
+#[test]
+fn base64_json_payloads_get_typed_codecs() {
+    // #31: `contentEncoding` + `contentSchema` produce typed helpers.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let codecs = file_ending_with(&files, "codecs.ts");
+    assert!(
+        codecs.contains("export function decodeInboxItemPayload(value: string): InboxPayload {"),
+        "got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains(r#"decodeContent<InboxPayload>(value, "base64-json")"#),
+        "got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains("export function encodeInboxItemPayload(value: InboxPayload): string {"),
+        "got:\n{codecs}"
+    );
+    let index = file_ending_with(&files, "index.ts");
+    assert!(
+        index.contains(r#"export * from "./codecs.js";"#),
+        "got:\n{index}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("payload?: string;"),
+        "wire type stays string, got:\n{types}"
+    );
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let models = file_ending_with(&py, "models.py");
+    assert!(
+        models.contains("def decode_inbox_item_payload(value: str) -> InboxPayload:"),
+        "got:\n{models}"
+    );
+    assert!(
+        models.contains("return InboxPayload.model_validate_json(raw)"),
+        "got:\n{models}"
+    );
+}

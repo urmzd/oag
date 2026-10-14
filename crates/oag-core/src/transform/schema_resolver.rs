@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 
 use crate::error::TransformError;
 use crate::ir::{
-    IrAliasSchema, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField, IrObjectSchema, IrSchema,
-    IrType, IrUnionSchema,
+    IrAliasSchema, IrContent, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField,
+    IrObjectSchema, IrSchema, IrType, IrUnionSchema,
 };
 use crate::parse::schema::{AdditionalProperties, Schema, SchemaOrRef, SchemaType, TypeSet};
 
@@ -343,14 +343,15 @@ fn build_fields(properties: &IndexMap<String, SchemaOrRef>, required: &[String])
     properties
         .iter()
         .map(|(name, prop)| {
-            let (description, read_only, write_only, default_repr) = match prop {
+            let (description, read_only, write_only, default_repr, content) = match prop {
                 SchemaOrRef::Schema(s) => (
                     s.description.clone(),
                     s.read_only.unwrap_or(false),
                     s.write_only.unwrap_or(false),
                     schema_default_literal(s),
+                    schema_content(s),
                 ),
-                _ => (None, false, false, None),
+                _ => (None, false, false, None, None),
             };
             IrField {
                 name: normalize_name(name),
@@ -363,9 +364,23 @@ fn build_fields(properties: &IndexMap<String, SchemaOrRef>, required: &[String])
                 read_only,
                 write_only,
                 default_repr,
+                content,
             }
         })
         .collect()
+}
+
+/// Content keywords of a property (`contentEncoding`, `contentMediaType`,
+/// `contentSchema`), when they describe a decodable JSON document.
+pub fn schema_content(schema: &Schema) -> Option<IrContent> {
+    IrContent::from_keywords(
+        schema.content_encoding.as_deref(),
+        schema.content_media_type.as_deref(),
+        schema
+            .content_schema
+            .as_deref()
+            .map(schema_or_ref_to_ir_type),
+    )
 }
 
 /// Compute the literal default value of a property schema, if any.

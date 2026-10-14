@@ -44,6 +44,69 @@ pub struct IrField {
     /// via the existing type-map literal templates. `None` when the property has
     /// no default. Required-ness is unaffected by this value.
     pub default_repr: Option<IrType>,
+    /// A string field whose value is encoded content with a known schema
+    /// (`contentEncoding` / `contentMediaType` / `contentSchema`), e.g. a
+    /// base64-encoded JSON document. The field stays a string on the wire;
+    /// packs use this to emit typed decode/encode helpers.
+    pub content: Option<IrContent>,
+}
+
+/// Encoded content carried inside a string (JSON Schema 2020-12 content keywords).
+#[derive(Debug, Clone, PartialEq)]
+pub struct IrContent {
+    /// `contentEncoding`, e.g. `base64` or `base64url`. `None` means the string
+    /// is the content itself (e.g. a JSON document in a string).
+    pub encoding: Option<String>,
+    /// `contentMediaType`, e.g. `application/json`.
+    pub media_type: Option<String>,
+    /// The type of the decoded value (`contentSchema`).
+    pub schema: IrType,
+}
+
+impl IrContent {
+    /// The codec packs use to turn the wire string into the decoded value:
+    /// `json`, `base64-json` or `base64url-json`.
+    pub fn codec(&self) -> &'static str {
+        match self
+            .encoding
+            .as_deref()
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("base64") => "base64-json",
+            Some("base64url") => "base64url-json",
+            _ => "json",
+        }
+    }
+
+    /// Build content info from the content keywords of a string schema.
+    ///
+    /// Only JSON content with a `contentSchema` gets typed helpers: other media
+    /// types have no schema to decode into. A `contentEncoding` other than
+    /// base64/base64url is not decodable portably, so it yields `None` too.
+    pub fn from_keywords(
+        encoding: Option<&str>,
+        media_type: Option<&str>,
+        schema: Option<IrType>,
+    ) -> Option<Self> {
+        let schema = schema?;
+        let json = media_type.is_none_or(|mt| {
+            let mt = mt
+                .split(';')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_ascii_lowercase();
+            mt == "application/json" || mt.ends_with("+json")
+        });
+        let decodable = encoding
+            .is_none_or(|e| matches!(e.to_ascii_lowercase().as_str(), "base64" | "base64url"));
+        (json && decodable).then(|| IrContent {
+            encoding: encoding.map(str::to_string),
+            media_type: media_type.map(str::to_string),
+            schema,
+        })
+    }
 }
 
 /// A single variant value in an enum schema.

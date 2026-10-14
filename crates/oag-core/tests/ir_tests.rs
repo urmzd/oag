@@ -941,3 +941,35 @@ fn binary_response_is_classified_as_binary() {
         IrResponseFormat::Json
     );
 }
+
+#[test]
+fn content_encoding_and_schema_are_carried_on_the_field() {
+    // #31: a base64-encoded JSON payload keeps its decoded schema.
+    use oag_core::ir::IrContent;
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let IrSchema::Object(item) = ir.find_schema("InboxItem").unwrap() else {
+        panic!("InboxItem should be an object");
+    };
+    let payload = item
+        .fields
+        .iter()
+        .find(|f| f.original_name == "payload")
+        .unwrap();
+    assert_eq!(
+        payload.field_type,
+        IrType::String,
+        "wire type stays a string"
+    );
+    let content = payload.content.as_ref().expect("content info");
+    assert_eq!(content.schema, IrType::Ref("InboxPayload".into()));
+    assert_eq!(content.encoding.as_deref(), Some("base64"));
+    assert_eq!(content.codec(), "base64-json");
+
+    // Non-JSON media types or unknown encodings get no typed helper.
+    assert!(
+        IrContent::from_keywords(Some("base64"), Some("image/png"), Some(IrType::Any)).is_none()
+    );
+    assert!(IrContent::from_keywords(Some("quoted-printable"), None, Some(IrType::Any)).is_none());
+    assert!(IrContent::from_keywords(Some("base64"), None, None).is_none());
+}

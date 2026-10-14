@@ -44,6 +44,7 @@ pub fn build_context(
         .collect();
     let sse_event_types = collect_sse_event_types(ir, &schema_names, tm);
     let guards = build_guard_contexts(ir);
+    let (content_codecs, codec_imports) = build_content_codec_contexts(ir, tm);
 
     // Build operations with deduplication
     let (operations, used_op_indices) =
@@ -123,6 +124,8 @@ pub fn build_context(
         // guards.ts.j2 expects top-level `imports` and `guards`
         imports => guard_imports,
         guards => guard_items,
+        content_codecs => content_codecs,
+        codec_imports => codec_imports,
         operations => operations,
         hooks => hooks,
         imported_types => imported_types,
@@ -260,6 +263,15 @@ fn object_to_ctx(obj: &IrObjectSchema, tm: &TypeMapConfig, field_casing: &str) -
                 IrType::StringLiteral(_) | IrType::IntegerLiteral(_)
             );
             let default_value = f.default_repr.as_ref().and_then(literal_value);
+            let content = f.content.as_ref().map(|c| {
+                context! {
+                    codec => c.codec(),
+                    type_str => map_type(&c.schema, tm),
+                    helper => format!("{}{}", obj.name.pascal_case, f.name.pascal_case),
+                    encoding => c.encoding.clone(),
+                    media_type => c.media_type.clone(),
+                }
+            });
             context! {
                 name => field_name,
                 original_name => f.original_name.clone(),
@@ -270,6 +282,7 @@ fn object_to_ctx(obj: &IrObjectSchema, tm: &TypeMapConfig, field_casing: &str) -
                 description => f.description.clone(),
                 needs_alias => f.name.snake_case != f.original_name,
                 default_value => default_value,
+                content => content,
             }
         })
         .collect();
@@ -312,6 +325,50 @@ fn collect_sse_event_types(
         }
     }
     event_types
+}
+
+// ─── Content codec contexts ──────────────────────────────────────
+
+/// Typed decode/encode helpers for string fields that carry encoded content
+/// (`contentEncoding` / `contentMediaType` / `contentSchema`), e.g. a
+/// base64-encoded JSON payload. Returns the helper contexts and the type names
+/// they reference.
+fn build_content_codec_contexts(ir: &IrSpec, tm: &TypeMapConfig) -> (Vec<Value>, Vec<String>) {
+    let mut codecs = Vec::new();
+    let mut refs = HashSet::new();
+    for schema in &ir.schemas {
+        let IrSchema::Object(obj) = schema else {
+            continue;
+        };
+        for field in &obj.fields {
+            let Some(content) = &field.content else {
+                continue;
+            };
+            collect_refs_from_ir_type(&content.schema, &mut refs);
+            let is_model = matches!(
+                ir.find_schema(match &content.schema {
+                    IrType::Ref(n) => n.as_str(),
+                    _ => "",
+                }),
+                Some(IrSchema::Object(_))
+            );
+            let helper = format!("{}{}", obj.name.pascal_case, field.name.pascal_case);
+            codecs.push(context! {
+                schema_name => obj.name.pascal_case.clone(),
+                field_name => field.original_name.clone(),
+                helper_pascal => helper.clone(),
+                helper_snake => heck::AsSnakeCase(&helper).to_string(),
+                type_str => map_type(&content.schema, tm),
+                codec => content.codec(),
+                encoding => content.encoding.clone(),
+                media_type => content.media_type.clone().unwrap_or_else(|| "application/json".to_string()),
+                is_model => is_model,
+            });
+        }
+    }
+    let mut imports: Vec<String> = refs.into_iter().collect();
+    imports.sort();
+    (codecs, imports)
 }
 
 // ─── Guard contexts ──────────────────────────────────────────────
