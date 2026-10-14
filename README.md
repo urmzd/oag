@@ -39,7 +39,14 @@ Most OpenAPI generators produce bloated output that needs heavy post-processing.
 curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
 ```
 
-The installer verifies the binary against the release's `SHA256SUMS` and aborts on a mismatch. Releases up to v0.20.6 predate checksums; install one of them with `OAG_SKIP_VERIFY=1`. Every release asset also has a `.sha256` sidecar, which `oag update` checks.
+The installer verifies the binary against the release's `SHA256SUMS` and aborts on a mismatch or when the checksums are missing. `SHA256SUMS` comes from the same GitHub release over the same HTTPS connection, so it catches a corrupted download or a swapped CDN object, not a compromised release or release token. `oag update` checks the same checksums (each asset's `.sha256` sidecar, else `SHA256SUMS`) and refuses an update without them.
+
+| Variable | Effect |
+|----------|--------|
+| `OAG_VERSION` | Version to install, e.g. `v0.21.0`. Defaults to the latest release. |
+| `OAG_INSTALL_DIR` | Install directory. Defaults to `$HOME/.local/bin`. |
+| `OAG_DOWNLOAD_URL` | Base URL of the release downloads, for a mirror. Must be `https://` (plain `http://` only for `127.0.0.1` or `localhost`). |
+| `OAG_SKIP_VERIFY` | **Unsafe.** `1` installs without any checksum. Only for releases that never had one (v0.20.6 and older). |
 
 Or via cargo:
 
@@ -208,7 +215,7 @@ Upgrading from v0.20.x changes generated code in five places. First, clear the p
 | Retries | every method, including POST, on 408/429/5xx; SSE retried implicitly | idempotent methods only (GET, HEAD, OPTIONS, PUT, DELETE); SSE never retried implicitly | Send an `Idempotency-Key` header on POSTs that are safe to retry, or set `retry: { retryMethods: [...] }`. Pass `retry` to a stream call to retry its connection. |
 | SSE with an OAS 3.2 `itemSchema` describing the whole event | `SSEEvent<ItemSchema>` | `<Operation>StreamEvent`, a union discriminated by `event` with decoded `data` | Replace hand-written mapping of `SSEEvent.event` with a `switch (event.event)`. Item schemas that describe only the payload keep `SSEEvent<T>`. |
 | Pack resolution | a missing pack was downloaded from GitHub `main` | the pack built into the binary; downloads only for an explicit `id@ref` | Delete stale copies in `.oag/packs/` (see above). To use another version deliberately, pin it (`node-client@v0.21.0` as the generator key) or pass `--allow-stale-packs` for a copy you keep under `.oag/packs/`. |
-| `install.sh` | installed without verification | verifies `SHA256SUMS` | Pinning `OAG_VERSION=v0.20.6` or older needs `OAG_SKIP_VERIFY=1`. |
+| `install.sh` | installed without verification | verifies `SHA256SUMS` | Releases up to v0.20.6 have no checksums: install them unverified only deliberately, with `OAG_SKIP_VERIFY=1`. |
 
 Fixes that need no migration but remove common workarounds: a `$ref` enum query parameter serializes as `?state=open`; a bodyless 204 next to a `default` error resolves to `void`; a discriminator mapping several values to one schema compiles; binary downloads resolve to a real `Blob`; base64 JSON fields get `decode<Schema><Field>()` helpers; SSE streams release their connection on early exit and report `closed-by-server` (or throw `SSEStreamClosedError` with `terminalEvents`); `SSEEvent` is exported; generated classes have no constructor parameter properties.
 

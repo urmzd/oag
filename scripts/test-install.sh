@@ -45,4 +45,14 @@ if run nosums >/dev/null 2>&1; then echo "FAIL: installed without SHA256SUMS"; e
 run nosums OAG_SKIP_VERIFY=1 >/dev/null 2>&1
 [ "$("$work/bin-nosums/oag")" = "fake oag nosums" ] || { echo "FAIL: OAG_SKIP_VERIFY"; exit 1; }
 
+# Plain http:// mirrors are refused (loopback is allowed for this test).
+if env HOME="$work/home" OAG_DOWNLOAD_URL="http://example.com" OAG_VERSION=good \
+  OAG_INSTALL_DIR="$work/bin-http" sh "$root/install.sh" >/dev/null 2>&1; then
+  echo "FAIL: http:// download URL accepted"; exit 1
+fi
+
+# The missing-checksum error must not tell users to skip verification.
+msg="$(run nosums 2>&1 || true)"
+case "$msg" in *OAG_SKIP_VERIFY*) echo "FAIL: error suggests OAG_SKIP_VERIFY"; exit 1 ;; esac
+
 echo "install.sh checksum tests passed"

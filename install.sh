@@ -6,12 +6,19 @@
 #
 # The binary is verified against the release's SHA256SUMS before it is
 # installed; a missing or mismatching checksum aborts the install.
+# SHA256SUMS comes from the same GitHub release over the same HTTPS
+# connection as the binary, so it catches a corrupted download or a swapped
+# CDN object. It does not protect against a compromised release or release
+# token: whoever can replace the binary can replace SHA256SUMS too.
 #
 # Environment variables:
-#   OAG_VERSION     — version to install (e.g. "v0.9.0"); defaults to latest
-#   OAG_INSTALL_DIR — installation directory; defaults to $HOME/.local/bin
-#   OAG_SKIP_VERIFY — set to 1 to install without a checksum (only for
-#                     releases published before SHA256SUMS existed, <= v0.20.6)
+#   OAG_VERSION      — version to install (e.g. "v0.9.0"); defaults to latest
+#   OAG_INSTALL_DIR  — installation directory; defaults to $HOME/.local/bin
+#   OAG_DOWNLOAD_URL — base URL of the release downloads (a mirror); defaults
+#                      to https://github.com/urmzd/oag/releases/download.
+#                      Must be https:// (http:// only for 127.0.0.1/localhost)
+#   OAG_SKIP_VERIFY  — UNSAFE: set to 1 to install without any checksum. Only
+#                      for releases that never had one (<= v0.20.6)
 
 set -eu
 
@@ -55,7 +62,13 @@ main() {
     fi
 
     artifact="oag-${target}"
-    base_url="${OAG_DOWNLOAD_URL:-https://github.com/$REPO/releases/download}/${tag}"
+    download_url="${OAG_DOWNLOAD_URL:-https://github.com/$REPO/releases/download}"
+    case "$download_url" in
+        https://*) ;;
+        http://127.0.0.1:*|http://127.0.0.1/*|http://localhost:*|http://localhost/*) ;;
+        *) err "OAG_DOWNLOAD_URL must be an https:// URL, got: $download_url" ;;
+    esac
+    base_url="${download_url%/}/${tag}"
 
     install_dir="${OAG_INSTALL_DIR:-$HOME/.local/bin}"
     mkdir -p "$install_dir"
@@ -68,7 +81,7 @@ main() {
         || err "Failed to download $base_url/$artifact"
 
     if [ "${OAG_SKIP_VERIFY:-0}" = "1" ]; then
-        echo "Warning: OAG_SKIP_VERIFY=1, installing without checksum verification" >&2
+        echo "WARNING: OAG_SKIP_VERIFY=1: installing an UNVERIFIED binary" >&2
     else
         verify "$base_url" "$artifact" "$tmp_dir"
     fi
@@ -87,7 +100,7 @@ main() {
 # verify BASE_URL ARTIFACT DIR — check DIR/ARTIFACT against the release's SHA256SUMS.
 verify() {
     if ! curl -fsSL "$1/SHA256SUMS" -o "$3/SHA256SUMS"; then
-        err "Could not download $1/SHA256SUMS to verify the binary. Releases up to v0.20.6 have no checksums; set OAG_SKIP_VERIFY=1 to install one of them unverified."
+        err "Could not download $1/SHA256SUMS, so the binary cannot be verified and was not installed. A new release uploads its checksums a few minutes after it appears: retry shortly, or set OAG_VERSION to the previous release. Releases up to v0.20.6 never had checksums."
     fi
 
     expected=$(awk -v name="$2" '$2 == name || $2 == "*" name { print $1; exit }' "$3/SHA256SUMS")
