@@ -47,7 +47,7 @@ export interface ToolResultBlock {
 export interface ImageSource {
   type: "base64";
   media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-  data: Blob;
+  data: string;
 }
 
 export interface UrlSource {
@@ -219,3 +219,39 @@ export type CreateMessageStreamEvent =
   | MessageStopEvent
   | PingEvent
   | ErrorEvent;
+
+/** Query and header parameters of `createMessage`. */
+export interface CreateMessageParams {
+  /** The version of the Anthropic API to use. */
+  anthropicVersion: string;
+}
+
+/** Query and header parameters of `countTokens`. */
+export interface CountTokensParams {
+  /** The version of the Anthropic API to use. */
+  anthropicVersion: string;
+}
+
+/** Query and header parameters of `listModels`. */
+export interface ListModelsParams {
+  /** The version of the Anthropic API to use. */
+  anthropicVersion: string;
+  /** Maximum number of models to return. */
+  limit?: number;
+  /** Cursor for pagination. */
+  afterId?: string;
+  /** Cursor for reverse pagination. */
+  beforeId?: string;
+}
+
+/** Query and header parameters of `getModel`. */
+export interface GetModelParams {
+  /** The version of the Anthropic API to use. */
+  anthropicVersion: string;
+}
+
+/** Query and header parameters of `cancelBatch`. */
+export interface CancelBatchParams {
+  /** The version of the Anthropic API to use. */
+  anthropicVersion: string;
+}

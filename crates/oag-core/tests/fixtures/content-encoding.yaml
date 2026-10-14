@@ -1,0 +1,51 @@
+openapi: "3.2.0"
+info:
+  title: Content Encoding Variations
+  version: "1.0.0"
+paths:
+  /envelopes:
+    get:
+      operationId: listEnvelopes
+      responses:
+        "200":
+          description: Envelopes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Envelope"
+components:
+  schemas:
+    Payload:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+    Envelope:
+      type: object
+      properties:
+        meta:
+          description: An inline object whose field is base64 JSON.
+          type: object
+          properties:
+            blob:
+              type: string
+              contentEncoding: base64
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/Payload"
+        attachments:
+          description: An array of base64url JSON documents.
+          type: array
+          items:
+            type: string
+            contentEncoding: base64url
+            contentMediaType: application/json
+            contentSchema:
+              $ref: "#/components/schemas/Payload"
+        raw:
+          description: base64 bytes (format byte) are text, not Blob.
+          type: string
+          format: byte

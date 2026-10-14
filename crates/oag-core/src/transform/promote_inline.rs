@@ -57,6 +57,17 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
                 for variant in &mut sse.variants {
                     promote_type(&ctx, variant, &mut new_schemas, &mut used_names);
                 }
+                for event in &mut sse.events {
+                    let name = event.names.first().map(String::as_str).unwrap_or("any");
+                    let event_ctx =
+                        format!("{}{}Data", op_pascal, normalize_name(name).pascal_case);
+                    promote_type(
+                        &event_ctx,
+                        &mut event.data_type,
+                        &mut new_schemas,
+                        &mut used_names,
+                    );
+                }
                 if let Some(ref mut json_resp) = sse.json_response {
                     let json_ctx = format!("{}Response", op_pascal);
                     promote_type(
@@ -133,6 +144,10 @@ fn promote_type(
             }));
 
             *ir_type = IrType::Ref(name);
+        }
+        IrType::Encoded(content) => {
+            let content_ctx = format!("{}Content", context_name);
+            promote_type(&content_ctx, &mut content.schema, new_schemas, used_names);
         }
         IrType::Array(inner) => {
             let item_ctx = format!("{}Item", context_name);
@@ -260,6 +275,7 @@ mod tests {
                     ]),
                     description: None,
                     status_code: 200,
+                    format: IrResponseFormat::Json,
                 }),
                 deprecated: false,
             }],

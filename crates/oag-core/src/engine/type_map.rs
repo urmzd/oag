@@ -5,7 +5,8 @@ use super::pack::TypeMapConfig;
 /// Map an IrType to a language type string using the declarative type map.
 pub fn map_type(ir_type: &IrType, tm: &TypeMapConfig) -> String {
     match ir_type {
-        IrType::String => tm.string.clone(),
+        // Encoded content is a string on the wire.
+        IrType::String | IrType::Encoded(_) => tm.string.clone(),
         IrType::StringLiteral(s) => tm.string_literal.replace("{value}", s),
         IrType::IntegerLiteral(i) => tm.integer_literal.replace("{value}", &i.to_string()),
         IrType::Number => tm.number.clone(),

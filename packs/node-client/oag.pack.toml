@@ -38,6 +38,7 @@ escape_jsdoc = { replace = "*/", with = "*\\/" }
 files = [
   { path = "{source_dir}/types.ts", template = "types.ts.j2" },
   { path = "{source_dir}/guards.ts", template = "guards.ts.j2" },
+  { path = "{source_dir}/codecs.ts", template = "codecs.ts.j2" },
   { path = "{source_dir}/sse.ts", template = "sse.ts.j2" },
   { path = "{source_dir}/client.ts", template = "client.ts.j2" },
   { path = "{source_dir}/index.ts", template = "index.ts.j2" },
@@ -48,6 +49,7 @@ output_path = "{source_dir}/index.ts"
 sections = [
   { label = "Types", template = "types.ts.j2" },
   { label = "Guards", template = "guards.ts.j2" },
+  { label = "Codecs", template = "codecs.ts.j2" },
   { label = "SSE Runtime", template = "sse.ts.j2" },
   { label = "Client", template = "client.ts.j2" },
 ]
@@ -57,6 +59,7 @@ strip_patterns = [
 strip_import_patterns = [
   '"./types.js"',
   '"./guards.js"',
+  '"./codecs.js"',
   '"./sse.js"',
   '"./client.js"',
 ]
@@ -65,6 +68,7 @@ strip_import_patterns = [
 shared_files = [
   { path = "{source_dir}/types.ts", template = "types.ts.j2" },
   { path = "{source_dir}/guards.ts", template = "guards.ts.j2" },
+  { path = "{source_dir}/codecs.ts", template = "codecs.ts.j2" },
   { path = "{source_dir}/sse.ts", template = "sse.ts.j2" },
   { path = "{source_dir}/client.ts", template = "client.ts.j2" },
 ]

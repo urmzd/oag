@@ -20,3 +20,9 @@ export interface ErrorModel {
 }
 
 export type ExtendedErrorModel = ErrorModel & { rootCause: string };
+
+/** Query and header parameters of `listPets`. */
+export interface ListPetsParams {
+  /** Maximum number of pets to return. */
+  limit?: number;
+}

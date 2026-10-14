@@ -10,6 +10,51 @@ pub struct IrSpec {
     pub modules: Vec<IrModule>,
 }
 
+impl IrSpec {
+    /// Look up a named schema by its PascalCase name.
+    pub fn find_schema(&self, name: &str) -> Option<&IrSchema> {
+        self.schemas.iter().find(|s| s.name().pascal_case == name)
+    }
+
+    /// Follow `IrType::Ref` (and aliases of refs) to the type it stands for.
+    ///
+    /// A `$ref` to a string enum or to an alias of a primitive is the same
+    /// wire value as the inline schema, so callers that decide how to
+    /// serialize a value (query parameters, mock values) must look through the
+    /// reference instead of treating every `Ref` as an object. Enums resolve to
+    /// a union of their literal values; objects and unions stay as the `Ref`.
+    pub fn resolve_type<'a>(&'a self, ty: &'a IrType) -> std::borrow::Cow<'a, IrType> {
+        use std::borrow::Cow;
+        let mut current = Cow::Borrowed(ty);
+        // Bounded walk so a self-referential alias cannot loop forever.
+        for _ in 0..16 {
+            let IrType::Ref(name) = current.as_ref() else {
+                return current;
+            };
+            match self.find_schema(name) {
+                Some(IrSchema::Alias(a)) => current = Cow::Borrowed(&a.target),
+                Some(IrSchema::Enum(e)) => {
+                    let variants: Vec<IrType> = e
+                        .variants
+                        .iter()
+                        .map(|v| match v {
+                            IrEnumVariant::String(s) => IrType::StringLiteral(s.clone()),
+                            IrEnumVariant::Integer(i) => IrType::IntegerLiteral(*i),
+                        })
+                        .collect();
+                    return Cow::Owned(match variants.len() {
+                        0 => IrType::String,
+                        1 => variants.into_iter().next().unwrap(),
+                        _ => IrType::Union(variants),
+                    });
+                }
+                _ => return current,
+            }
+        }
+        current
+    }
+}
+
 /// API metadata.
 #[derive(Debug, Clone)]
 pub struct IrInfo {

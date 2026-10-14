@@ -7,7 +7,7 @@ import useSWRMutation, {
   type SWRMutationResponse,
 } from "swr/mutation";
 import { useApiClient } from "./provider.js";
-import type { SSEEvent } from "./sse.js";
+import type { SSEEvent, SSEOptions } from "./sse.js";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -34,8 +34,11 @@ export function useGetModel(modelId: string, config?: SWRConfiguration<Model>): 
 }
 
 /** Create a chat completion */
-export function useCreateChatCompletionStream() {
+export function useCreateChatCompletionStream(options?: Omit<SSEOptions, "signal">) {
   const client = useApiClient();
+  // Read the latest options when a stream starts without re-creating `trigger`.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const [events, setEvents] = useState<SSEEvent<CreateChatCompletionStreamEvent>[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -50,6 +53,7 @@ export function useCreateChatCompletionStream() {
 
       try {
         for await (const event of client.createChatCompletionStream(body, {
+          ...optionsRef.current,
           signal: abortRef.current.signal,
         })) {
           setEvents((prev) => [...prev, event]);

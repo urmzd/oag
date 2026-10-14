@@ -222,6 +222,25 @@ impl TemplatePack {
         })
     }
 
+    /// Load a template pack from in-memory files: the `oag.pack.toml` content
+    /// and `(template file name, content)` pairs. Used for packs embedded in
+    /// the binary.
+    pub fn from_files<'a>(
+        manifest: &str,
+        templates: impl IntoIterator<Item = (&'a str, &'a str)>,
+    ) -> Result<Self, GeneratorError> {
+        let manifest: PackManifest = toml::from_str(manifest)
+            .map_err(|e| GeneratorError::Other(format!("failed to parse oag.pack.toml: {e}")))?;
+        let templates = templates
+            .into_iter()
+            .map(|(name, content)| (name.to_string(), content.to_string()))
+            .collect();
+        Ok(Self {
+            manifest,
+            templates,
+        })
+    }
+
     /// Merge another pack into this one (for `extends` support).
     /// The extending pack's entries override the base.
     pub fn merge_from(&mut self, extending: &TemplatePack) {

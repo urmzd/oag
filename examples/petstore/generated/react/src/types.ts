@@ -20,3 +20,9 @@ export interface Category {
   id: number;
   name: string;
 }
+
+/** Query and header parameters of `listPets`. */
+export interface ListPetsParams {
+  limit?: number;
+  status?: "available" | "pending" | "sold";
+}

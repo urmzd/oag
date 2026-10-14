@@ -129,34 +129,36 @@ oag completions powershell >> $PROFILE
 
 ### `oag packs`
 
-Manage packs for code generation.
+Manage packs for code generation. The built-in packs are compiled into the binary, so generation needs no network.
 
 ```sh
-# List available packs (built-in + installed)
+# List installed and built-in packs with their sha256 digests
 oag packs list
 
-# Extract all built-in packs to the packs directory for customization
-oag packs install --builtin
+# Copy a built-in pack into .oag/packs/ for customization (no network)
+oag packs install --id node-client
+
+# Download a pack from GitHub at a pinned tag or commit
+oag packs install --id node-client@v0.21.0
 
 # Install a custom pack from a local directory
 oag packs install /path/to/my-pack
 
 # Remove an installed pack
 oag packs remove my-pack
-
 ```
 
 **Subcommands:**
 
 | Subcommand | Description |
 |------------|-------------|
-| `list` | List available template packs (built-in + installed) |
+| `list` | List installed and built-in packs with their digests |
 | `install <SOURCE>` | Install a pack from a local directory |
-| `install --builtin` | Extract all built-in packs to the templates directory |
+| `install --id <ID>` | Copy a built-in pack into `.oag/packs/` |
+| `install --id <ID>@<REF>` | Download a pack from GitHub at that ref |
 | `remove <ID>` | Remove an installed template pack |
-| `path` | Print the template packs directory path |
 
-Installed packs take precedence over built-in packs, allowing you to customize any built-in pack by extracting and modifying it.
+Installed packs take precedence over built-in packs, so you can customize any built-in pack by installing and editing it. Each install writes `oag.source.toml` next to the pack, recording its source and sha256.
 
 ## Configuration
 
