@@ -18,48 +18,85 @@ use oag_core::parse;
 use oag_core::transform::{self, TransformOptions};
 
 mod github;
+mod packs;
+
+use packs::PackSource;
+
+/// A pack resolved for generation, with where it came from.
+struct ResolvedPack {
+    pack: TemplatePack,
+    /// `(pack id, source, sha256)` for the pack and every pack it extends.
+    provenance: Vec<(String, PackSource, String)>,
+}
 
 /// Resolve a pack, with extends support.
 ///
-/// Resolution order:
-/// 1. If no `@ref` and a locally installed pack exists → use it
-/// 2. Otherwise → fetch from GitHub (cached by `{pack_id}/{ref}`)
-fn resolve_pack(specifier: &str) -> Result<TemplatePack> {
+/// Resolution never touches the network unless the specifier pins a ref:
+/// 1. `id@ref` → download that ref from GitHub (explicit and pinned)
+/// 2. a pack directory in `.oag/packs/<id>/` (installed or committed)
+/// 3. the pack built into this oag binary
+fn resolve_pack(specifier: &str) -> Result<ResolvedPack> {
     let (pack_id, git_ref) = github::parse_pack_specifier(specifier);
-    let is_pinned = specifier.contains('@');
 
-    let pack = if !is_pinned {
-        // Check locally installed packs first
-        if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
-            TemplatePack::from_dir(&disk_path)
-                .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?
-        } else {
-            fetch_and_install(pack_id, git_ref)?
-        }
+    let (pack, source, sha256) = if let Some(git_ref) = git_ref {
+        let (pack, sha256) = fetch_and_install(pack_id, git_ref)?;
+        (pack, PackSource::GitHub(git_ref.to_string()), sha256)
+    } else if let Some(disk_path) = resolve::resolve_pack_path(pack_id, None) {
+        let pack = TemplatePack::from_dir(&disk_path)
+            .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?;
+        (pack, PackSource::Local, packs::dir_digest(&disk_path)?)
+    } else if let Some(pack) = packs::load_embedded(pack_id) {
+        let sha256 = packs::embedded_digest(pack_id).unwrap_or_default();
+        (pack?, PackSource::Embedded, sha256)
     } else {
-        fetch_and_install(pack_id, git_ref)?
+        anyhow::bail!(
+            "pack '{pack_id}' is not installed in {} and is not built into oag v{}.\n\
+             Install it explicitly: `oag packs install <path>`, or pin a release with \
+             `oag packs install --id {pack_id}@v{}`.",
+            resolve::templates_dir().display(),
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_VERSION"),
+        );
     };
+
+    let mut provenance = vec![(pack_id.to_string(), source, sha256)];
 
     // Handle extends
     if let Some(ref base_id) = pack.manifest.pack.extends {
         let mut base = resolve_pack(base_id)?;
-        base.merge_from(&pack);
-        Ok(base)
+        base.pack.merge_from(&pack);
+        provenance.append(&mut base.provenance);
+        Ok(ResolvedPack {
+            pack: base.pack,
+            provenance,
+        })
     } else {
-        Ok(pack)
+        Ok(ResolvedPack { pack, provenance })
     }
 }
 
-/// Download a pack from GitHub and install it to `.oag/packs/<id>/`.
-fn fetch_and_install(pack_id: &str, git_ref: &str) -> Result<TemplatePack> {
+/// Download a pack from GitHub at an explicit ref and install it to
+/// `.oag/packs/<id>/`, recording the source and digest.
+fn fetch_and_install(pack_id: &str, git_ref: &str) -> Result<(TemplatePack, String)> {
     let target = resolve::templates_dir().join(pack_id);
 
     ui::info(&format!("installing {pack_id}@{git_ref} from GitHub..."));
     github::download_pack(pack_id, git_ref, &target)?;
-    ui::phase_ok("installed", Some(&format!("{pack_id}@{git_ref}")));
+    let sha256 = packs::dir_digest(&target)?;
+    packs::write_source_record(&target, &PackSource::GitHub(git_ref.to_string()), &sha256)?;
+    ui::phase_ok(
+        "installed",
+        Some(&format!("{pack_id}@{git_ref} · sha256:{}", short(&sha256))),
+    );
 
-    TemplatePack::from_dir(&target)
-        .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))
+    let pack = TemplatePack::from_dir(&target)
+        .map_err(|e| anyhow::anyhow!("failed to load pack '{}': {}", pack_id, e))?;
+    Ok((pack, sha256))
+}
+
+/// First 12 hex characters of a digest, for display.
+fn short(sha256: &str) -> &str {
+    &sha256[..sha256.len().min(12)]
 }
 
 // ── UI helpers (all output to stderr) ────────────────────────────────
@@ -127,13 +164,13 @@ enum Commands {
         input: PathBuf,
     },
 
-    /// Create an oag.yaml config file and download packs from GitHub
+    /// Create an oag.yaml config file and optionally install packs into .oag/packs/
     Init {
         /// Overwrite an existing oag.yaml file
         #[arg(long)]
         force: bool,
 
-        /// Pack IDs to download (e.g., node-client, fastapi-server)
+        /// Pack IDs to install (e.g., node-client); built-in packs need no network, `id@ref` downloads that ref
         #[arg(short, long)]
         pack: Vec<String>,
     },
@@ -161,13 +198,13 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum PacksAction {
-    /// List installed packs
+    /// List installed and built-in packs with their digests
     List,
-    /// Install a pack from a local directory or download from GitHub
+    /// Install a pack into .oag/packs/ from a local directory, the packs built into oag, or a pinned GitHub ref
     Install {
         /// Path to a local pack directory
         source: Option<PathBuf>,
-        /// Download a pack by ID from GitHub (e.g., node-client)
+        /// Install a pack by ID: the built-in copy (e.g. node-client), or `id@ref` to download that ref from GitHub
         #[arg(long)]
         id: Option<String>,
     },
@@ -314,9 +351,17 @@ fn try_run_formatter(output_dir: &Path, pack: &TemplatePack) {
     }
 }
 
-/// Generate the "do not edit" README.
-fn readme_content() -> &'static str {
-    r#"# Generated Code — Do Not Edit
+/// Generate the "do not edit" README, recording the packs that produced it.
+///
+/// The pack digests make the output reproducible and checkable: the same oag
+/// version and packs give the same digests, and a pack change shows up here.
+fn readme_content(provenance: &[(String, PackSource, String)]) -> String {
+    let packs: String = provenance
+        .iter()
+        .map(|(id, _, sha256)| format!("- `{id}` sha256:{sha256}\n"))
+        .collect();
+    format!(
+        r#"# Generated Code — Do Not Edit
 
 This directory is **auto-generated** by [oag](https://github.com/urmzd/oag).
 Any manual changes will be overwritten the next time `oag generate` is run.
@@ -327,7 +372,11 @@ oag generate
 ```
 
 To customize the generated output, edit your `oag.yaml` configuration file.
-"#
+
+Generated with these template packs:
+
+{packs}"#
+    )
 }
 
 fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool) -> Result<()> {
@@ -346,8 +395,12 @@ fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool) -> Result<()> {
             gen_id, gen_config.output
         ));
 
-        let pack = resolve_pack(gen_id.as_str())?;
-        let output = engine::generate(&ir, gen_config, &pack).map_err(|e| anyhow::anyhow!(e))?;
+        let resolved = resolve_pack(gen_id.as_str())?;
+        for (id, source, sha256) in &resolved.provenance {
+            ui::info(&format!("pack {id} · {source} · sha256:{}", short(sha256)));
+        }
+        let pack = &resolved.pack;
+        let output = engine::generate(&ir, gen_config, pack).map_err(|e| anyhow::anyhow!(e))?;
 
         let output_dir = PathBuf::from(&gen_config.output);
         fs::create_dir_all(&output_dir).with_context(|| {
@@ -362,12 +415,12 @@ fn cmd_generate(input: Option<PathBuf>, force_scaffold: bool) -> Result<()> {
 
         // Add README.md
         let readme_path = output_dir.join("README.md");
-        fs::write(&readme_path, readme_content())
+        fs::write(&readme_path, readme_content(&resolved.provenance))
             .with_context(|| format!("failed to write {}", readme_path.display()))?;
         ui::phase_ok("wrote", Some(&readme_path.display().to_string()));
 
         // Auto-run formatters
-        try_run_formatter(&output_dir, &pack);
+        try_run_formatter(&output_dir, pack);
 
         let total = output.source_files.len() + output.scaffold_files.len() + 1;
         let skip_note = if skipped > 0 {
@@ -398,7 +451,7 @@ fn cmd_check() -> Result<()> {
     let mut failures = Vec::new();
 
     for (gen_id, gen_config) in &cfg.generators {
-        let pack = resolve_pack(gen_id.as_str())?;
+        let pack = resolve_pack(gen_id.as_str())?.pack;
         let output_dir = PathBuf::from(&gen_config.output);
 
         if !output_dir.exists() {
@@ -572,29 +625,46 @@ fn cmd_init(force: bool, packs: Vec<String>) -> Result<()> {
     fs::write(&config_path, config::default_config_content())?;
     ui::phase_ok("created", Some(&config_path.display().to_string()));
 
-    // Download requested packs
+    // Install requested packs
     for pack_id in &packs {
-        install_pack_from_github(pack_id)?;
+        install_pack_by_id(pack_id)?;
     }
 
     Ok(())
 }
 
-/// Download a pack from GitHub and install it locally, resolving `extends` dependencies.
-fn install_pack_from_github(specifier: &str) -> Result<()> {
+/// Install a pack by ID into `.oag/packs/`, resolving `extends` dependencies.
+///
+/// Without a ref, the pack built into this binary is installed (no network).
+/// `id@ref` downloads that ref from GitHub; a pack that is not built in is
+/// downloaded at the tag of this oag version, never from a moving branch.
+fn install_pack_by_id(specifier: &str) -> Result<()> {
     let (pack_id, git_ref) = github::parse_pack_specifier(specifier);
     let templates_dir = resolve::templates_dir();
     let target = templates_dir.join(pack_id);
 
-    github::download_pack(pack_id, git_ref, &target)?;
-    ui::phase_ok("installed", Some(&format!("{pack_id}@{git_ref}")));
+    if git_ref.is_none() && packs::write_embedded(pack_id, &target)? {
+        let sha256 = packs::dir_digest(&target)?;
+        packs::write_source_record(&target, &PackSource::Embedded, &sha256)?;
+        ui::phase_ok(
+            "installed",
+            Some(&format!(
+                "{pack_id} (built into oag v{}) · sha256:{}",
+                env!("CARGO_PKG_VERSION"),
+                short(&sha256)
+            )),
+        );
+    } else {
+        let version_tag = format!("v{}", env!("CARGO_PKG_VERSION"));
+        fetch_and_install(pack_id, git_ref.unwrap_or(&version_tag))?;
+    }
 
-    // If pack extends another, download the base too
+    // If pack extends another, install the base too
     let pack = TemplatePack::from_dir(&target).map_err(|e| anyhow::anyhow!(e))?;
     if let Some(ref base_id) = pack.manifest.pack.extends {
         let base_target = templates_dir.join(base_id.as_str());
         if !base_target.join("oag.pack.toml").exists() {
-            install_pack_from_github(base_id)?;
+            install_pack_by_id(base_id)?;
         }
     }
 
@@ -619,25 +689,33 @@ fn cmd_packs(action: PacksAction) -> Result<()> {
             } else {
                 ui::header("Installed packs");
                 for (id, path) in &installed {
-                    ui::phase_ok(id, Some(&path.display().to_string()));
+                    let sha256 = packs::dir_digest(path).unwrap_or_default();
+                    ui::phase_ok(
+                        id,
+                        Some(&format!("{} · sha256:{}", path.display(), short(&sha256))),
+                    );
                 }
             }
 
             let installed_ids: Vec<&str> = installed.iter().map(|(id, _)| id.as_str()).collect();
-            ui::header("Available packs (download with `oag packs install --id <pack>`)");
-            for &pack_id in github::KNOWN_PACKS {
+            ui::header(&format!(
+                "Built into oag v{} (used when not installed locally)",
+                env!("CARGO_PKG_VERSION")
+            ));
+            for pack_id in packs::embedded_ids() {
                 let marker = if installed_ids.contains(&pack_id) {
-                    " (installed)"
+                    " (overridden by .oag/packs)"
                 } else {
                     ""
                 };
-                ui::phase_ok(pack_id, Some(marker));
+                let sha256 = packs::embedded_digest(pack_id).unwrap_or_default();
+                ui::phase_ok(pack_id, Some(&format!("sha256:{}{marker}", short(&sha256))));
             }
             Ok(())
         }
         PacksAction::Install { source, id } => {
             if let Some(pack_id) = id {
-                install_pack_from_github(&pack_id)?;
+                install_pack_by_id(&pack_id)?;
                 Ok(())
             } else if let Some(source_path) = source {
                 let pack_toml = source_path.join("oag.pack.toml");
@@ -648,7 +726,16 @@ fn cmd_packs(action: PacksAction) -> Result<()> {
                 let id = pack.manifest.pack.id.clone();
                 let target =
                     resolve::install_pack(&source_path, &id).map_err(|e| anyhow::anyhow!(e))?;
-                ui::phase_ok("installed", Some(&format!("{id} → {}", target.display())));
+                let sha256 = packs::dir_digest(&target)?;
+                packs::write_source_record(&target, &PackSource::Local, &sha256)?;
+                ui::phase_ok(
+                    "installed",
+                    Some(&format!(
+                        "{id} → {} · sha256:{}",
+                        target.display(),
+                        short(&sha256)
+                    )),
+                );
                 Ok(())
             } else {
                 anyhow::bail!("provide a source path or use --id <pack_id>");

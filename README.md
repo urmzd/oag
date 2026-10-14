@@ -65,16 +65,17 @@ oag init                         create oag.yaml in the current directory
 oag init -p <pack> [-p <pack>]   also install packs
 oag init --force                 overwrite existing oag.yaml
 oag check                        run linters/typecheckers on generated output
-oag packs list                   list installed and available packs
+oag packs list                   list installed and built-in packs with their digests
 oag packs install <path>         install a pack from a local directory
-oag packs install --id <id>      download a pack from GitHub
+oag packs install --id <id>      install a built-in pack into .oag/packs/ (no network)
+oag packs install --id <id>@<ref>  download a pack from GitHub at a pinned tag or commit
 oag packs remove <id>            remove a pack
 oag completions <shell>          generate shell completions (bash, zsh, fish, powershell, elvish)
 oag update                       self-update to latest release
 oag version                      print version
 ```
 
-Packs are stored in `.oag/packs/` relative to your project root. Commit them, gitignore them, or customize them — your call.
+The built-in packs are compiled into the `oag` binary, so `oag generate` needs no network and the same oag version always produces the same output. A pack in `.oag/packs/` (relative to your project root) takes precedence: commit it, gitignore it, or customize it. oag only downloads a pack when you pin a ref explicitly (`--id node-client@v0.21.0`, or `node-client@v0.21.0` as the generator key in `oag.yaml`), and it never fetches from a branch implicitly. The generated `README.md` in each output directory records the sha256 of every pack used, so CI can verify what produced the code.
 
 ## Configuration
 
@@ -186,10 +187,12 @@ Packs support inheritance (`extends` in the manifest). `react-swr-client` extend
 To customize a built-in pack, install it locally and edit:
 
 ```sh
-oag packs install --id node-client
+oag packs install --id node-client   # copies the built-in pack, no network
 # edit .oag/packs/node-client/templates/*.j2
 oag generate
 ```
+
+Resolution order for a generator key: `id@ref` (downloaded from GitHub at that ref), then `.oag/packs/<id>/`, then the pack built into the binary. A pack that is neither installed nor built in is an error, never a silent download.
 
 ## Examples
 
@@ -213,7 +216,7 @@ oag-cli  -->  oag-core (engine)
 |-----------|------|
 | [`oag-core`](crates/oag-core/) | Parser, IR, transforms, template engine |
 | [`oag-cli`](crates/oag-cli/) | CLI (clap), pack resolution, orchestration |
-| [`packs/`](packs/) | Built-in template packs (embedded at compile time) |
+| [`packs/`](packs/) | Built-in template packs (embedded in the binary at compile time) |
 
 ## Agent Skill
 

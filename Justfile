@@ -42,10 +42,9 @@ examples: install
       local dir="$1"; shift
       pushd "examples/$dir" >/dev/null
       for pack in "$@"; do
-        # Install the working-tree pack so generation reflects local changes.
-        # Pass only the source path (no --id): `packs install <path>` copies the
-        # local pack, whereas `--id` would download it from GitHub @main and the
-        # working-tree changes would be ignored. The id comes from oag.pack.toml.
+        # The binary embeds the working-tree packs; installing them from the
+        # source path as well replaces any stale copy left in the example's
+        # .oag/packs/, which would otherwise take precedence.
         "$bin" packs install "../../packs/$pack" >/dev/null
       done
       "$bin" generate
