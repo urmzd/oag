@@ -20,13 +20,22 @@ export interface ApiResponse<T> {
 /** How a success body is read: JSON, text, or raw bytes (`Blob`). */
 type ResponseFormat = "json" | "text" | "blob";
 
-/** Configuration for retry behavior with exponential backoff. */
+/**
+ * Configuration for retry behavior with exponential backoff.
+ *
+ * Only idempotent requests are retried by default (GET, HEAD, OPTIONS, PUT,
+ * DELETE), so a retried POST can never create a duplicate resource. A POST or
+ * PATCH is retried when its method is listed in `retryMethods` or when the
+ * request carries an `Idempotency-Key` header. A server-sent `Retry-After`
+ * (429, 503) is honoured; a wait longer than `maxRetryAfterMs` is not retried
+ * and the response is returned as-is.
+ */
 export interface RetryConfig {
   /** Maximum number of retry attempts. Default: 3 */
   maxRetries?: number;
   /** Initial delay in milliseconds before the first retry. Default: 1000 */
   initialDelayMs?: number;
-  /** Maximum delay in milliseconds between retries. Default: 30000 */
+  /** Maximum backoff delay in milliseconds between retries. Default: 30000 */
   maxDelayMs?: number;
   /** Multiplier applied to the delay after each retry. Default: 2 */
   backoffMultiplier?: number;
@@ -34,6 +43,10 @@ export interface RetryConfig {
   retryableStatusCodes?: number[];
   /** Whether to retry on network errors (fetch throws). Default: true */
   retryOnNetworkError?: boolean;
+  /** HTTP methods that may be retried. Default: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE"] */
+  retryMethods?: string[];
+  /** Longest `Retry-After` wait honoured, in milliseconds. Default: 60000 */
+  maxRetryAfterMs?: number;
 }
 
 /** Options for API requests. */
@@ -53,7 +66,11 @@ export interface ClientConfig {
   fetch?: typeof globalThis.fetch;
   requestInterceptor?: (request: { url: string; init: RequestInit }) =>
     { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>;
-  /** Client-level retry configuration. Set to false to disable retries. Default: enabled with defaults. */
+  /**
+   * Client-level retry configuration. Set to false to disable retries.
+   * Default: idempotent methods only (see `RetryConfig`). SSE streams are
+   * never retried by this setting; pass `retry` to the stream call instead.
+   */
   retry?: RetryConfig | false;
   /** Client-level timeout in milliseconds. */
   timeout?: number;
@@ -83,7 +100,19 @@ const DEFAULT_RETRY_CONFIG: Required<RetryConfig> = {
   backoffMultiplier: 2,
   retryableStatusCodes: [408, 429, 500, 502, 503, 504],
   retryOnNetworkError: true,
+  retryMethods: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE"],
+  maxRetryAfterMs: 60000,
 };
+
+/**
+ * Whether a request may be retried: its method is listed in `retryMethods`, or
+ * it carries an `Idempotency-Key` header (the server deduplicates it).
+ */
+function isRetryableRequest(init: RequestInit, config: Required<RetryConfig>): boolean {
+  const method = (init.method ?? "GET").toUpperCase();
+  if (config.retryMethods.some((m) => m.toUpperCase() === method)) return true;
+  return new Headers(init.headers).has("idempotency-key");
+}
 
 function mergeRetryConfig(
   clientLevel?: RetryConfig | false,
@@ -258,7 +287,7 @@ export class ApiClient {
     // Retry logic
     const retryConfig = mergeRetryConfig(this.retryConfig, options?.retry);
 
-    if (retryConfig === false) {
+    if (retryConfig === false || !isRetryableRequest(req.init, retryConfig)) {
       return this.executeFetch<T>(req, options?.parseAs);
     }
 
@@ -273,6 +302,10 @@ export class ApiClient {
           return response;
         }
         const retryAfter = parseRetryAfter(response.headers);
+        if (retryAfter !== undefined && retryAfter > retryConfig.maxRetryAfterMs) {
+          // The server asked for a longer wait than we are willing to block for.
+          return response;
+        }
         const backoff = retryAfter ?? calculateBackoff(attempt, retryConfig);
         await sleep(backoff, options?.signal);
       } catch (error) {
@@ -280,7 +313,10 @@ export class ApiClient {
         if (!retryConfig.retryOnNetworkError || attempt === retryConfig.maxRetries) {
           throw error;
         }
-        // Don't retry abort errors
+        // Don't retry aborts or timeouts: the signal stays aborted.
+        if (req.init.signal?.aborted) {
+          throw error;
+        }
         if (error instanceof DOMException && error.name === "AbortError") {
           throw error;
         }

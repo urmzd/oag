@@ -391,3 +391,27 @@ fn regex_lite_constructor_param_property(source: &str) -> Option<String> {
     }
     None
 }
+
+#[test]
+fn retries_default_to_idempotent_methods_and_never_to_streams() {
+    // #33: POST was retried by default, and SSE requests retried implicitly.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(r#"retryMethods: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE"],"#),
+        "got:\n{client}"
+    );
+    assert!(
+        client.contains(r#"return new Headers(init.headers).has("idempotency-key");"#),
+        "an Idempotency-Key opts a request in, got:\n{client}"
+    );
+    assert!(
+        client.contains("retryAfter > retryConfig.maxRetryAfterMs"),
+        "got:\n{client}"
+    );
+    let sse = file_ending_with(&files, "sse.ts");
+    assert!(
+        sse.contains("options?.retry === undefined || options.retry === false"),
+        "SSE must not retry without an explicit `retry`, got:\n{sse}"
+    );
+}

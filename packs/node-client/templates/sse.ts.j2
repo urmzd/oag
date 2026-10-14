@@ -41,7 +41,11 @@ export interface SSEOptions {
   headers?: Record<string, string>;
   onOpen?: (response: Response) => void;
   onError?: (error: SSEError) => void;
-  /** Retry configuration for the SSE connection attempt. */
+  /**
+   * Retry configuration for the SSE connection attempt. Off by default: a
+   * stream request is never retried implicitly (it is often a non-idempotent
+   * POST). Pass a `RetryConfig` to opt in; it applies to the method as given.
+   */
   retry?: RetryConfig | false;
   /** Initial last-event-id for resuming a stream. */
   lastEventId?: string;
@@ -58,6 +62,8 @@ const DEFAULT_SSE_RETRY_CONFIG: Required<RetryConfig> = {
   backoffMultiplier: 2,
   retryableStatusCodes: [408, 429, 500, 502, 503, 504],
   retryOnNetworkError: true,
+  retryMethods: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE", "POST", "PATCH"],
+  maxRetryAfterMs: 60000,
 };
 
 function calculateBackoff(attempt: number, config: Required<RetryConfig>): number {
@@ -104,9 +110,10 @@ export async function* streamSse<T>(
   requestInterceptor?: RequestInterceptor,
   fetchFn: typeof globalThis.fetch = globalThis.fetch.bind(globalThis),
 ): AsyncGenerator<SSEEvent<T>, void, undefined> {
-  const retryConfig = options?.retry === false
+  // Never retry a stream implicitly: only an explicit `retry` opts in.
+  const retryConfig = options?.retry === undefined || options.retry === false
     ? false
-    : { ...DEFAULT_SSE_RETRY_CONFIG, ...(options?.retry ?? {}) };
+    : { ...DEFAULT_SSE_RETRY_CONFIG, ...options.retry };
 
   const maxAttempts = retryConfig === false ? 1 : retryConfig.maxRetries + 1;
   let lastEventId: string | undefined = options?.lastEventId;
@@ -158,12 +165,13 @@ export async function* streamSse<T>(
     }
 
     if (!response.ok) {
+      const retryAfter = parseRetryAfter(response.headers);
       if (
         retryConfig !== false &&
         retryConfig.retryableStatusCodes.includes(response.status) &&
-        attempt < maxAttempts - 1
+        attempt < maxAttempts - 1 &&
+        (retryAfter === undefined || retryAfter <= retryConfig.maxRetryAfterMs)
       ) {
-        const retryAfter = parseRetryAfter(response.headers);
         const backoff = retryAfter ?? serverRetryMs ?? calculateBackoff(attempt, retryConfig);
         await sleep(backoff, options?.signal);
         continue;
