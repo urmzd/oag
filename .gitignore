@@ -19,3 +19,4 @@ package-lock.json
 
 # Locally-installed packs (examples install the working-tree packs on demand)
 .oag/
+.worktrees/
