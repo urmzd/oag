@@ -488,7 +488,9 @@ fn sse_item_schema_events_render_as_a_union_keyed_by_event_name() {
     let py = render_spec("fastapi-server", EVENT_STREAM);
     let models = file_ending_with(&py, "models.py");
     assert!(
-        models.contains(r#"StreamInboxStreamEvent = "SSEEvent[InboxItem] | SSEEvent[str]""#),
+        models.contains(
+            r#"StreamInboxStreamEvent: TypeAlias = "SSEEvent[InboxItem] | SSEEvent[str]""#
+        ),
         "got:\n{models}"
     );
 }
@@ -559,5 +561,61 @@ components:
         types.contains("| SSEUnmatchedEvent;")
             && types.contains(r#"import type { SSEUnmatchedEvent } from "./sse.js";"#),
         "got:\n{types}"
+    );
+}
+
+#[test]
+fn query_and_header_params_with_the_same_name_stay_distinct() {
+    let spec = r#"
+openapi: "3.2.0"
+info: { title: T, version: "1" }
+paths:
+  /x:
+    get:
+      operationId: getX
+      parameters:
+        - { name: version, in: query, schema: { type: string } }
+        - { name: version, in: header, schema: { type: string } }
+      responses:
+        "204": { description: ok }
+"#;
+    let files = render_spec("node-client", spec);
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("version?: string;") && types.contains("versionHeader?: string;"),
+        "got:\n{types}"
+    );
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(r#""version": params?.versionHeader"#),
+        "got:\n{client}"
+    );
+}
+
+#[test]
+fn implicit_discriminator_mapping_gets_guards() {
+    // Without `mapping`, each variant's discriminator value is its `const`
+    // (or the schema name, per OpenAPI's implicit mapping).
+    let spec = r##"
+openapi: "3.2.0"
+info: { title: T, version: "1" }
+paths: {}
+components:
+  schemas:
+    Cat: { type: object, required: [kind], properties: { kind: { const: cat } } }
+    Dog: { type: object, required: [kind], properties: { kind: { type: string } } }
+    Pet:
+      oneOf: [ { $ref: "#/components/schemas/Cat" }, { $ref: "#/components/schemas/Dog" } ]
+      discriminator: { propertyName: kind }
+"##;
+    let files = render_spec("node-client", spec);
+    let guards = file_ending_with(&files, "guards.ts");
+    assert!(
+        guards.contains(r#"(value as Cat).kind === "cat""#),
+        "got:\n{guards}"
+    );
+    assert!(
+        guards.contains(r#"(value as Dog).kind === "Dog""#),
+        "got:\n{guards}"
     );
 }

@@ -6,9 +6,18 @@ import base64
 import json
 {% endif %}
 from enum import Enum
+{% if uses_sse_event_union %}
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+{% else %}
 from typing import Any, Literal
+{% endif %}
 
 from pydantic import BaseModel, Field
+{% if uses_sse_event_union %}
+
+if TYPE_CHECKING:
+    from sse import SSEEvent
+{% endif %}
 {% for schema in schemas %}
 
 {% if schema.kind == "object" %}
@@ -77,7 +86,7 @@ class {{ schema.name }}({% if schema.is_integer %}int{% else %}str{% endif %}, E
 {% if event_type.is_event_union %}
 # Events of an SSE stream (OpenAPI 3.2 itemSchema), keyed by the `event` name.
 # Emit them with `sse.SSEEvent(event=..., data=...)`.
-{{ event_type.name }} = "{% for d in event_type.data_variants %}SSEEvent[{{ d }}]{% if not loop.last %} | {% endif %}{% endfor %}"
+{{ event_type.name }}: TypeAlias = "{% for d in event_type.data_variants %}SSEEvent[{{ d }}]{% if not loop.last %} | {% endif %}{% endfor %}"
 {% else %}
 # SSE event union type for streaming responses.
 {{ event_type.name }} = "{{ event_type.variants | join(" | ") }}"

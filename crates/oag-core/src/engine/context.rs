@@ -532,7 +532,48 @@ fn build_guard_contexts(ir: &IrSpec) -> Value {
         {
             let union_name = u.name.pascal_case.clone();
 
-            for (disc_value, schema_name) in &disc.mapping {
+            // Without an explicit `mapping`, OpenAPI maps each variant by its
+            // schema name; a variant whose discriminator property is a
+            // `const` (or single-value enum) is matched by that value.
+            let implicit: Vec<(String, String)>;
+            let mapping = if disc.mapping.is_empty() {
+                implicit = u
+                    .variants
+                    .iter()
+                    .filter_map(|v| match v {
+                        IrType::Ref(name) => Some(name.clone()),
+                        _ => None,
+                    })
+                    .filter_map(|name| {
+                        let field_type = match ir.find_schema(&name) {
+                            Some(IrSchema::Object(o)) => o
+                                .fields
+                                .iter()
+                                .find(|f| f.original_name == disc.property_name)
+                                .map(|f| ir.resolve_type(&f.field_type).into_owned()),
+                            _ => None,
+                        };
+                        let value = match field_type {
+                            Some(IrType::StringLiteral(v)) => v,
+                            Some(IrType::IntegerLiteral(i)) => i.to_string(),
+                            // A closed set of values that excludes the schema
+                            // name cannot be matched by it: no guard.
+                            Some(IrType::Union(vs))
+                                if !vs.contains(&IrType::StringLiteral(name.clone())) =>
+                            {
+                                return None;
+                            }
+                            _ => name.clone(),
+                        };
+                        Some((value, name))
+                    })
+                    .collect();
+                &implicit
+            } else {
+                &disc.mapping
+            };
+
+            for (disc_value, schema_name) in mapping {
                 if !u
                     .variants
                     .iter()
@@ -789,6 +830,31 @@ fn param_ident(param: &crate::ir::IrParameter, field_casing: &str) -> String {
     }
 }
 
+/// Field name of a query or header parameter in the params object. A header
+/// whose name collides with a query parameter's gets a `Header` suffix
+/// (`id` and `idHeader`), so both stay addressable.
+fn grouped_param_ident(
+    op: &IrOperation,
+    param: &crate::ir::IrParameter,
+    field_casing: &str,
+) -> String {
+    let ident = param_ident(param, field_casing);
+    let collides = param.location == IrParameterLocation::Header
+        && op.parameters.iter().any(|q| {
+            q.location == IrParameterLocation::Query && param_ident(q, field_casing) == ident
+        });
+    if collides {
+        let suffix = if field_casing == "snake" {
+            "_header"
+        } else {
+            "Header"
+        };
+        format!("{ident}{suffix}")
+    } else {
+        ident
+    }
+}
+
 /// Name of an operation's params object type. Falls back to
 /// `<Operation>RequestParams` when a schema already uses `<Operation>Params`.
 fn params_type_name(ir: &IrSpec, op: &IrOperation) -> String {
@@ -843,7 +909,7 @@ fn build_op_args(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig, field_casing
             .iter()
             .map(|p| {
                 context! {
-                    name => param_ident(p, field_casing),
+                    name => grouped_param_ident(op, p, field_casing),
                     original_name => p.original_name.clone(),
                     type_str => map_type(&p.param_type, tm),
                     required => p.required,
@@ -865,7 +931,7 @@ fn build_op_args(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig, field_casing
             .map(|p| {
                 format!(
                     "{}: {}",
-                    param_ident(p, field_casing),
+                    grouped_param_ident(op, p, field_casing),
                     mock_value_ts(&ir.resolve_type(&p.param_type))
                 )
             })
@@ -942,6 +1008,7 @@ fn build_params(
                 });
             }
             IrParameterLocation::Header => {
+                let ident = grouped_param_ident(op, param, field_casing);
                 header_parts.push(format!(
                     "\"{}\": {}",
                     param.original_name,
@@ -1581,11 +1648,8 @@ fn collect_model_imports(ir: &IrSpec) -> Vec<String> {
                 collect_refs_from_ir_type(&resp.response_type, &mut imports);
             }
             IrReturnType::Sse(sse) => {
-                if let Some(ref name) = sse.event_type_name {
-                    imports.insert(name.clone());
-                } else {
-                    collect_refs_from_ir_type(&sse.event_type, &mut imports);
-                }
+                // SSE stubs return `StreamingResponse`; the event types are
+                // not referenced by the routes, so they are not imported.
                 if let Some(ref json) = sse.json_response {
                     collect_refs_from_ir_type(&json.response_type, &mut imports);
                 }
