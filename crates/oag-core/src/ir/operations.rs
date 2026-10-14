@@ -68,6 +68,26 @@ pub struct IrSseReturn {
     pub also_has_json: bool,
     /// The JSON response type if this is a dual endpoint.
     pub json_response: Option<IrResponse>,
+    /// OpenAPI 3.2: when `itemSchema` describes the whole SSE event (an object
+    /// with `data` and optionally `event`, `id`, `retry`), one entry per event
+    /// variant, keyed by the SSE `event` name. Empty when `itemSchema` (or the
+    /// legacy `schema`) describes only the `data` payload.
+    pub events: Vec<IrSseEvent>,
+}
+
+/// One variant of an SSE stream whose `itemSchema` describes the whole event.
+#[derive(Debug, Clone)]
+pub struct IrSseEvent {
+    /// The `event:` names this variant matches. `["message"]` for events sent
+    /// without an `event:` line; empty when any name matches (the `event`
+    /// property is a plain string).
+    pub names: Vec<String>,
+    /// The decoded type of the `data` field.
+    pub data_type: IrType,
+    /// How `data` is decoded: `text` (the raw string), `json`, `base64-json` or
+    /// `base64url-json` (see `IrContent::codec`).
+    pub data_codec: String,
+    pub description: Option<String>,
 }
 
 /// A resolved response.

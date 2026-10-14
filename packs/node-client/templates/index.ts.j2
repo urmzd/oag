@@ -4,6 +4,7 @@ export * from "./guards.js";
 export * from "./codecs.js";
 export { ApiError, type ApiResponse, type ClientConfig, type RequestOptions, type RetryConfig, ApiClient } from "./client.js";
 export {
+  type SSEDataCodec,
   type SSEEndReason,
   type SSEEvent,
   type SSEMessage,
@@ -12,5 +13,6 @@ export {
   SSEError,
   SSEStreamClosedError,
   streamSse,
+  streamSseEvents,
   streamSseMessages,
 } from "./sse.js";

@@ -1,18 +1,34 @@
-use crate::ir::{IrResponse, IrResponseFormat, IrReturnType, IrSseReturn, IrType};
+use crate::ir::{
+    IrContent, IrResponse, IrResponseFormat, IrReturnType, IrSseEvent, IrSseReturn, IrType,
+};
 use crate::parse::media_type::MediaType;
 use crate::parse::response::ResponseOrRef;
-use crate::parse::schema::SchemaOrRef;
+use crate::parse::schema::{Schema, SchemaOrRef, SchemaType, TypeSet};
 
 use super::name_normalizer::normalize_name;
-use super::schema_resolver::schema_or_ref_to_ir_type;
+use super::schema_resolver::{schema_content, schema_or_ref_to_ir_type};
 
 use indexmap::IndexMap;
+
+/// Component schemas, used to look through `$ref`s when inspecting an
+/// `itemSchema`.
+pub type ComponentSchemas = IndexMap<String, SchemaOrRef>;
 
 /// Detect whether an operation's responses include SSE streaming.
 /// Returns the appropriate `IrReturnType`.
 pub fn detect_return_type(
     operation_id: &str,
     responses: &IndexMap<String, ResponseOrRef>,
+) -> IrReturnType {
+    detect_return_type_with_schemas(operation_id, responses, &ComponentSchemas::new())
+}
+
+/// Like [`detect_return_type`], resolving `$ref`s in an SSE `itemSchema`
+/// against the given component schemas.
+pub fn detect_return_type_with_schemas(
+    operation_id: &str,
+    responses: &IndexMap<String, ResponseOrRef>,
+    schemas: &ComponentSchemas,
 ) -> IrReturnType {
     let success_response = find_success_response(responses);
     let Some((status_code, response)) = success_response else {
@@ -34,7 +50,7 @@ pub fn detect_return_type(
     match (sse, json) {
         (Some(sse_mt), json_mt) => {
             // SSE endpoint (possibly dual)
-            let sse_return = build_sse_return(operation_id, sse_mt, json_mt, status_code);
+            let sse_return = build_sse_return(operation_id, sse_mt, json_mt, status_code, schemas);
             IrReturnType::Sse(sse_return)
         }
         (None, Some(json_mt)) => {
@@ -84,19 +100,8 @@ fn build_sse_return(
     sse_mt: &MediaType,
     json_mt: Option<&MediaType>,
     status_code: u16,
+    schemas: &ComponentSchemas,
 ) -> IrSseReturn {
-    // Extract event type from itemSchema (OpenAPI 3.2)
-    let (event_type, variants, event_type_name) = match &sse_mt.item_schema {
-        Some(item_schema) => extract_event_info(operation_id, item_schema),
-        None => {
-            // Fallback: try the schema field
-            match &sse_mt.schema {
-                Some(s) => (schema_or_ref_to_ir_type(s), vec![], None),
-                None => (IrType::Any, vec![], None),
-            }
-        }
-    };
-
     let json_response = json_mt.map(|mt| {
         let response_type = match &mt.schema {
             Some(s) => schema_or_ref_to_ir_type(s),
@@ -110,13 +115,175 @@ fn build_sse_return(
         }
     });
 
+    // OpenAPI 3.2: `itemSchema` describes the whole SSE event (`event`,
+    // `data`, `id`, `retry`). Streams whose item schema has that shape are
+    // typed as a union keyed by the event name.
+    if let Some(events) = sse_mt
+        .item_schema
+        .as_ref()
+        .and_then(|item| extract_sse_events(item, schemas))
+    {
+        return IrSseReturn {
+            // The stream yields the event union (named below), never a bare
+            // payload; per-event data types live in `events`.
+            event_type: IrType::Any,
+            variants: vec![],
+            event_type_name: Some(event_union_name(operation_id, schemas)),
+            also_has_json: json_response.is_some(),
+            json_response,
+            events,
+        };
+    }
+
+    // Otherwise `itemSchema` (or the legacy `schema`) is the `data` payload.
+    let (event_type, variants, event_type_name) = match &sse_mt.item_schema {
+        Some(item_schema) => extract_event_info(operation_id, item_schema),
+        None => {
+            // Fallback: try the schema field
+            match &sse_mt.schema {
+                Some(s) => (schema_or_ref_to_ir_type(s), vec![], None),
+                None => (IrType::Any, vec![], None),
+            }
+        }
+    };
+
     IrSseReturn {
         event_type,
         variants,
         event_type_name,
         also_has_json: json_response.is_some(),
         json_response,
+        events: vec![],
     }
+}
+
+/// Name of the generated event union, avoiding a clash with a component schema.
+fn event_union_name(operation_id: &str, schemas: &ComponentSchemas) -> String {
+    let pascal = normalize_name(operation_id).pascal_case;
+    let taken = |n: &str| schemas.keys().any(|k| normalize_name(k).pascal_case == n);
+    let name = format!("{pascal}StreamEvent");
+    if taken(&name) {
+        format!("{pascal}StreamEventUnion")
+    } else {
+        name
+    }
+}
+
+/// The SSE event fields defined by the HTML standard. An item schema whose
+/// properties include `data` and are all among these describes the whole
+/// event rather than its payload.
+const SSE_EVENT_FIELDS: [&str; 4] = ["event", "data", "id", "retry"];
+
+/// Follow `$ref`s to the referenced component schema.
+fn resolve_schema<'a>(
+    mut schema: &'a SchemaOrRef,
+    schemas: &'a ComponentSchemas,
+) -> Option<&'a Schema> {
+    for _ in 0..16 {
+        match schema {
+            SchemaOrRef::Schema(s) => return Some(s),
+            SchemaOrRef::Ref { ref_path } => {
+                let name = ref_path.strip_prefix("#/components/schemas/")?;
+                schema = schemas.get(name)?;
+            }
+        }
+    }
+    None
+}
+
+fn is_sse_event_shape(schema: &Schema) -> bool {
+    schema.properties.contains_key("data")
+        && schema
+            .properties
+            .keys()
+            .all(|k| SSE_EVENT_FIELDS.contains(&k.as_str()))
+}
+
+/// Read an `itemSchema` as whole SSE events. Returns `None` unless the item
+/// schema (or every `oneOf` / `anyOf` variant of it) has the event shape, so
+/// specs that use `itemSchema` for the `data` payload keep their meaning.
+fn extract_sse_events(item: &SchemaOrRef, schemas: &ComponentSchemas) -> Option<Vec<IrSseEvent>> {
+    let schema = resolve_schema(item, schemas)?;
+    let variants: Vec<&SchemaOrRef> = if !schema.one_of.is_empty() {
+        schema.one_of.iter().collect()
+    } else if !schema.any_of.is_empty() {
+        schema.any_of.iter().collect()
+    } else {
+        vec![item]
+    };
+    variants
+        .into_iter()
+        .map(|v| {
+            let s = resolve_schema(v, schemas)?;
+            is_sse_event_shape(s).then(|| sse_event_from_schema(s, schemas))
+        })
+        .collect()
+}
+
+fn sse_event_from_schema(schema: &Schema, schemas: &ComponentSchemas) -> IrSseEvent {
+    let names = match schema
+        .properties
+        .get("event")
+        .and_then(|e| resolve_schema(e, schemas))
+    {
+        // No `event` property: the variant is sent without an `event:` line,
+        // which the SSE standard dispatches as `message`.
+        None if !schema.properties.contains_key("event") => vec!["message".to_string()],
+        None => vec![],
+        Some(e) => {
+            if let Some(v) = e.const_value.as_ref().and_then(|v| v.as_str()) {
+                vec![v.to_string()]
+            } else {
+                e.enum_values
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            }
+        }
+    };
+
+    let data = schema.properties.get("data").expect("event shape has data");
+    let (data_type, data_codec) = sse_data_type(data, schemas);
+
+    IrSseEvent {
+        names,
+        data_type,
+        data_codec,
+        description: schema.description.clone(),
+    }
+}
+
+/// The decoded type of an SSE `data` field and the codec that produces it.
+fn sse_data_type(data: &SchemaOrRef, schemas: &ComponentSchemas) -> (IrType, String) {
+    let SchemaOrRef::Schema(inline) = data else {
+        // `data: { $ref: Payload }`: a JSON document of that schema. A ref to a
+        // plain string schema is still raw text.
+        let is_string = resolve_schema(data, schemas).is_some_and(is_plain_string);
+        let codec = if is_string { "text" } else { "json" };
+        return (schema_or_ref_to_ir_type(data), codec.to_string());
+    };
+    if let Some(content) = schema_content(inline) {
+        return (content.schema.clone(), content.codec().to_string());
+    }
+    let json_media = inline
+        .content_media_type
+        .as_deref()
+        .is_some_and(|mt| IrContent::from_keywords(None, Some(mt), Some(IrType::Any)).is_some());
+    if json_media {
+        return (IrType::Any, "json".to_string());
+    }
+    if is_plain_string(inline) {
+        return (IrType::String, "text".to_string());
+    }
+    (schema_or_ref_to_ir_type(data), "json".to_string())
+}
+
+fn is_plain_string(schema: &Schema) -> bool {
+    matches!(
+        schema.schema_type,
+        Some(TypeSet::Single(SchemaType::String))
+    ) && schema.enum_values.is_empty()
+        && schema.const_value.is_none()
 }
 
 fn extract_event_info(

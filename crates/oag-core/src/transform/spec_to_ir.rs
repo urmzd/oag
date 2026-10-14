@@ -14,7 +14,7 @@ use crate::parse::spec::OpenApiSpec;
 use super::name_normalizer::{normalize_name, route_to_name};
 use super::promote_inline::promote_inline_objects;
 use super::schema_resolver::{schema_or_ref_to_ir_schema, schema_or_ref_to_ir_type};
-use super::sse_detector::detect_return_type;
+use super::sse_detector::{ComponentSchemas, detect_return_type_with_schemas};
 
 /// Options controlling how the transform phase resolves operation names.
 #[derive(Debug, Clone, Default)]
@@ -92,10 +92,19 @@ fn resolve_operations(
     options: &TransformOptions,
 ) -> Result<Vec<IrOperation>, TransformError> {
     let mut operations = Vec::new();
+    let empty = ComponentSchemas::new();
+    let schemas = spec.components.as_ref().map_or(&empty, |c| &c.schemas);
 
     for (path, path_item) in &spec.paths {
         let path_params = resolve_parameters(&path_item.parameters);
-        collect_operations(path, path_item, &path_params, options, &mut operations)?;
+        collect_operations(
+            path,
+            path_item,
+            &path_params,
+            options,
+            schemas,
+            &mut operations,
+        )?;
     }
 
     Ok(operations)
@@ -106,12 +115,13 @@ fn collect_operations(
     item: &PathItem,
     path_params: &[IrParameter],
     options: &TransformOptions,
+    schemas: &ComponentSchemas,
     out: &mut Vec<IrOperation>,
 ) -> Result<(), TransformError> {
     macro_rules! add_op {
         ($method:expr, $op:expr) => {
             if let Some(ref op) = $op {
-                let ir_op = build_operation($method, path, op, path_params, options)?;
+                let ir_op = build_operation($method, path, op, path_params, options, schemas)?;
                 out.push(ir_op);
             }
         };
@@ -135,6 +145,7 @@ fn build_operation(
     op: &Operation,
     path_params: &[IrParameter],
     options: &TransformOptions,
+    schemas: &ComponentSchemas,
 ) -> Result<IrOperation, TransformError> {
     // Derive the raw operation name based on naming strategy
     let raw_name = match options.naming_strategy {
@@ -159,7 +170,7 @@ fn build_operation(
 
     let request_body = op.request_body.as_ref().and_then(resolve_request_body);
 
-    let return_type = detect_return_type(&name, &op.responses);
+    let return_type = detect_return_type_with_schemas(&name, &op.responses, schemas);
 
     Ok(IrOperation {
         name: normalize_name(&name),

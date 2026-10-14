@@ -2,8 +2,23 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client.js";
 import { ApiClient, ApiError } from "./client.js";
+import {
+{% for c in content_codecs %}
+  decode{{ c.helper_pascal }},
+  encode{{ c.helper_pascal }},
+{% endfor %}
+  decodeContent,
+  encodeContent,
+} from "./codecs.js";
 {% if has_sse %}
-import { type SSEStreamEnd, SSEStreamClosedError, streamSse } from "./sse.js";
+import {
+  type SSEStreamEnd,
+  SSEStreamClosedError,
+  streamSse,
+{% if uses_sse_event_union %}
+  streamSseEvents,
+{% endif %}
+} from "./sse.js";
 {% endif %}
 {% if test_type_imports %}
 import type { {{ test_type_imports | join(", ") }} } from "./types.js";
@@ -246,6 +261,26 @@ describe("ApiClient", () => {
 {% endfor %}
   });
 });
+
+describe("content codecs", () => {
+  it("round-trips JSON through every codec", () => {
+    const value = { title: "héllo ✓", n: 1 };
+    for (const codec of ["json", "base64-json", "base64url-json"] as const) {
+      expect(decodeContent(encodeContent(value, codec), codec)).toEqual(value);
+    }
+  });
+
+  it("decodes standard base64 JSON", () => {
+    expect(decodeContent<{ a: number }>("eyJhIjoxfQ==", "base64-json")).toEqual({ a: 1 });
+  });
+{% for c in content_codecs %}
+
+  it("decode{{ c.helper_pascal }} inverts encode{{ c.helper_pascal }}", () => {
+    const value = {} as Parameters<typeof encode{{ c.helper_pascal }}>[0];
+    expect(decode{{ c.helper_pascal }}(encode{{ c.helper_pascal }}(value))).toEqual(value);
+  });
+{% endfor %}
+});
 {% if has_sse %}
 
 describe("SSE runtime", () => {
@@ -340,6 +375,37 @@ describe("SSE runtime", () => {
     expect((resumed.headers as Record<string, string>)["Last-Event-ID"]).toBe("1");
   });
 
+{% if uses_sse_event_union %}
+  it("types events by name and decodes each event's data", async () => {
+    const { fetchFn } = sseFetch([
+      {
+        chunks: [
+          'event: job\ndata: {"id":"a"}\n\n',
+          "event: note\ndata: plain text\n\n",
+          "event: unknown\ndata: ignored\n\n",
+          "data: eyJpZCI6ImIifQ==\n\n",
+        ],
+      },
+    ]);
+    type Event =
+      | { event: "job"; data: { id: string } }
+      | { event: "note"; data: string }
+      | { event: "message"; data: { id: string } };
+    const { items } = await drain(
+      streamSseEvents<Event>("https://api.test.com/s", { method: "GET" }, {}, undefined, fetchFn, {
+        job: "json",
+        note: "text",
+        message: "base64-json",
+      }),
+    );
+    expect(items).toEqual([
+      { event: "job", data: { id: "a" }, id: undefined, retry: undefined },
+      { event: "note", data: "plain text", id: undefined, retry: undefined },
+      { event: "message", data: { id: "b" }, id: undefined, retry: undefined },
+    ]);
+  });
+
+{% endif %}
   it("is not retried implicitly", async () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response("{}", { status: 503 }));
     const gen = streamSse("https://api.test.com/s", { method: "POST" }, {}, undefined, fetchFn);

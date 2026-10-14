@@ -72,6 +72,17 @@ class {{ schema.name }}({% if schema.is_integer %}int{% else %}str{% endif %}, E
 
 {% endif %}
 {% endfor %}
+{% for event_type in sse_event_types %}
+
+{% if event_type.is_event_union %}
+# Events of an SSE stream (OpenAPI 3.2 itemSchema), keyed by the `event` name.
+# Emit them with `sse.SSEEvent(event=..., data=...)`.
+{{ event_type.name }} = "{% for d in event_type.data_variants %}SSEEvent[{{ d }}]{% if not loop.last %} | {% endif %}{% endfor %}"
+{% else %}
+# SSE event union type for streaming responses.
+{{ event_type.name }} = "{{ event_type.variants | join(" | ") }}"
+{% endif %}
+{% endfor %}
 {% for c in content_codecs %}
 
 

@@ -65,6 +65,17 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
                 for variant in &mut sse.variants {
                     promote_type(&ctx, variant, &mut new_schemas, &mut used_names);
                 }
+                for event in &mut sse.events {
+                    let name = event.names.first().map(String::as_str).unwrap_or("any");
+                    let event_ctx =
+                        format!("{}{}Data", op_pascal, normalize_name(name).pascal_case);
+                    promote_type(
+                        &event_ctx,
+                        &mut event.data_type,
+                        &mut new_schemas,
+                        &mut used_names,
+                    );
+                }
                 if let Some(ref mut json_resp) = sse.json_response {
                     let json_ctx = format!("{}Response", op_pascal);
                     promote_type(

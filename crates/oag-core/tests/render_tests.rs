@@ -443,3 +443,52 @@ fn sse_reader_releases_the_connection_and_reports_how_it_ended() {
     let index = file_ending_with(&files, "index.ts");
     assert!(index.contains("SSEStreamClosedError"), "got:\n{index}");
 }
+
+#[test]
+fn sse_item_schema_events_render_as_a_union_keyed_by_event_name() {
+    // #32: named events are a discriminated union, decoded per event.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains(
+            r#"export type StreamInboxStreamEvent = { event: "inbox"; data: InboxItem; id?: string; retry?: number } | { event: "heartbeat"; data: string; id?: string; retry?: number };"#
+        ),
+        "got:\n{types}"
+    );
+    let client = file_ending_with(&files, "client.ts");
+    let method = ts_method(&client, "async *streamInbox(");
+    assert!(
+        method.contains("AsyncGenerator<StreamInboxStreamEvent, SSEStreamEnd, undefined>"),
+        "got:\n{method}"
+    );
+    assert!(
+        method.contains(r#"{ "inbox": "json", "heartbeat": "text" }"#),
+        "got:\n{method}"
+    );
+    assert!(
+        method.contains("streamSseEvents<StreamInboxStreamEvent>"),
+        "got:\n{method}"
+    );
+
+    // A payload item schema keeps `SSEEvent<T>`.
+    let chat = render_spec("node-client", include_str!("fixtures/sse-chat.yaml"));
+    let chat_client = file_ending_with(&chat, "client.ts");
+    assert!(
+        chat_client.contains("AsyncGenerator<SSEEvent<CreateChatCompletionStreamEvent>"),
+        "got:\n{chat_client}"
+    );
+
+    let react = render_spec("react-swr-client", EVENT_STREAM);
+    let hooks = file_ending_with(&react, "hooks.tsx");
+    assert!(
+        hooks.contains("useState<StreamInboxStreamEvent[]>"),
+        "got:\n{hooks}"
+    );
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let models = file_ending_with(&py, "models.py");
+    assert!(
+        models.contains(r#"StreamInboxStreamEvent = "SSEEvent[InboxItem] | SSEEvent[str]""#),
+        "got:\n{models}"
+    );
+}

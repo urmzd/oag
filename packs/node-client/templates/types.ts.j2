@@ -51,7 +51,11 @@ export type {{ schema.name }} = {{ schema.variants | join(" | ") }};
 {% endif %}
 {% endfor %}
 {% for event_type in sse_event_types %}
+{% if event_type.is_event_union %}
+/** Events of an SSE stream (OpenAPI 3.2 `itemSchema`), discriminated by `event`. */
+{% else %}
 /** SSE event union type for streaming responses. */
+{% endif %}
 export type {{ event_type.name }} = {{ event_type.variants | join(" | ") }};
 
 {% endfor %}

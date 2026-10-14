@@ -973,3 +973,46 @@ fn content_encoding_and_schema_are_carried_on_the_field() {
     assert!(IrContent::from_keywords(Some("quoted-printable"), None, Some(IrType::Any)).is_none());
     assert!(IrContent::from_keywords(Some("base64"), None, None).is_none());
 }
+
+#[test]
+fn item_schema_describing_whole_events_is_read_as_events() {
+    // #32: OAS 3.2 `itemSchema` is the whole SSE event; `data` carries the
+    // payload (here JSON via contentMediaType/contentSchema, or plain text).
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "streamInbox")
+        .unwrap();
+    let IrReturnType::Sse(sse) = &op.return_type else {
+        panic!("expected SSE");
+    };
+    assert_eq!(
+        sse.event_type_name.as_deref(),
+        Some("StreamInboxStreamEvent")
+    );
+    assert_eq!(sse.events.len(), 2);
+    assert_eq!(sse.events[0].names, vec!["inbox".to_string()]);
+    assert_eq!(sse.events[0].data_type, IrType::Ref("InboxItem".into()));
+    assert_eq!(sse.events[0].data_codec, "json");
+    assert_eq!(sse.events[1].names, vec!["heartbeat".to_string()]);
+    assert_eq!(sse.events[1].data_type, IrType::String);
+    assert_eq!(sse.events[1].data_codec, "text");
+}
+
+#[test]
+fn item_schema_describing_the_payload_keeps_its_meaning() {
+    // Specs that use `itemSchema` for the `data` payload are unchanged.
+    let spec = parse::from_yaml(SSE_CHAT).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    for op in &ir.operations {
+        if let IrReturnType::Sse(sse) = &op.return_type {
+            assert!(
+                sse.events.is_empty(),
+                "{} should keep payload semantics",
+                op.name.camel_case
+            );
+        }
+    }
+}

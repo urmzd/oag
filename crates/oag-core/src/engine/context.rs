@@ -4,7 +4,7 @@ use minijinja::{Value, context};
 
 use crate::ir::{
     HttpMethod, IrEnumVariant, IrObjectSchema, IrOperation, IrParameterLocation, IrReturnType,
-    IrSchema, IrSpec, IrType,
+    IrSchema, IrSpec, IrSseEvent, IrType,
 };
 
 use super::pack::TypeMapConfig;
@@ -104,6 +104,23 @@ pub fn build_context(
             .ok()
             .is_some_and(|v| v.as_str() == Some("sse"))
     });
+    // Which SSE runtime entry points the client and hooks use: `streamSse`
+    // with `SSEEvent<T>` (payload item schemas), or `streamSseEvents` (item
+    // schemas describing whole events).
+    let sse_attr = |list: &[Value], kind: &str, union: bool| {
+        list.iter().any(|v| {
+            v.get_attr("kind")
+                .ok()
+                .is_some_and(|k| k.as_str() == Some(kind))
+                && v.get_attr("yield_type")
+                    .ok()
+                    .and_then(|y| y.as_str().map(|y| !y.starts_with("SSEEvent<")))
+                    == Some(union)
+        })
+    };
+    let uses_sse_payload = sse_attr(&operations, "sse", false);
+    let uses_sse_event_union = sse_attr(&operations, "sse", true);
+    let hooks_use_sse_payload = sse_attr(&hooks, "sse", false);
 
     // Test contexts
     let (test_operations, _test_op_indices) =
@@ -139,6 +156,9 @@ pub fn build_context(
         has_queries => has_queries,
         has_mutations => has_mutations,
         has_hook_sse => has_hook_sse,
+        uses_sse_payload => uses_sse_payload,
+        uses_sse_event_union => uses_sse_event_union,
+        hooks_use_sse_payload => hooks_use_sse_payload,
         // Test contexts
         test_operations => test_operations,
         test_type_imports => test_type_imports,
@@ -318,17 +338,76 @@ fn collect_sse_event_types(
             if seen.contains(event_name) || schema_names.contains(event_name) {
                 continue;
             }
+            if !sse.events.is_empty() {
+                // OAS 3.2 item schema describing the whole event: a union of
+                // `{ event, data, id?, retry? }` keyed by the event name.
+                seen.insert(event_name.clone());
+                event_types.push(context! {
+                    name => event_name.clone(),
+                    is_event_union => true,
+                    variants => sse.events.iter().map(|e| map_type(&sse_event_object(e), tm)).collect::<Vec<_>>(),
+                    data_variants => sse.events.iter().map(|e| map_type(&e.data_type, tm)).collect::<Vec<_>>(),
+                    events => sse.events.iter().map(|e| context! {
+                        names => e.names.clone(),
+                        data_type => map_type(&e.data_type, tm),
+                        codec => e.data_codec.clone(),
+                        description => e.description.clone(),
+                    }).collect::<Vec<_>>(),
+                });
+                continue;
+            }
             let variants: Vec<String> = sse.variants.iter().map(|v| map_type(v, tm)).collect();
             if !variants.is_empty() {
                 seen.insert(event_name.clone());
                 event_types.push(context! {
                     name => event_name.clone(),
+                    is_event_union => false,
                     variants => variants,
                 });
             }
         }
     }
     event_types
+}
+
+/// The yielded shape of one SSE event variant:
+/// `{ event: "name"; data: T; id?: string; retry?: number }`.
+fn sse_event_object(event: &IrSseEvent) -> IrType {
+    let name_type = match event.names.as_slice() {
+        [] => IrType::String,
+        [one] => IrType::StringLiteral(one.clone()),
+        many => IrType::Union(
+            many.iter()
+                .map(|n| IrType::StringLiteral(n.clone()))
+                .collect(),
+        ),
+    };
+    IrType::Object(vec![
+        ("event".to_string(), name_type, true),
+        ("data".to_string(), event.data_type.clone(), true),
+        ("id".to_string(), IrType::String, false),
+        ("retry".to_string(), IrType::Integer, false),
+    ])
+}
+
+/// The decoder table passed to the SSE runtime for a typed event stream:
+/// `{ "inbox": "json", "heartbeat": "text" }` (`"*"` matches any name).
+fn sse_event_codecs(events: &[IrSseEvent]) -> String {
+    let mut entries: Vec<String> = Vec::new();
+    for event in events {
+        let keys: Vec<String> = if event.names.is_empty() {
+            vec!["*".to_string()]
+        } else {
+            event.names.clone()
+        };
+        for key in keys {
+            let quoted = serde_json::to_string(&key).unwrap_or_else(|_| format!("\"{key}\""));
+            if !entries.iter().any(|e| e.starts_with(&format!("{quoted}:"))) {
+                entries.push(format!("{quoted}: \"{}\"", event.data_codec));
+            }
+        }
+    }
+    format!("{{ {} }}", entries.join(", "))
 }
 
 // ─── Params object types ─────────────────────────────────────────
@@ -1006,6 +1085,19 @@ fn build_single_operation_contexts(
             } else {
                 op.name.camel_case.clone()
             };
+            // What the stream yields: the typed event union when the item
+            // schema describes whole events, else `SSEEvent<payload>`.
+            let is_event_union = !sse.events.is_empty();
+            let yield_type = if is_event_union {
+                return_type.clone()
+            } else {
+                format!("SSEEvent<{return_type}>")
+            };
+            let event_codecs = if is_event_union {
+                Some(sse_event_codecs(&sse.events))
+            } else {
+                None
+            };
 
             // SSE params use SSEOptions instead of RequestOptions
             let sse_params_sig = op_args.signature("SSEOptions");
@@ -1020,6 +1112,9 @@ fn build_single_operation_contexts(
                 params_type => params_type.clone(),
                 return_type => return_type,
                 event_type => return_type,
+                yield_type => yield_type,
+                is_event_union => is_event_union,
+                event_codecs => event_codecs,
                 path_params => path_params,
                 query_params => query_params.clone(),
                 params => py_params.clone(),
@@ -1179,6 +1274,11 @@ fn build_single_hook_contexts(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig)
             } else {
                 format!("{event_type}[]")
             };
+            let yield_type = if sse.events.is_empty() {
+                format!("SSEEvent<{event_type}>")
+            } else {
+                event_type.clone()
+            };
             let method_name = if sse.also_has_json {
                 format!("{}Stream", op.name.camel_case)
             } else {
@@ -1199,6 +1299,7 @@ fn build_single_hook_contexts(ir: &IrSpec, op: &IrOperation, tm: &TypeMapConfig)
                 path_params_signature => path_params_sig,
                 event_type => event_type,
                 event_type_array => event_type_array,
+                yield_type => yield_type,
                 trigger_params => trigger_params,
                 stream_call_args => stream_call_args,
                 deps => deps,

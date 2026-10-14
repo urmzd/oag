@@ -5,7 +5,19 @@ import type {
 {% endfor %}
 } from "./types.js";
 {% if has_sse %}
-import { type SSEEvent, type SSEOptions, type SSEStreamEnd, streamSse } from "./sse.js";
+import {
+{% if uses_sse_payload %}
+  type SSEEvent,
+{% endif %}
+  type SSEOptions,
+  type SSEStreamEnd,
+{% if uses_sse_payload %}
+  streamSse,
+{% endif %}
+{% if uses_sse_event_union %}
+  streamSseEvents,
+{% endif %}
+} from "./sse.js";
 {% endif %}
 
 /** Structured response wrapper exposing status, headers, and parsed data. */
@@ -517,7 +529,7 @@ export class ApiClient {
     });
   }
 {% elif op.kind == "sse" %}
-  async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<SSEEvent<{{ op.return_type }}>, SSEStreamEnd, undefined> {
+  async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<{{ op.yield_type }}, SSEStreamEnd, undefined> {
 {% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
@@ -553,7 +565,7 @@ export class ApiClient {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
 {% endif %}
-    return yield* streamSse<{{ op.return_type }}>(url, {
+    return yield* {% if op.is_event_union %}streamSseEvents{% else %}streamSse{% endif %}<{{ op.return_type }}>(url, {
       method: "{{ op.http_method }}",
 {% if op.has_body %}
 {% if op.body_content_type == "application/json" %}
@@ -567,7 +579,7 @@ export class ApiClient {
 {% else %}
       headers: { ...this.headers, ...options?.headers },
 {% endif %}
-    }, options, this.requestInterceptor, this.fetchFn);
+    }, options, this.requestInterceptor, this.fetchFn{% if op.is_event_union %}, {{ op.event_codecs }}{% endif %});
   }
 {% elif op.kind == "void" %}
   async {{ op.method_name }}({{ op.params_signature }}): Promise<void> {
