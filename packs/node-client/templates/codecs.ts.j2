@@ -52,12 +52,12 @@ export function encodeContent<T>(value: T, codec: ContentCodec): string {
 }
 {% for c in content_codecs %}
 
-/** Decode `{{ c.schema_name }}.{{ c.field_name }}` ({% if c.encoding %}{{ c.encoding }}-encoded {% endif %}{{ c.media_type }}) into `{{ c.type_str }}`. */
+/** Decode {% if c.is_array %}one item of {% endif %}`{{ c.schema_name }}.{{ c.field_name }}` ({% if c.encoding %}{{ c.encoding }}-encoded {% endif %}{{ c.media_type }}) into `{{ c.type_str }}`. */
 export function decode{{ c.helper_pascal }}(value: string): {{ c.type_str }} {
   return decodeContent<{{ c.type_str }}>(value, "{{ c.codec }}");
 }
 
-/** Encode a `{{ c.type_str }}` as the wire value of `{{ c.schema_name }}.{{ c.field_name }}`. */
+/** Encode a `{{ c.type_str }}` as the wire value of {% if c.is_array %}one item of {% endif %}`{{ c.schema_name }}.{{ c.field_name }}`. */
 export function encode{{ c.helper_pascal }}(value: {{ c.type_str }}): string {
   return encodeContent(value, "{{ c.codec }}");
 }

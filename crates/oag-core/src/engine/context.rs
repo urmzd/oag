@@ -287,11 +287,12 @@ fn object_to_ctx(obj: &IrObjectSchema, tm: &TypeMapConfig, field_casing: &str) -
                 IrType::StringLiteral(_) | IrType::IntegerLiteral(_)
             );
             let default_value = f.default_repr.as_ref().and_then(literal_value);
-            let content = f.content.as_ref().map(|c| {
+            let content = f.content().map(|(c, is_array)| {
                 context! {
                     codec => c.codec(),
                     type_str => map_type(&c.schema, tm),
-                    helper => format!("{}{}", obj.name.pascal_case, f.name.pascal_case),
+                    helper => codec_helper_name(obj, f, is_array),
+                    is_array => is_array,
                     encoding => c.encoding.clone(),
                     media_type => c.media_type.clone(),
                 }
@@ -436,6 +437,13 @@ fn build_param_type_contexts(ir: &IrSpec, tm: &TypeMapConfig, field_casing: &str
 
 // ─── Content codec contexts ──────────────────────────────────────
 
+/// `<Schema><Field>`, or `<Schema><Field>Item` for an array of encoded strings
+/// (the helper decodes one item).
+fn codec_helper_name(obj: &IrObjectSchema, field: &crate::ir::IrField, is_array: bool) -> String {
+    let suffix = if is_array { "Item" } else { "" };
+    format!("{}{}{suffix}", obj.name.pascal_case, field.name.pascal_case)
+}
+
 /// Typed decode/encode helpers for string fields that carry encoded content
 /// (`contentEncoding` / `contentMediaType` / `contentSchema`), e.g. a
 /// base64-encoded JSON payload. Returns the helper contexts and the type names
@@ -448,7 +456,7 @@ fn build_content_codec_contexts(ir: &IrSpec, tm: &TypeMapConfig) -> (Vec<Value>,
             continue;
         };
         for field in &obj.fields {
-            let Some(content) = &field.content else {
+            let Some((content, is_array)) = field.content() else {
                 continue;
             };
             collect_refs_from_ir_type(&content.schema, &mut refs);
@@ -459,8 +467,9 @@ fn build_content_codec_contexts(ir: &IrSpec, tm: &TypeMapConfig) -> (Vec<Value>,
                 }),
                 Some(IrSchema::Object(_))
             );
-            let helper = format!("{}{}", obj.name.pascal_case, field.name.pascal_case);
+            let helper = codec_helper_name(obj, field, is_array);
             codecs.push(context! {
+                is_array => is_array,
                 schema_name => obj.name.pascal_case.clone(),
                 field_name => field.original_name.clone(),
                 helper_pascal => helper.clone(),
@@ -1733,7 +1742,7 @@ fn build_ts_expected_url_pattern(args: &OpArgs, op: &IrOperation) -> String {
 
 fn mock_value_ts(ir_type: &IrType) -> String {
     match ir_type {
-        IrType::String | IrType::DateTime => "\"test\"".to_string(),
+        IrType::String | IrType::DateTime | IrType::Encoded(_) => "\"test\"".to_string(),
         IrType::StringLiteral(s) => format!("\"{s}\""),
         IrType::Number | IrType::Integer => "1".to_string(),
         IrType::IntegerLiteral(i) => i.to_string(),
@@ -1910,7 +1919,7 @@ fn build_python_test_path(path: &str, op: &IrOperation) -> String {
 
 fn mock_value_python(ir_type: &IrType) -> String {
     match ir_type {
-        IrType::String | IrType::DateTime => "\"test\"".to_string(),
+        IrType::String | IrType::DateTime | IrType::Encoded(_) => "\"test\"".to_string(),
         IrType::StringLiteral(s) => format!("\"{s}\""),
         IrType::Number | IrType::Integer => "1".to_string(),
         IrType::IntegerLiteral(i) => i.to_string(),

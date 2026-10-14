@@ -8,7 +8,7 @@
 export type {{ schema.name }} = {
 {% for field in schema.fields %}
 {% if field.content %}
-  /** {% if field.description %}{{ field.description | escape_jsdoc }} {% endif %}Encoded `{{ field.content.type_str }}`: read it with `decode{{ field.content.helper }}()`. */
+  /** {% if field.description %}{{ field.description | escape_jsdoc }} {% endif %}{% if field.content.is_array %}Each item is an encoded `{{ field.content.type_str }}`: decode it with `decode{{ field.content.helper }}()`.{% else %}Encoded `{{ field.content.type_str }}`: read it with `decode{{ field.content.helper }}()`.{% endif %} */
 {% elif field.description %}
   /** {{ field.description | escape_jsdoc }} */
 {% endif %}
@@ -21,7 +21,7 @@ export type {{ schema.name }} = Record<string, {{ schema.additional_properties }
 export interface {{ schema.name }} {
 {% for field in schema.fields %}
 {% if field.content %}
-  /** {% if field.description %}{{ field.description | escape_jsdoc }} {% endif %}Encoded `{{ field.content.type_str }}`: read it with `decode{{ field.content.helper }}()`. */
+  /** {% if field.description %}{{ field.description | escape_jsdoc }} {% endif %}{% if field.content.is_array %}Each item is an encoded `{{ field.content.type_str }}`: decode it with `decode{{ field.content.helper }}()`.{% else %}Encoded `{{ field.content.type_str }}`: read it with `decode{{ field.content.helper }}()`.{% endif %} */
 {% elif field.description %}
   /** {{ field.description | escape_jsdoc }} */
 {% endif %}

@@ -87,7 +87,7 @@ class {{ schema.name }}({% if schema.is_integer %}int{% else %}str{% endif %}, E
 
 
 def decode_{{ c.helper_snake }}(value: str) -> {{ c.type_str }}:
-    """Decode `{{ c.schema_name }}.{{ c.field_name }}` ({% if c.encoding %}{{ c.encoding }}-encoded {% endif %}{{ c.media_type }})."""
+    """Decode {% if c.is_array %}one item of {% endif %}`{{ c.schema_name }}.{{ c.field_name }}` ({% if c.encoding %}{{ c.encoding }}-encoded {% endif %}{{ c.media_type }})."""
 {% if c.codec == "base64-json" %}
     raw = base64.b64decode(value)
 {% elif c.codec == "base64url-json" %}
@@ -103,7 +103,7 @@ def decode_{{ c.helper_snake }}(value: str) -> {{ c.type_str }}:
 
 
 def encode_{{ c.helper_snake }}(value: {{ c.type_str }}) -> str:
-    """Encode a value as the wire string of `{{ c.schema_name }}.{{ c.field_name }}`."""
+    """Encode a value as the wire string of {% if c.is_array %}one item of {% endif %}`{{ c.schema_name }}.{{ c.field_name }}`."""
 {% if c.is_model %}
     raw = value.model_dump_json(by_alias=True).encode()
 {% else %}

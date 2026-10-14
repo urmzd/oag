@@ -99,10 +99,14 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
     // Handle type
     match &schema.schema_type {
         Some(TypeSet::Single(t)) => match t {
-            SchemaType::String => match schema.format.as_deref() {
-                Some("date-time" | "date") => IrType::DateTime,
-                Some("binary" | "byte") => IrType::Binary,
-                _ => IrType::String,
+            SchemaType::String => match schema_content(schema) {
+                Some(content) => IrType::Encoded(Box::new(content)),
+                None => match schema.format.as_deref() {
+                    Some("date-time" | "date") => IrType::DateTime,
+                    // `byte` is base64 text, not raw bytes.
+                    Some("binary") => IrType::Binary,
+                    _ => IrType::String,
+                },
             },
             SchemaType::Number => IrType::Number,
             SchemaType::Integer => IrType::Integer,
@@ -343,15 +347,14 @@ fn build_fields(properties: &IndexMap<String, SchemaOrRef>, required: &[String])
     properties
         .iter()
         .map(|(name, prop)| {
-            let (description, read_only, write_only, default_repr, content) = match prop {
+            let (description, read_only, write_only, default_repr) = match prop {
                 SchemaOrRef::Schema(s) => (
                     s.description.clone(),
                     s.read_only.unwrap_or(false),
                     s.write_only.unwrap_or(false),
                     schema_default_literal(s),
-                    schema_content(s),
                 ),
-                _ => (None, false, false, None, None),
+                _ => (None, false, false, None),
             };
             IrField {
                 name: normalize_name(name),
@@ -364,7 +367,6 @@ fn build_fields(properties: &IndexMap<String, SchemaOrRef>, required: &[String])
                 read_only,
                 write_only,
                 default_repr,
-                content,
             }
         })
         .collect()

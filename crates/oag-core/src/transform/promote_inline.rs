@@ -32,14 +32,6 @@ pub fn promote_inline_objects(ir: &mut IrSpec) {
                     &mut new_schemas,
                     &mut used_names,
                 );
-                if let Some(ref mut content) = field.content {
-                    promote_type(
-                        &format!("{field_context}Content"),
-                        &mut content.schema,
-                        &mut new_schemas,
-                        &mut used_names,
-                    );
-                }
             }
         }
     }
@@ -134,7 +126,6 @@ fn promote_type(
                     read_only: false,
                     write_only: false,
                     default_repr: None,
-                    content: None,
                 })
                 .collect();
 
@@ -153,6 +144,10 @@ fn promote_type(
             }));
 
             *ir_type = IrType::Ref(name);
+        }
+        IrType::Encoded(content) => {
+            let content_ctx = format!("{}Content", context_name);
+            promote_type(&content_ctx, &mut content.schema, new_schemas, used_names);
         }
         IrType::Array(inner) => {
             let item_ctx = format!("{}Item", context_name);
@@ -222,7 +217,6 @@ mod tests {
                     read_only: false,
                     write_only: false,
                     default_repr: None,
-                    content: None,
                 }],
                 additional_properties: None,
             })],
@@ -325,7 +319,6 @@ mod tests {
                     read_only: false,
                     write_only: false,
                     default_repr: None,
-                    content: None,
                 }],
                 additional_properties: None,
             })],
@@ -369,7 +362,6 @@ mod tests {
                     read_only: false,
                     write_only: false,
                     default_repr: None,
-                    content: None,
                 }],
                 additional_properties: None,
             })],
@@ -422,7 +414,6 @@ mod tests {
                         read_only: false,
                         write_only: false,
                         default_repr: None,
-                        content: None,
                     }],
                     additional_properties: None,
                 }),

@@ -956,12 +956,8 @@ fn content_encoding_and_schema_are_carried_on_the_field() {
         .iter()
         .find(|f| f.original_name == "payload")
         .unwrap();
-    assert_eq!(
-        payload.field_type,
-        IrType::String,
-        "wire type stays a string"
-    );
-    let content = payload.content.as_ref().expect("content info");
+    let (content, is_array) = payload.content().expect("content info");
+    assert!(!is_array);
     assert_eq!(content.schema, IrType::Ref("InboxPayload".into()));
     assert_eq!(content.encoding.as_deref(), Some("base64"));
     assert_eq!(content.codec(), "base64-json");

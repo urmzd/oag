@@ -44,11 +44,17 @@ pub struct IrField {
     /// via the existing type-map literal templates. `None` when the property has
     /// no default. Required-ness is unaffected by this value.
     pub default_repr: Option<IrType>,
-    /// A string field whose value is encoded content with a known schema
-    /// (`contentEncoding` / `contentMediaType` / `contentSchema`), e.g. a
-    /// base64-encoded JSON document. The field stays a string on the wire;
-    /// packs use this to emit typed decode/encode helpers.
-    pub content: Option<IrContent>,
+}
+
+impl IrField {
+    /// Encoded content carried by this field (`contentEncoding` /
+    /// `contentMediaType` / `contentSchema`), e.g. a base64-encoded JSON
+    /// document, and whether the field is an array of such strings. The field
+    /// stays a string (or array of strings) on the wire; packs use this to emit
+    /// typed decode/encode helpers.
+    pub fn content(&self) -> Option<(&IrContent, bool)> {
+        self.field_type.encoded_content()
+    }
 }
 
 /// Encoded content carried inside a string (JSON Schema 2020-12 content keywords).
@@ -168,4 +174,30 @@ pub enum IrType {
     Void,
     DateTime,
     Binary,
+    /// A string carrying encoded content with a known schema (JSON Schema
+    /// 2020-12 `contentEncoding` / `contentMediaType` / `contentSchema`). It is
+    /// a string on the wire; the content travels with the type so it survives
+    /// inline-object promotion and array items.
+    Encoded(Box<IrContent>),
+}
+
+impl IrType {
+    /// The encoded content of an `Encoded` string, an array of them, or either
+    /// made nullable. The flag is true for arrays.
+    pub fn encoded_content(&self) -> Option<(&IrContent, bool)> {
+        match self {
+            IrType::Encoded(c) => Some((c, false)),
+            IrType::Array(inner) => inner
+                .encoded_content()
+                .and_then(|(c, arr)| (!arr).then_some((c, true))),
+            IrType::Union(variants) => {
+                let mut non_null = variants.iter().filter(|v| **v != IrType::Null);
+                match (non_null.next(), non_null.next()) {
+                    (Some(only), None) => only.encoded_content(),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
 }

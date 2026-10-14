@@ -492,3 +492,30 @@ fn sse_item_schema_events_render_as_a_union_keyed_by_event_name() {
         "got:\n{models}"
     );
 }
+
+#[test]
+fn encoded_content_survives_promotion_and_array_items() {
+    // #31 follow-up: a base64 field inside an inline object (promoted to a
+    // named schema) and array items with contentSchema both get helpers.
+    let files = render_spec(
+        "node-client",
+        include_str!("fixtures/content-encoding.yaml"),
+    );
+    let codecs = file_ending_with(&files, "codecs.ts");
+    assert!(
+        codecs.contains("export function decodeEnvelopeMetaBlob(value: string): Payload {"),
+        "nested inline object field, got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains("export function decodeEnvelopeAttachmentsItem(value: string): Payload {"),
+        "array items, got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains(r#"decodeContent<Payload>(value, "base64url-json")"#),
+        "got:\n{codecs}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(types.contains("attachments?: string[];"), "got:\n{types}");
+    // `format: byte` is base64 text, not raw bytes.
+    assert!(types.contains("raw?: string;"), "got:\n{types}");
+}
