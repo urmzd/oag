@@ -47,7 +47,7 @@ examples: install
         # .oag/packs/, which would otherwise take precedence.
         "$bin" packs install "../../packs/$pack" >/dev/null
       done
-      "$bin" generate
+      "$bin" generate --force-scaffold
       popd >/dev/null
     }
     gen petstore node-client react-swr-client
@@ -55,6 +55,7 @@ examples: install
     gen anthropic-messages node-client react-swr-client
     gen petstore-polymorphic node-client react-swr-client
     gen literal-default node-client react-swr-client fastapi-server
+    gen event-stream node-client react-swr-client
 
 record: install
     rm -rf /tmp/oag-demo && mkdir -p /tmp/oag-demo

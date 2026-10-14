@@ -5,20 +5,15 @@ import useSWRMutation, {
   type SWRMutationResponse,
 } from "swr/mutation";
 import { useApiClient } from "./provider.js";
-import type { NewPet, Pet } from "./types.js";
+import type { ListPetsParams, NewPet, Pet } from "./types.js";
 
 /** List all pets */
 export function useListPets(
-  limit?: number,
-  status?: "available" | "pending" | "sold",
+  params?: ListPetsParams,
   config?: SWRConfiguration<Pet[]>,
 ): SWRResponse<Pet[]> {
   const client = useApiClient();
-  return useSWR<Pet[]>(
-    ["/pets", limit, status] as const,
-    () => client.listPets(limit, status),
-    config,
-  );
+  return useSWR<Pet[]>(["/pets", params] as const, () => client.listPets(params), config);
 }
 
 /** Create a pet */

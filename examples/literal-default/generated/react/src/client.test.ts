@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ClientConfig } from "./client.js";
 import { ApiClient, ApiError } from "./client.js";
+import { decodeContent, encodeContent } from "./codecs.js";
 import type { Message } from "./types.js";
 
 function createMockFetch(status = 200, body: unknown = {}) {
@@ -12,6 +13,7 @@ function createMockFetch(status = 200, body: unknown = {}) {
     headers: new Headers(),
     json: () => Promise.resolve(body),
     text: () => Promise.resolve(JSON.stringify(body)),
+    blob: () => Promise.resolve(new Blob([JSON.stringify(body)])),
     body: null,
   } as unknown as Response);
 }
@@ -152,38 +154,75 @@ describe("ApiClient", () => {
   });
 
   describe("retry", () => {
-    it("retries on retryable status codes", async () => {
-      const failResponse = {
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers(),
+    function response(status: number, headers: Record<string, string> = {}): Response {
+      return {
+        ok: status >= 200 && status < 300,
+        status,
+        statusText: status === 200 ? "OK" : "Error",
+        headers: new Headers(headers),
         json: () => Promise.resolve({}),
         text: () => Promise.resolve("{}"),
+        blob: () => Promise.resolve(new Blob(["{}"])),
         body: null,
       } as unknown as Response;
-      const successResponse = {
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Headers(),
-        json: () => Promise.resolve({ success: true }),
-        text: () => Promise.resolve(JSON.stringify({ success: true })),
-        body: null,
-      } as unknown as Response;
-      const mockFetch = vi
-        .fn()
-        .mockResolvedValueOnce(failResponse)
-        .mockResolvedValueOnce(successResponse);
+    }
 
-      const config: ClientConfig = {
+    function retryingClient(mockFetch: typeof globalThis.fetch): ApiClient {
+      return new ApiClient({
         baseUrl: "https://api.test.com",
         fetch: mockFetch,
         retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
-      };
-      const client = new ApiClient(config);
-      await client.createMessage({} as Message);
+      });
+    }
+
+    it("retries idempotent requests on retryable status codes", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(response(500))
+        .mockResolvedValueOnce(response(200));
+      const client = retryingClient(mockFetch);
+      await client.getMessage("test");
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
+
+    it("does not wait out a Retry-After longer than maxRetryAfterMs", async () => {
+      const mockFetch = vi.fn().mockResolvedValue(response(429, { "Retry-After": "3600" }));
+      const client = retryingClient(mockFetch);
+      await expect(client.getMessage("test")).rejects.toThrow(ApiError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry non-idempotent requests by default", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(response(503))
+        .mockResolvedValueOnce(response(200));
+      const client = retryingClient(mockFetch);
+      await expect(client.createMessage({} as Message)).rejects.toThrow(ApiError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries non-idempotent requests that carry an Idempotency-Key", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(response(503))
+        .mockResolvedValueOnce(response(200));
+      const client = retryingClient(mockFetch);
+      await client.createMessage({} as Message, { headers: { "Idempotency-Key": "key-1" } });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+});
+
+describe("content codecs", () => {
+  it("round-trips JSON through every codec", () => {
+    const value = { title: "héllo ✓", n: 1 };
+    for (const codec of ["json", "base64-json", "base64url-json"] as const) {
+      expect(decodeContent(encodeContent(value, codec), codec)).toEqual(value);
+    }
+  });
+
+  it("decodes standard base64 JSON", () => {
+    expect(decodeContent<{ a: number }>("eyJhIjoxfQ==", "base64-json")).toEqual({ a: 1 });
   });
 });

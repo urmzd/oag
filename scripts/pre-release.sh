@@ -21,7 +21,9 @@ for dir in examples/*/; do
     for pack in ../../packs/*/; do
       "$bin" packs install "$pack" >/dev/null
     done
-    "$bin" generate
+    # --force-scaffold also regenerates scaffold files (package.json, the
+    # generated test suites), so a template change cannot leave them stale.
+    "$bin" generate --force-scaffold
   )
 done
 
@@ -29,6 +31,15 @@ echo "==> Validating generated output..."
 for dir in examples/*/; do
   echo "    check: $dir"
   (cd "$dir" && "$bin" check)
+done
+
+echo "==> Running the generated TypeScript test suites..."
+for pkg in examples/*/generated/*/package.json; do
+  dir="$(dirname "$pkg")"
+  if grep -q '"test":' "$pkg"; then
+    echo "    test: $dir"
+    (cd "$dir" && npm test --silent)
+  fi
 done
 
 echo "==> Checking for uncommitted changes after regeneration..."

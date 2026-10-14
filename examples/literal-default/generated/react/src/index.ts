@@ -8,8 +8,21 @@ export {
   type RequestOptions,
   type RetryConfig,
 } from "./client.js";
+export * from "./codecs.js";
 export * from "./guards.js";
 export * from "./hooks.js";
 export { ApiProvider, type ApiProviderProps, useApiClient } from "./provider.js";
-export { SSEError, type SSEOptions, streamSse } from "./sse.js";
+export {
+  type SSEDataCodec,
+  type SSEEndReason,
+  SSEError,
+  type SSEEvent,
+  type SSEMessage,
+  type SSEOptions,
+  SSEStreamClosedError,
+  type SSEStreamEnd,
+  streamSse,
+  streamSseEvents,
+  streamSseMessages,
+} from "./sse.js";
 export * from "./types.js";

@@ -9,17 +9,22 @@ import useSWRMutation, {
 import { useApiClient } from "./provider.js";
 import type { SSEEvent } from "./sse.js";
 import type {
+  CancelBatchParams,
+  CountTokensParams,
   CountTokensRequest,
   CountTokensResponse,
+  CreateMessageParams,
   CreateMessageRequest,
   CreateMessageStreamEvent,
+  GetModelParams,
+  ListModelsParams,
   MessageResponse,
   ModelInfo,
   ModelListResponse,
 } from "./types.js";
 
 /** Create a message */
-export function useCreateMessageStream(anthropicVersion: string) {
+export function useCreateMessageStream(params: CreateMessageParams) {
   const client = useApiClient();
   const [events, setEvents] = useState<SSEEvent<CreateMessageStreamEvent>[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -34,7 +39,7 @@ export function useCreateMessageStream(anthropicVersion: string) {
       abortRef.current = new AbortController();
 
       try {
-        for await (const event of client.createMessageStream(anthropicVersion, body, {
+        for await (const event of client.createMessageStream(body, params, {
           signal: abortRef.current.signal,
         })) {
           setEvents((prev) => [...prev, event]);
@@ -50,7 +55,7 @@ export function useCreateMessageStream(anthropicVersion: string) {
         abortRef.current = null;
       }
     },
-    [client, anthropicVersion],
+    [client, params],
   );
 
   const abort = useCallback(() => {
@@ -67,82 +72,104 @@ export function useCreateMessageStream(anthropicVersion: string) {
 
 /** Create a message */
 export function useCreateMessage(
-  anthropicVersion: string,
+  params: CreateMessageParams,
   config?: SWRMutationConfiguration<
     MessageResponse,
     Error,
-    readonly [string, string],
+    readonly [string, CreateMessageParams],
     CreateMessageRequest
   >,
-): SWRMutationResponse<MessageResponse, Error, readonly [string, string], CreateMessageRequest> {
+): SWRMutationResponse<
+  MessageResponse,
+  Error,
+  readonly [string, CreateMessageParams],
+  CreateMessageRequest
+> {
   const client = useApiClient();
-  return useSWRMutation<MessageResponse, Error, readonly [string, string], CreateMessageRequest>(
-    ["/v1/messages", anthropicVersion] as const,
-    (_key: readonly [string, string], { arg }: { arg: CreateMessageRequest }) =>
-      client.createMessage(anthropicVersion, arg),
+  return useSWRMutation<
+    MessageResponse,
+    Error,
+    readonly [string, CreateMessageParams],
+    CreateMessageRequest
+  >(
+    ["/v1/messages", params] as const,
+    (_key: readonly [string, CreateMessageParams], { arg }: { arg: CreateMessageRequest }) =>
+      client.createMessage(arg, params),
     config,
   );
 }
 
 /** Count tokens in a message */
 export function useCountTokens(
-  anthropicVersion: string,
+  params: CountTokensParams,
   config?: SWRMutationConfiguration<
     CountTokensResponse,
     Error,
-    readonly [string, string],
+    readonly [string, CountTokensParams],
     CountTokensRequest
   >,
-): SWRMutationResponse<CountTokensResponse, Error, readonly [string, string], CountTokensRequest> {
+): SWRMutationResponse<
+  CountTokensResponse,
+  Error,
+  readonly [string, CountTokensParams],
+  CountTokensRequest
+> {
   const client = useApiClient();
-  return useSWRMutation<CountTokensResponse, Error, readonly [string, string], CountTokensRequest>(
-    ["/v1/messages/count_tokens", anthropicVersion] as const,
-    (_key: readonly [string, string], { arg }: { arg: CountTokensRequest }) =>
-      client.countTokens(anthropicVersion, arg),
+  return useSWRMutation<
+    CountTokensResponse,
+    Error,
+    readonly [string, CountTokensParams],
+    CountTokensRequest
+  >(
+    ["/v1/messages/count_tokens", params] as const,
+    (_key: readonly [string, CountTokensParams], { arg }: { arg: CountTokensRequest }) =>
+      client.countTokens(arg, params),
     config,
   );
 }
 
 /** List available models */
 export function useListModels(
-  anthropicVersion: string,
-  limit?: number,
-  afterId?: string,
-  beforeId?: string,
+  params: ListModelsParams,
   config?: SWRConfiguration<ModelListResponse>,
 ): SWRResponse<ModelListResponse> {
   const client = useApiClient();
   return useSWR<ModelListResponse>(
-    ["/v1/models", anthropicVersion, limit, afterId, beforeId] as const,
-    () => client.listModels(anthropicVersion, limit, afterId, beforeId),
+    ["/v1/models", params] as const,
+    () => client.listModels(params),
     config,
   );
 }
 
 /** Get details of a specific model */
 export function useGetModel(
-  anthropicVersion: string,
   modelId: string,
+  params: GetModelParams,
   config?: SWRConfiguration<ModelInfo>,
 ): SWRResponse<ModelInfo> {
   const client = useApiClient();
   return useSWR<ModelInfo>(
-    ["/v1/models/{model_id}", anthropicVersion, modelId] as const,
-    () => client.getModel(anthropicVersion, modelId),
+    ["/v1/models/{model_id}", modelId, params] as const,
+    () => client.getModel(modelId, params),
     config,
   );
 }
 
 /** Cancel a message batch */
 export function useCancelBatch(
-  anthropicVersion: string,
   batchId: string,
-  config?: SWRMutationConfiguration<void, Error, readonly [string, string, string], never>,
-): SWRMutationResponse<void, Error, readonly [string, string, string], never> {
+  params: CancelBatchParams,
+  config?: SWRMutationConfiguration<
+    void,
+    Error,
+    readonly [string, string, CancelBatchParams],
+    never
+  >,
+): SWRMutationResponse<void, Error, readonly [string, string, CancelBatchParams], never> {
   const client = useApiClient();
-  return useSWRMutation<void, Error, readonly [string, string, string], never>(
-    ["/v1/messages/batches/{batch_id}", anthropicVersion, batchId] as const,
-    (_key: readonly [string, string, string]) => client.cancelBatch(anthropicVersion, batchId),
+  return useSWRMutation<void, Error, readonly [string, string, CancelBatchParams], never>(
+    ["/v1/messages/batches/{batch_id}", batchId, params] as const,
+    (_key: readonly [string, string, CancelBatchParams]) => client.cancelBatch(batchId, params),
     config,
   );
 }

@@ -204,6 +204,7 @@ See [`examples/`](examples/) for working projects:
 
 - **[`petstore`](examples/petstore/)** — Node + React clients from the Petstore 3.2 spec
 - **[`sse-chat`](examples/sse-chat/)** — SSE streaming with Node + React hooks
+- **[`event-stream`](examples/event-stream/)** — OAS 3.2 SSE events typed by name, base64 JSON payloads, a binary download, a shared discriminator mapping, a `$ref` enum query parameter, and a 204 next to a `default` error
 
 Regenerate with `just examples`.
 

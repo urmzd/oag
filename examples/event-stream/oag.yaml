@@ -1,0 +1,37 @@
+# oag configuration — Event Stream example
+# Exercises an OAS 3.2 SSE stream whose itemSchema describes the whole event
+# (typed as a union keyed by the event name), base64-encoded JSON payloads
+# (contentEncoding + contentSchema), a binary download, a discriminator that
+# maps several values to one schema, a $ref enum query parameter, and a
+# bodyless 204 next to a `default` error response.
+input: ../../crates/oag-core/tests/fixtures/event-stream.yaml
+
+naming:
+  strategy: use_operation_id
+  aliases: {}
+
+generators:
+  node-client:
+    output: generated/node
+    layout: modular
+    source_dir: src
+    base_url: https://api.example.com/v1
+    scaffold:
+      package_name: "@examples/event-stream-node-client"
+      repository: https://github.com/urmzd/oag
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
+
+  react-swr-client:
+    output: generated/react
+    layout: modular
+    source_dir: src
+    base_url: https://api.example.com/v1
+    scaffold:
+      package_name: "@examples/event-stream-react-client"
+      repository: https://github.com/urmzd/oag
+      formatter: biome
+      test_runner: vitest
+      bundler: tsdown
+      react: true
