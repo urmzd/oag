@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.21.0 (2026-10-14)
+
+### Breaking
+
+- typed SSE events, params objects, safe retries, hermetic packs, verified installs (#39) ([efd0034](https://github.com/urmzd/oag/commit/efd00340a46dfe8456edea20120d99bce8fa0dc1))
+
+### Misc
+
+- **release**: read the sr-releaser key from the release environment (#26) ([a6e4122](https://github.com/urmzd/oag/commit/a6e4122916d495ebd3a458469cd310cd2a131141))
+- **examples**: add current Claude model IDs (#24) ([dbac475](https://github.com/urmzd/oag/commit/dbac475508dedceb5465ed82f3e0fd98c7ecbe60))
+- upgrade urmzd/sr action to v9 (#25) ([e6c9876](https://github.com/urmzd/oag/commit/e6c987606a649f718ce47afd6c77b88710267daf))
+- bump GitHub Actions to Node 24 majors and switch app token to client-id ([3c635fe](https://github.com/urmzd/oag/commit/3c635fe9e0f10ea9a455add896307e8516e5cc33))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.20.6...v0.21.0)
+
+
 ## Unreleased
 
 ### Migration from v0.20.x
