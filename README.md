@@ -49,6 +49,8 @@ cargo install oag
 
 Or download binaries from [releases](https://github.com/urmzd/oag/releases/latest).
 
+**macOS and Nix:** a binary built with `cargo install` while a Nix shell is active links against that shell's `libiconv` (a `/nix/store/...` path), and fails with `dyld: Library not loaded` once the store path is gone. oag itself has no Nix configuration. Check with `otool -L "$(command -v oag)"`, and rebuild outside the Nix shell or use the release binary.
+
 ## Quick start
 
 ```sh
