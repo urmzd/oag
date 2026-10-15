@@ -6,14 +6,14 @@ use anyhow::{Context, Result};
 const RAW_BASE: &str = "https://raw.githubusercontent.com/urmzd/oag";
 const API_BASE: &str = "https://api.github.com/repos/urmzd/oag/contents/packs";
 
-pub const KNOWN_PACKS: &[&str] = &["node-client", "react-swr-client", "fastapi-server"];
-
 /// Parse a pack specifier like `node-client@v0.15.0` into `(pack_id, git_ref)`.
-/// If no `@` is present, returns `(specifier, "main")`.
-pub fn parse_pack_specifier(specifier: &str) -> (&str, &str) {
+/// Without an `@ref` there is no ref: the pack resolves locally (installed or
+/// built in) and is never fetched from a moving branch.
+pub fn parse_pack_specifier(specifier: &str) -> (&str, Option<&str>) {
     match specifier.split_once('@') {
-        Some((id, git_ref)) if !git_ref.is_empty() => (id, git_ref),
-        _ => (specifier, "main"),
+        Some((id, git_ref)) if !git_ref.is_empty() => (id, Some(git_ref)),
+        Some((id, _)) => (id, None),
+        None => (specifier, None),
     }
 }
 
@@ -89,4 +89,19 @@ struct GitHubContent {
     download_url: Option<String>,
     #[allow(dead_code)]
     url: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn specifier_without_ref_is_unpinned_and_never_main() {
+        assert_eq!(parse_pack_specifier("node-client"), ("node-client", None));
+        assert_eq!(parse_pack_specifier("node-client@"), ("node-client", None));
+        assert_eq!(
+            parse_pack_specifier("node-client@v0.21.0"),
+            ("node-client", Some("v0.21.0"))
+        );
+    }
 }

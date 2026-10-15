@@ -8,6 +8,20 @@ export {
   type RequestOptions,
   type RetryConfig,
 } from "./client.js";
+export * from "./codecs.js";
 export * from "./guards.js";
-export { SSEError, type SSEOptions, streamSse } from "./sse.js";
+export {
+  type SSEDataCodec,
+  type SSEEndReason,
+  SSEError,
+  type SSEEvent,
+  type SSEMessage,
+  type SSEOptions,
+  SSEStreamClosedError,
+  type SSEStreamEnd,
+  type SSEUnmatchedEvent,
+  streamSse,
+  streamSseEvents,
+  streamSseMessages,
+} from "./sse.js";
 export * from "./types.js";

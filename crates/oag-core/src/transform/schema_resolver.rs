@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 
 use crate::error::TransformError;
 use crate::ir::{
-    IrAliasSchema, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField, IrObjectSchema, IrSchema,
-    IrType, IrUnionSchema,
+    IrAliasSchema, IrContent, IrDiscriminator, IrEnumSchema, IrEnumVariant, IrField,
+    IrObjectSchema, IrSchema, IrType, IrUnionSchema,
 };
 use crate::parse::schema::{AdditionalProperties, Schema, SchemaOrRef, SchemaType, TypeSet};
 
@@ -99,10 +99,14 @@ pub fn schema_to_ir_type(schema: &Schema) -> IrType {
     // Handle type
     match &schema.schema_type {
         Some(TypeSet::Single(t)) => match t {
-            SchemaType::String => match schema.format.as_deref() {
-                Some("date-time" | "date") => IrType::DateTime,
-                Some("binary" | "byte") => IrType::Binary,
-                _ => IrType::String,
+            SchemaType::String => match schema_content(schema) {
+                Some(content) => IrType::Encoded(Box::new(content)),
+                None => match schema.format.as_deref() {
+                    Some("date-time" | "date") => IrType::DateTime,
+                    // `byte` is base64 text, not raw bytes.
+                    Some("binary") => IrType::Binary,
+                    _ => IrType::String,
+                },
             },
             SchemaType::Number => IrType::Number,
             SchemaType::Integer => IrType::Integer,
@@ -366,6 +370,19 @@ fn build_fields(properties: &IndexMap<String, SchemaOrRef>, required: &[String])
             }
         })
         .collect()
+}
+
+/// Content keywords of a property (`contentEncoding`, `contentMediaType`,
+/// `contentSchema`), when they describe a decodable JSON document.
+pub fn schema_content(schema: &Schema) -> Option<IrContent> {
+    IrContent::from_keywords(
+        schema.content_encoding.as_deref(),
+        schema.content_media_type.as_deref(),
+        schema
+            .content_schema
+            .as_deref()
+            .map(schema_or_ref_to_ir_type),
+    )
 }
 
 /// Compute the literal default value of a property schema, if any.

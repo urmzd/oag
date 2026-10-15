@@ -46,6 +46,75 @@ pub struct IrField {
     pub default_repr: Option<IrType>,
 }
 
+impl IrField {
+    /// Encoded content carried by this field (`contentEncoding` /
+    /// `contentMediaType` / `contentSchema`), e.g. a base64-encoded JSON
+    /// document, and whether the field is an array of such strings. The field
+    /// stays a string (or array of strings) on the wire; packs use this to emit
+    /// typed decode/encode helpers.
+    pub fn content(&self) -> Option<(&IrContent, bool)> {
+        self.field_type.encoded_content()
+    }
+}
+
+/// Encoded content carried inside a string (JSON Schema 2020-12 content keywords).
+#[derive(Debug, Clone, PartialEq)]
+pub struct IrContent {
+    /// `contentEncoding`, e.g. `base64` or `base64url`. `None` means the string
+    /// is the content itself (e.g. a JSON document in a string).
+    pub encoding: Option<String>,
+    /// `contentMediaType`, e.g. `application/json`.
+    pub media_type: Option<String>,
+    /// The type of the decoded value (`contentSchema`).
+    pub schema: IrType,
+}
+
+impl IrContent {
+    /// The codec packs use to turn the wire string into the decoded value:
+    /// `json`, `base64-json` or `base64url-json`.
+    pub fn codec(&self) -> &'static str {
+        match self
+            .encoding
+            .as_deref()
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("base64") => "base64-json",
+            Some("base64url") => "base64url-json",
+            _ => "json",
+        }
+    }
+
+    /// Build content info from the content keywords of a string schema.
+    ///
+    /// Only JSON content with a `contentSchema` gets typed helpers: other media
+    /// types have no schema to decode into. A `contentEncoding` other than
+    /// base64/base64url is not decodable portably, so it yields `None` too.
+    pub fn from_keywords(
+        encoding: Option<&str>,
+        media_type: Option<&str>,
+        schema: Option<IrType>,
+    ) -> Option<Self> {
+        let schema = schema?;
+        let json = media_type.is_none_or(|mt| {
+            let mt = mt
+                .split(';')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_ascii_lowercase();
+            mt == "application/json" || mt.ends_with("+json")
+        });
+        let decodable = encoding
+            .is_none_or(|e| matches!(e.to_ascii_lowercase().as_str(), "base64" | "base64url"));
+        (json && decodable).then(|| IrContent {
+            encoding: encoding.map(str::to_string),
+            media_type: media_type.map(str::to_string),
+            schema,
+        })
+    }
+}
+
 /// A single variant value in an enum schema.
 #[derive(Debug, Clone)]
 pub enum IrEnumVariant {
@@ -105,4 +174,30 @@ pub enum IrType {
     Void,
     DateTime,
     Binary,
+    /// A string carrying encoded content with a known schema (JSON Schema
+    /// 2020-12 `contentEncoding` / `contentMediaType` / `contentSchema`). It is
+    /// a string on the wire; the content travels with the type so it survives
+    /// inline-object promotion and array items.
+    Encoded(Box<IrContent>),
+}
+
+impl IrType {
+    /// The encoded content of an `Encoded` string, an array of them, or either
+    /// made nullable. The flag is true for arrays.
+    pub fn encoded_content(&self) -> Option<(&IrContent, bool)> {
+        match self {
+            IrType::Encoded(c) => Some((c, false)),
+            IrType::Array(inner) => inner
+                .encoded_content()
+                .and_then(|(c, arr)| (!arr).then_some((c, true))),
+            IrType::Union(variants) => {
+                let mut non_null = variants.iter().filter(|v| **v != IrType::Null);
+                match (non_null.next(), non_null.next()) {
+                    (Some(only), None) => only.encoded_content(),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
 }

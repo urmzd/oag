@@ -5,7 +5,19 @@ import type {
 {% endfor %}
 } from "./types.js";
 {% if has_sse %}
-import { type SSEEvent, type SSEOptions, streamSse } from "./sse.js";
+import {
+{% if uses_sse_payload %}
+  type SSEEvent,
+{% endif %}
+  type SSEOptions,
+  type SSEStreamEnd,
+{% if uses_sse_payload %}
+  streamSse,
+{% endif %}
+{% if uses_sse_event_union %}
+  streamSseEvents,
+{% endif %}
+} from "./sse.js";
 {% endif %}
 
 /** Structured response wrapper exposing status, headers, and parsed data. */
@@ -17,13 +29,25 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-/** Configuration for retry behavior with exponential backoff. */
+/** How a success body is read: JSON, text, or raw bytes (`Blob`). */
+type ResponseFormat = "json" | "text" | "blob";
+
+/**
+ * Configuration for retry behavior with exponential backoff.
+ *
+ * Only idempotent requests are retried by default (GET, HEAD, OPTIONS, PUT,
+ * DELETE), so a retried POST can never create a duplicate resource. A POST or
+ * PATCH is retried when its method is listed in `retryMethods` or when the
+ * request carries an `Idempotency-Key` header. A server-sent `Retry-After`
+ * (429, 503) is honoured; a wait longer than `maxRetryAfterMs` is not retried
+ * and the response is returned as-is.
+ */
 export interface RetryConfig {
   /** Maximum number of retry attempts. Default: 3 */
   maxRetries?: number;
   /** Initial delay in milliseconds before the first retry. Default: 1000 */
   initialDelayMs?: number;
-  /** Maximum delay in milliseconds between retries. Default: 30000 */
+  /** Maximum backoff delay in milliseconds between retries. Default: 30000 */
   maxDelayMs?: number;
   /** Multiplier applied to the delay after each retry. Default: 2 */
   backoffMultiplier?: number;
@@ -31,6 +55,10 @@ export interface RetryConfig {
   retryableStatusCodes?: number[];
   /** Whether to retry on network errors (fetch throws). Default: true */
   retryOnNetworkError?: boolean;
+  /** HTTP methods that may be retried. Default: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE"] */
+  retryMethods?: string[];
+  /** Longest `Retry-After` wait honoured, in milliseconds. Default: 60000 */
+  maxRetryAfterMs?: number;
 }
 
 /** Options for API requests. */
@@ -50,7 +78,11 @@ export interface ClientConfig {
   fetch?: typeof globalThis.fetch;
   requestInterceptor?: (request: { url: string; init: RequestInit }) =>
     { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>;
-  /** Client-level retry configuration. Set to false to disable retries. Default: enabled with defaults. */
+  /**
+   * Client-level retry configuration. Set to false to disable retries.
+   * Default: idempotent methods only (see `RetryConfig`). SSE streams are
+   * never retried by this setting; pass `retry` to the stream call instead.
+   */
   retry?: RetryConfig | false;
   /** Client-level timeout in milliseconds. */
   timeout?: number;
@@ -58,14 +90,18 @@ export interface ClientConfig {
 
 /** Error thrown when an API request returns a non-OK status. */
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number,
-    public readonly statusText: string,
-    public readonly body?: unknown,
-  ) {
+  // Plain fields rather than constructor parameter properties, so the client
+  // also runs under type-stripping runtimes (`node --experimental-strip-types`).
+  readonly statusCode: number;
+  readonly statusText: string;
+  readonly body?: unknown;
+
+  constructor(message: string, statusCode: number, statusText: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
+    this.statusCode = statusCode;
+    this.statusText = statusText;
+    this.body = body;
   }
 }
 
@@ -76,7 +112,19 @@ const DEFAULT_RETRY_CONFIG: Required<RetryConfig> = {
   backoffMultiplier: 2,
   retryableStatusCodes: [408, 429, 500, 502, 503, 504],
   retryOnNetworkError: true,
+  retryMethods: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE"],
+  maxRetryAfterMs: 60000,
 };
+
+/**
+ * Whether a request may be retried: its method is listed in `retryMethods`, or
+ * it carries an `Idempotency-Key` header (the server deduplicates it).
+ */
+function isRetryableRequest(init: RequestInit, config: Required<RetryConfig>): boolean {
+  const method = (init.method ?? "GET").toUpperCase();
+  if (config.retryMethods.some((m) => m.toUpperCase() === method)) return true;
+  return new Headers(init.headers).has("idempotency-key");
+}
 
 function mergeRetryConfig(
   clientLevel?: RetryConfig | false,
@@ -97,8 +145,9 @@ function calculateBackoff(attempt: number, config: Required<RetryConfig>): numbe
 }
 
 function parseRetryAfter(headers: Headers): number | undefined {
-  const value = headers.get("retry-after");
-  if (value === null) return undefined;
+  const value = headers.get("retry-after")?.trim();
+  // An empty header is not a "retry now" instruction.
+  if (!value) return undefined;
   const seconds = Number(value);
   if (!Number.isNaN(seconds)) return seconds * 1000;
   const date = Date.parse(value);
@@ -171,6 +220,7 @@ export class ApiClient {
       query?: Record<string, unknown>;
       contentType?: string;
       isMultipart?: boolean;
+      parseAs?: ResponseFormat;
     },
   ): Promise<ApiResponse<T>> {
     let url = `${this.baseUrl}${path}`;
@@ -250,14 +300,14 @@ export class ApiClient {
     // Retry logic
     const retryConfig = mergeRetryConfig(this.retryConfig, options?.retry);
 
-    if (retryConfig === false) {
-      return this.executeFetch<T>(req);
+    if (retryConfig === false || !isRetryableRequest(req.init, retryConfig)) {
+      return this.executeFetch<T>(req, options?.parseAs);
     }
 
     let lastError: unknown;
     for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
       try {
-        const response = await this.executeFetch<T>(req);
+        const response = await this.executeFetch<T>(req, options?.parseAs);
         if (response.ok || attempt === retryConfig.maxRetries) {
           return response;
         }
@@ -265,32 +315,51 @@ export class ApiClient {
           return response;
         }
         const retryAfter = parseRetryAfter(response.headers);
+        if (retryAfter !== undefined && retryAfter > retryConfig.maxRetryAfterMs) {
+          // The server asked for a longer wait than we are willing to block for.
+          return response;
+        }
         const backoff = retryAfter ?? calculateBackoff(attempt, retryConfig);
-        await sleep(backoff, options?.signal);
+        // Wait on the combined signal so the request timeout bounds the retry delay.
+        await sleep(backoff, req.init.signal ?? undefined);
       } catch (error) {
         lastError = error;
         if (!retryConfig.retryOnNetworkError || attempt === retryConfig.maxRetries) {
           throw error;
         }
-        // Don't retry abort errors
+        // Don't retry aborts or timeouts: the signal stays aborted.
+        if (req.init.signal?.aborted) {
+          throw error;
+        }
         if (error instanceof DOMException && error.name === "AbortError") {
           throw error;
         }
         const backoff = calculateBackoff(attempt, retryConfig);
-        await sleep(backoff, options?.signal);
+        // Wait on the combined signal so the request timeout bounds the retry delay.
+        await sleep(backoff, req.init.signal ?? undefined);
       }
     }
 
     throw lastError;
   }
 
-  private async executeFetch<T>(req: { url: string; init: RequestInit }): Promise<ApiResponse<T>> {
+  private async executeFetch<T>(
+    req: { url: string; init: RequestInit },
+    parseAs: ResponseFormat = "json",
+  ): Promise<ApiResponse<T>> {
     const response = await this.fetchFn(req.url, req.init);
 
     let data: T;
-    if (response.status === 204) {
+    if (response.status === 204 || response.status === 205 || req.init.method === "HEAD") {
       data = undefined as T;
+    } else if (response.ok && parseAs === "blob") {
+      // Binary bodies must not be decoded as text: that mangles the bytes.
+      data = (await response.blob()) as T;
+    } else if (response.ok && parseAs === "text") {
+      data = (await response.text()) as T;
     } else {
+      // JSON success bodies, and every error body (error payloads are JSON or
+      // text even for binary endpoints).
       const text = await response.text();
       if (text) {
         try {
@@ -320,6 +389,7 @@ export class ApiClient {
       query?: Record<string, unknown>;
       contentType?: string;
       isMultipart?: boolean;
+      parseAs?: ResponseFormat;
     },
   ): Promise<T> {
     const response = await this.rawRequest<T>(method, path, options);
@@ -380,6 +450,11 @@ export class ApiClient {
     }
 {% endif %}
     return this.request<{{ op.return_type }}>("{{ op.http_method }}", path, {
+{% if op.response_format == "binary" %}
+      parseAs: "blob",
+{% elif op.response_format == "text" %}
+      parseAs: "text",
+{% endif %}
 {% if op.has_body %}
       body,
       contentType: "{{ op.body_content_type }}",
@@ -434,6 +509,11 @@ export class ApiClient {
     }
 {% endif %}
     return this.rawRequest<{{ op.return_type }}>("{{ op.http_method }}", path, {
+{% if op.response_format == "binary" %}
+      parseAs: "blob",
+{% elif op.response_format == "text" %}
+      parseAs: "text",
+{% endif %}
 {% if op.has_body %}
       body,
       contentType: "{{ op.body_content_type }}",
@@ -452,7 +532,7 @@ export class ApiClient {
     });
   }
 {% elif op.kind == "sse" %}
-  async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<SSEEvent<{{ op.return_type }}>> {
+  async *{{ op.method_name }}({{ op.params_signature }}): AsyncGenerator<{{ op.yield_type }}, SSEStreamEnd, undefined> {
 {% if op.has_path_params or op.has_query_params %}
     let path = "{{ op.path }}";
 {% for param in op.path_params %}
@@ -488,7 +568,7 @@ export class ApiClient {
       if (v !== undefined && v !== null) _hdr[k] = String(v);
     }
 {% endif %}
-    yield* streamSse<{{ op.return_type }}>(url, {
+    return yield* {% if op.is_event_union %}streamSseEvents{% else %}streamSse{% endif %}<{{ op.return_type }}>(url, {
       method: "{{ op.http_method }}",
 {% if op.has_body %}
 {% if op.body_content_type == "application/json" %}
@@ -502,7 +582,7 @@ export class ApiClient {
 {% else %}
       headers: { ...this.headers, ...options?.headers },
 {% endif %}
-    }, options, this.requestInterceptor, this.fetchFn);
+    }, options, this.requestInterceptor, this.fetchFn{% if op.is_event_union %}, {{ op.event_codecs }}{% endif %});
   }
 {% elif op.kind == "void" %}
   async {{ op.method_name }}({{ op.params_signature }}): Promise<void> {

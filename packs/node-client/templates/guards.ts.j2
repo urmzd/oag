@@ -5,7 +5,12 @@ import type { {{ imports | join(", ") }} } from "./types.js";
 {% for guard in guards %}
 
 export function is{{ guard.variant_name }}(value: {{ guard.union_name }}): value is {{ guard.variant_name }} {
-  return (value as {{ guard.variant_name }}).{{ guard.property_name }} === {% if guard.is_integer_discriminator %}{{ guard.discriminator_value }}{% else %}"{{ guard.discriminator_value }}"{% endif %};
+{% if guard.checks | length == 1 %}
+  return (value as {{ guard.variant_name }}).{{ guard.checks[0].property_name }} === {{ guard.checks[0].literal }};
+{% else %}
+  const v = value as {{ guard.variant_name }};
+  return {% for check in guard.checks %}v.{{ check.property_name }} === {{ check.literal }}{% if not loop.last %} || {% endif %}{% endfor %};
+{% endif %}
 }
 {% endfor %}
 {% if not guards %}

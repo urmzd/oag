@@ -1,0 +1,280 @@
+openapi: "3.2.0"
+info:
+  title: Event Stream API
+  description: >-
+    Exercises the features a production-style event API relies on: an SSE
+    stream whose OAS 3.2 itemSchema describes the whole event (typed as a union
+    keyed by the event name), base64-encoded JSON payloads (contentEncoding +
+    contentSchema), a binary download, a discriminator mapping several values
+    to one schema, a $ref enum query parameter, and a bodyless 204 next to a
+    `default` error response.
+  version: "1.0.0"
+servers:
+  - url: https://api.example.com/v1
+tags:
+  - name: inbox
+  - name: runs
+  - name: files
+paths:
+  /inbox:
+    get:
+      operationId: listInbox
+      summary: List inbox items
+      tags: [inbox]
+      parameters:
+        - name: state
+          in: query
+          schema:
+            $ref: "#/components/schemas/InboxState"
+        - name: kind
+          in: query
+          schema:
+            $ref: "#/components/schemas/InboxKind"
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: before
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inbox page
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InboxItem"
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /inbox/{itemId}:
+    delete:
+      operationId: deleteInboxItem
+      summary: Delete an inbox item
+      tags: [inbox]
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /inbox/stream:
+    get:
+      operationId: streamInbox
+      summary: Stream inbox changes
+      tags: [inbox]
+      parameters:
+        - name: state
+          in: query
+          schema:
+            $ref: "#/components/schemas/InboxState"
+      responses:
+        "200":
+          description: Inbox event stream
+          content:
+            text/event-stream:
+              itemSchema:
+                oneOf:
+                  - $ref: "#/components/schemas/InboxChangedEvent"
+                  - $ref: "#/components/schemas/HeartbeatEvent"
+
+  /runs:
+    post:
+      operationId: createRun
+      summary: Start a run
+      tags: [runs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunRequest"
+      responses:
+        "201":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+
+  /runs/{runId}/events:
+    get:
+      operationId: listRunEvents
+      summary: List the events of a run
+      tags: [runs]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RunEvent"
+
+  /files/{fileId}/content:
+    get:
+      operationId: downloadFile
+      summary: Download a file
+      tags: [files]
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The raw file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+components:
+  schemas:
+    InboxState:
+      type: string
+      enum: [open, done]
+
+    InboxKind:
+      type: string
+      enum: [mention, alert]
+
+    InboxItem:
+      type: object
+      required: [id, state, kind]
+      properties:
+        id:
+          type: string
+        state:
+          $ref: "#/components/schemas/InboxState"
+        kind:
+          $ref: "#/components/schemas/InboxKind"
+        payload:
+          description: Base64-encoded JSON document describing the item.
+          type: string
+          contentEncoding: base64
+          contentMediaType: application/json
+          contentSchema:
+            $ref: "#/components/schemas/InboxPayload"
+
+    InboxPayload:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+
+    InboxChangedEvent:
+      type: object
+      description: An inbox item changed.
+      required: [event, data]
+      properties:
+        event:
+          const: inbox
+        id:
+          type: string
+        data:
+          type: string
+          contentMediaType: application/json
+          contentSchema:
+            $ref: "#/components/schemas/InboxItem"
+
+    HeartbeatEvent:
+      type: object
+      description: Keep-alive sent every few seconds.
+      required: [event, data]
+      properties:
+        event:
+          const: heartbeat
+        data:
+          type: string
+
+    RunRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+
+    Run:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+
+    LifecycleEvent:
+      type: object
+      required: [kind, at]
+      properties:
+        kind:
+          type: string
+          enum: [lifecycle.started, lifecycle.completed]
+        at:
+          type: string
+          format: date-time
+
+    DeltaEvent:
+      type: object
+      required: [kind, text]
+      properties:
+        kind:
+          const: delta.text
+        text:
+          type: string
+
+    RunEvent:
+      oneOf:
+        - $ref: "#/components/schemas/LifecycleEvent"
+        - $ref: "#/components/schemas/DeltaEvent"
+      discriminator:
+        propertyName: kind
+        mapping:
+          lifecycle.started: "#/components/schemas/LifecycleEvent"
+          lifecycle.completed: "#/components/schemas/LifecycleEvent"
+          delta.text: "#/components/schemas/DeltaEvent"
+
+    ErrorBody:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string

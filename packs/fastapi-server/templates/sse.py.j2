@@ -4,12 +4,12 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T")
 
 
 @dataclass
@@ -22,13 +22,28 @@ class SSEEvent(Generic[T]):
     retry: int | None = None
 
 
-async def sse_response(generator: AsyncGenerator[SSEEvent[T] | T, None]) -> StreamingResponse:
+def _encode_data(data: Any) -> str:
+    """Serialize an event payload: models and JSON values as JSON, text as-is."""
+    if isinstance(data, BaseModel):
+        return data.model_dump_json(by_alias=True)
+    if isinstance(data, str):
+        return data
+    return json.dumps(data)
+
+
+async def sse_response(
+    generator: AsyncGenerator[SSEEvent[Any] | Any, None],
+    *,
+    done_sentinel: bool = True,
+) -> StreamingResponse:
     """Wrap an async generator into an SSE StreamingResponse.
 
-    Accepts either raw Pydantic models (emitted as `data:` only) or
-    ``SSEEvent`` instances for full control over ``event:``, ``id:``,
-    and ``retry:`` fields.  A final ``data: [DONE]`` sentinel is sent
-    before closing.
+    Accepts either raw payloads (emitted as `data:` only) or ``SSEEvent``
+    instances for full control over ``event:``, ``id:``, and ``retry:``
+    fields. Pydantic models and JSON values are sent as JSON and strings as
+    text, so a stream typed by event name (OpenAPI 3.2 ``itemSchema``) can mix
+    JSON and text events. A final ``data: [DONE]`` sentinel is sent before
+    closing unless ``done_sentinel`` is false.
     """
 
     async def event_stream() -> AsyncGenerator[str, None]:
@@ -41,12 +56,13 @@ async def sse_response(generator: AsyncGenerator[SSEEvent[T] | T, None]) -> Stre
                     lines.append(f"id: {item.id}")
                 if item.retry is not None:
                     lines.append(f"retry: {item.retry}")
-                data = item.data.model_dump_json()
-                lines.append(f"data: {data}")
+                data = _encode_data(item.data)
             else:
-                data = item.model_dump_json()
-                lines.append(f"data: {data}")
+                data = _encode_data(item)
+            # Multi-line payloads need one `data:` line per line (SSE spec).
+            lines.extend(f"data: {line}" for line in data.split("\n"))
             yield "\n".join(lines) + "\n\n"
-        yield "data: [DONE]\n\n"
+        if done_sentinel:
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

@@ -147,6 +147,11 @@ impl<'a> RefResolver<'a> {
             .map(|s| self.resolve_schema_or_ref(s))
             .collect::<Result<Vec<_>, _>>()?;
 
+        // Resolve contentSchema
+        if let Some(ref cs) = schema.content_schema {
+            resolved.content_schema = Some(Box::new(self.resolve_schema_or_ref(cs)?));
+        }
+
         // Resolve additionalProperties
         if let Some(super::schema::AdditionalProperties::Schema(ref s)) =
             schema.additional_properties

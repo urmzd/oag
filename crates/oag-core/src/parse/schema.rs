@@ -136,6 +136,17 @@ pub struct Schema {
     // Example
     #[serde(skip_serializing_if = "Option::is_none")]
     pub example: Option<serde_json::Value>,
+
+    // String-encoded content (JSON Schema 2020-12, OpenAPI 3.1/3.2)
+    /// Encoding of the string value, e.g. `base64` or `base64url`.
+    #[serde(rename = "contentEncoding", skip_serializing_if = "Option::is_none")]
+    pub content_encoding: Option<String>,
+    /// Media type of the decoded value, e.g. `application/json`.
+    #[serde(rename = "contentMediaType", skip_serializing_if = "Option::is_none")]
+    pub content_media_type: Option<String>,
+    /// Schema of the decoded value.
+    #[serde(rename = "contentSchema", skip_serializing_if = "Option::is_none")]
+    pub content_schema: Option<Box<SchemaOrRef>>,
 }
 
 /// `additionalProperties` can be a boolean or a schema.

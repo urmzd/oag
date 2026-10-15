@@ -26,6 +26,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   release:
+    environment: release
     name: Release
     needs: [ci, fsrc]
     runs-on: ubuntu-latest
@@ -67,7 +68,7 @@ jobs:
       # the gate has already passed by the time we get here.
       - name: Release
         id: sr
-        uses: urmzd/sr@v8
+        uses: urmzd/sr@v9
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         with:
@@ -140,11 +141,44 @@ jobs:
         run: |
           TAG="${{ needs.release.outputs.tag }}"
           if [ -f "target/${{ matrix.target }}/release/oag.exe" ]; then
-            cp "target/${{ matrix.target }}/release/oag.exe" "oag-${{ matrix.target }}.exe"
-            gh release upload "$TAG" "oag-${{ matrix.target }}.exe" --clobber
+            ASSET="oag-${{ matrix.target }}.exe"
+            cp "target/${{ matrix.target }}/release/oag.exe" "$ASSET"
           else
-            cp "target/${{ matrix.target }}/release/oag" "oag-${{ matrix.target }}"
-            chmod +x "oag-${{ matrix.target }}"
-            gh release upload "$TAG" "oag-${{ matrix.target }}" --clobber
+            ASSET="oag-${{ matrix.target }}"
+            cp "target/${{ matrix.target }}/release/oag" "$ASSET"
+            chmod +x "$ASSET"
           fi
+          # Per-asset checksum sidecar, verified by `oag update`.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$ASSET" > "$ASSET.sha256"
+          else
+            shasum -a 256 "$ASSET" > "$ASSET.sha256"
+          fi
+          gh release upload "$TAG" "$ASSET" "$ASSET.sha256" --clobber
         shell: bash
+
+  checksums:
+    needs: [release, build]
+    if: needs.release.outputs.released == 'true'
+    name: Publish SHA256SUMS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Hash the assets as published (what install.sh downloads), check them
+      # against each build's sidecar, and publish one SHA256SUMS file that
+      # install.sh verifies before installing.
+      - name: Publish SHA256SUMS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          mkdir assets && cd assets
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern 'oag-*'
+          for sidecar in *.sha256; do
+            sha256sum --check --strict "$sidecar"
+          done
+          rm -f -- *.sha256
+          sha256sum oag-* > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --repo "${{ github.repository }}" --clobber

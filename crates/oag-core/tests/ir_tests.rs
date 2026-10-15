@@ -876,3 +876,139 @@ fn integer_discriminator_mapping_keys_preserved() {
         _ => panic!("Shape should be a Union"),
     }
 }
+
+const EVENT_STREAM: &str = include_str!("fixtures/event-stream.yaml");
+
+#[test]
+fn ref_enum_param_resolves_to_its_literals() {
+    // #27: a `$ref` to a string enum is a primitive on the wire.
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "listInbox")
+        .unwrap();
+    let state = op
+        .parameters
+        .iter()
+        .find(|p| p.original_name == "state")
+        .unwrap();
+    assert_eq!(state.param_type, IrType::Ref("InboxState".into()));
+    assert_eq!(
+        ir.resolve_type(&state.param_type).into_owned(),
+        IrType::Union(vec![
+            IrType::StringLiteral("open".into()),
+            IrType::StringLiteral("done".into()),
+        ])
+    );
+    // Objects stay as a reference.
+    assert_eq!(
+        ir.resolve_type(&IrType::Ref("InboxItem".into()))
+            .into_owned(),
+        IrType::Ref("InboxItem".into())
+    );
+}
+
+#[test]
+fn binary_response_is_classified_as_binary() {
+    // #30
+    use oag_core::ir::IrResponseFormat;
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "downloadFile")
+        .unwrap();
+    match &op.return_type {
+        IrReturnType::Standard(resp) => {
+            assert_eq!(resp.response_type, IrType::Binary);
+            assert_eq!(resp.format, IrResponseFormat::Binary);
+        }
+        other => panic!("expected standard return, got {other:?}"),
+    }
+    assert_eq!(
+        IrResponseFormat::classify("image/png", None),
+        IrResponseFormat::Binary
+    );
+    assert_eq!(
+        IrResponseFormat::classify("text/csv", None),
+        IrResponseFormat::Text
+    );
+    assert_eq!(
+        IrResponseFormat::classify("application/problem+json", Some(&IrType::Any)),
+        IrResponseFormat::Json
+    );
+}
+
+#[test]
+fn content_encoding_and_schema_are_carried_on_the_field() {
+    // #31: a base64-encoded JSON payload keeps its decoded schema.
+    use oag_core::ir::IrContent;
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let IrSchema::Object(item) = ir.find_schema("InboxItem").unwrap() else {
+        panic!("InboxItem should be an object");
+    };
+    let payload = item
+        .fields
+        .iter()
+        .find(|f| f.original_name == "payload")
+        .unwrap();
+    let (content, is_array) = payload.content().expect("content info");
+    assert!(!is_array);
+    assert_eq!(content.schema, IrType::Ref("InboxPayload".into()));
+    assert_eq!(content.encoding.as_deref(), Some("base64"));
+    assert_eq!(content.codec(), "base64-json");
+
+    // Non-JSON media types or unknown encodings get no typed helper.
+    assert!(
+        IrContent::from_keywords(Some("base64"), Some("image/png"), Some(IrType::Any)).is_none()
+    );
+    assert!(IrContent::from_keywords(Some("quoted-printable"), None, Some(IrType::Any)).is_none());
+    assert!(IrContent::from_keywords(Some("base64"), None, None).is_none());
+}
+
+#[test]
+fn item_schema_describing_whole_events_is_read_as_events() {
+    // #32: OAS 3.2 `itemSchema` is the whole SSE event; `data` carries the
+    // payload (here JSON via contentMediaType/contentSchema, or plain text).
+    let spec = parse::from_yaml(EVENT_STREAM).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    let op = ir
+        .operations
+        .iter()
+        .find(|op| op.name.camel_case == "streamInbox")
+        .unwrap();
+    let IrReturnType::Sse(sse) = &op.return_type else {
+        panic!("expected SSE");
+    };
+    assert_eq!(
+        sse.event_type_name.as_deref(),
+        Some("StreamInboxStreamEvent")
+    );
+    assert_eq!(sse.events.len(), 2);
+    assert_eq!(sse.events[0].names, vec!["inbox".to_string()]);
+    assert_eq!(sse.events[0].data_type, IrType::Ref("InboxItem".into()));
+    assert_eq!(sse.events[0].data_codec, "json");
+    assert_eq!(sse.events[1].names, vec!["heartbeat".to_string()]);
+    assert_eq!(sse.events[1].data_type, IrType::String);
+    assert_eq!(sse.events[1].data_codec, "text");
+}
+
+#[test]
+fn item_schema_describing_the_payload_keeps_its_meaning() {
+    // Specs that use `itemSchema` for the `data` payload are unchanged.
+    let spec = parse::from_yaml(SSE_CHAT).unwrap();
+    let ir = transform::transform(&spec).unwrap();
+    for op in &ir.operations {
+        if let IrReturnType::Sse(sse) = &op.return_type {
+            assert!(
+                sse.events.is_empty(),
+                "{} should keep payload semantics",
+                op.name.camel_case
+            );
+        }
+    }
+}

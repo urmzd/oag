@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Path, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 
 from models import (
 {% for import in model_imports %}
@@ -15,10 +15,11 @@ router = APIRouter()
 {% for op in operations %}
 
 {% if op.kind == "standard" %}
+{% set response_class %}{% if op.response_format == "binary" %}, response_class=Response{% elif op.response_format == "text" %}, response_class=PlainTextResponse{% endif %}{% endset %}
 {% if op.status_code and op.status_code != 200 %}
-@router.{{ op.http_method | lower }}("{{ op.path }}", status_code={{ op.status_code }})
+@router.{{ op.http_method | lower }}("{{ op.path }}", status_code={{ op.status_code }}{{ response_class }})
 {% else %}
-@router.{{ op.http_method | lower }}("{{ op.path }}")
+@router.{{ op.http_method | lower }}("{{ op.path }}"{{ response_class }})
 {% endif %}
 {% if op.summary %}
 async def {{ op.name }}(
@@ -39,7 +40,7 @@ async def {{ op.name }}(
 {% if op.has_body %}
     {{ op.body_param_name }}: {{ op.body_type }},
 {% endif %}
-) -> {{ op.return_type }}:
+) -> {% if op.response_format == "binary" %}Response{% else %}{{ op.return_type }}{% endif %}:
 {% if op.summary %}
     """{{ op.summary | escape_docstring }}"""
 {% endif %}

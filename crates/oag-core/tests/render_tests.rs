@@ -16,6 +16,7 @@ use oag_core::engine::pack::TemplatePack;
 use oag_core::{parse, transform};
 
 const LITERAL_DEFAULT: &str = include_str!("fixtures/literal-default.yaml");
+const EVENT_STREAM: &str = include_str!("fixtures/event-stream.yaml");
 
 fn config_for(output: &str) -> GeneratorConfig {
     GeneratorConfig {
@@ -29,13 +30,31 @@ fn config_for(output: &str) -> GeneratorConfig {
     }
 }
 
-/// Render a pack from the working tree and return the concatenated source files.
+/// Render a pack from the working tree against the `literal-default` fixture.
 fn render(pack_rel: &str) -> Vec<oag_core::GeneratedFile> {
-    let spec = parse::from_yaml(LITERAL_DEFAULT).expect("fixture should parse");
-    let ir = transform::transform(&spec).expect("fixture should transform");
+    render_spec(pack_rel, LITERAL_DEFAULT)
+}
+
+/// Load a working-tree pack, resolving `extends` the way the CLI does.
+fn load_pack(pack_rel: &str) -> TemplatePack {
     let pack_dir = format!("{}/../../packs/{pack_rel}", env!("CARGO_MANIFEST_DIR"));
     let pack = TemplatePack::from_dir(std::path::Path::new(&pack_dir))
         .unwrap_or_else(|e| panic!("loading pack {pack_rel}: {e}"));
+    match pack.manifest.pack.extends.clone() {
+        Some(base_id) => {
+            let mut base = load_pack(&base_id);
+            base.merge_from(&pack);
+            base
+        }
+        None => pack,
+    }
+}
+
+/// Render a working-tree pack against an arbitrary spec and return its source files.
+fn render_spec(pack_rel: &str, spec_yaml: &str) -> Vec<oag_core::GeneratedFile> {
+    let spec = parse::from_yaml(spec_yaml).expect("fixture should parse");
+    let ir = transform::transform(&spec).expect("fixture should transform");
+    let pack = load_pack(pack_rel);
     let out = generate(&ir, &config_for("out"), &pack).expect("generation should succeed");
     out.source_files
 }
@@ -147,5 +166,456 @@ fn fastapi_server_renders_literal_default_as_defaulted_literal() {
     assert!(
         models.contains("content: str"),
         "required `content` should be present, got:\n{models}"
+    );
+}
+
+// ─── event-stream fixture (issues #27-#36) ───────────────────────────────
+
+/// Extract the body of a generated TypeScript method (from its signature to the
+/// next method), so assertions do not match code from a neighbouring method.
+fn ts_method(source: &str, signature_prefix: &str) -> String {
+    let start = source
+        .find(signature_prefix)
+        .unwrap_or_else(|| panic!("no method starting with `{signature_prefix}` in:\n{source}"));
+    let rest = &source[start..];
+    let end = rest[1..]
+        .find("\n  async ")
+        .map(|i| i + 1)
+        .unwrap_or(rest.len());
+    rest[..end].to_string()
+}
+
+#[test]
+fn node_client_serializes_ref_enum_query_param_as_primitive() {
+    // #27: a `$ref` to a string enum must serialize like the inline enum
+    // (`?state=open`), not be walked with `Object.entries` (`?0=o&1=p...`).
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    let method = ts_method(&client, "async listInbox(");
+    assert!(
+        method.contains(r#"_q.set("state", String("#),
+        "ref enum query param should be set as a primitive, got:\n{method}"
+    );
+    assert!(
+        method.contains(r#"_q.set("kind", String("#),
+        "ref enum query param should be set as a primitive, got:\n{method}"
+    );
+    assert!(
+        !method.contains("Object.entries"),
+        "no query param of listInbox is an object, got:\n{method}"
+    );
+}
+
+#[test]
+fn bodyless_204_with_default_error_renders_as_void() {
+    // #28: the success type comes from 2xx only; `default` shapes errors.
+    let node = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&node, "client.ts");
+    let method = ts_method(&client, "async deleteInboxItem(");
+    assert!(
+        method.contains("Promise<void>"),
+        "deleteInboxItem should resolve to void, got:\n{method}"
+    );
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let routes = file_ending_with(&py, "routes.py");
+    assert!(
+        routes.contains("@router.delete(\"/inbox/{itemId}\", status_code=204)"),
+        "fastapi stub should declare 204, got:\n{routes}"
+    );
+    assert!(
+        !routes.contains("-> ErrorBody"),
+        "no route returns the error body as its success type, got:\n{routes}"
+    );
+}
+
+#[test]
+fn shared_discriminator_mapping_emits_one_guard_per_schema() {
+    // #29: two mapping values for `LifecycleEvent` used to emit two
+    // `isLifecycleEvent` functions (TS2393). Expect one guard checking both.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let guards = file_ending_with(&files, "guards.ts");
+    assert_eq!(
+        guards.matches("export function isLifecycleEvent(").count(),
+        1,
+        "expected exactly one isLifecycleEvent guard, got:\n{guards}"
+    );
+    assert!(
+        guards.contains(r#"v.kind === "lifecycle.started" || v.kind === "lifecycle.completed""#),
+        "guard should accept every mapped value, got:\n{guards}"
+    );
+    assert_eq!(
+        guards.matches("export function isDeltaEvent(").count(),
+        1,
+        "got:\n{guards}"
+    );
+}
+
+#[test]
+fn binary_responses_are_read_as_blobs() {
+    // #30: octet-stream bodies were read with `response.text()` but typed Blob.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    let method = ts_method(&client, "async downloadFile(");
+    assert!(method.contains("Promise<Blob>"), "got:\n{method}");
+    assert!(method.contains(r#"parseAs: "blob""#), "got:\n{method}");
+    assert!(
+        client.contains("await response.blob()"),
+        "runtime should read blobs, got:\n{client}"
+    );
+    // JSON endpoints keep the default JSON parsing.
+    let list = ts_method(&client, "async listInbox(");
+    assert!(!list.contains("parseAs"), "got:\n{list}");
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let routes = file_ending_with(&py, "routes.py");
+    assert!(
+        routes.contains(r#"@router.get("/files/{fileId}/content", response_class=Response)"#),
+        "fastapi should return raw bytes, got:\n{routes}"
+    );
+}
+
+#[test]
+fn base64_json_payloads_get_typed_codecs() {
+    // #31: `contentEncoding` + `contentSchema` produce typed helpers.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let codecs = file_ending_with(&files, "codecs.ts");
+    assert!(
+        codecs.contains("export function decodeInboxItemPayload(value: string): InboxPayload {"),
+        "got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains(r#"decodeContent<InboxPayload>(value, "base64-json")"#),
+        "got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains("export function encodeInboxItemPayload(value: InboxPayload): string {"),
+        "got:\n{codecs}"
+    );
+    let index = file_ending_with(&files, "index.ts");
+    assert!(
+        index.contains(r#"export * from "./codecs.js";"#),
+        "got:\n{index}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("payload?: string;"),
+        "wire type stays string, got:\n{types}"
+    );
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let models = file_ending_with(&py, "models.py");
+    assert!(
+        models.contains("def decode_inbox_item_payload(value: str) -> InboxPayload:"),
+        "got:\n{models}"
+    );
+    assert!(
+        models.contains("return InboxPayload.model_validate_json(raw)"),
+        "got:\n{models}"
+    );
+}
+
+#[test]
+fn query_parameters_are_grouped_in_a_params_object() {
+    // #36: optional query parameters are one params object, not positional.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(
+            "async listInbox(params?: ListInboxParams, options?: RequestOptions): Promise<InboxItem[]>"
+        ),
+        "got:\n{client}"
+    );
+    // Path parameters stay positional.
+    assert!(
+        client.contains("async deleteInboxItem(itemId: string, options?: RequestOptions)"),
+        "got:\n{client}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("export interface ListInboxParams {"),
+        "got:\n{types}"
+    );
+    assert!(types.contains("  state?: InboxState;"), "got:\n{types}");
+
+    let react = render_spec("react-swr-client", EVENT_STREAM);
+    let hooks = file_ending_with(&react, "hooks.tsx");
+    assert!(
+        hooks.contains("export function useListInbox(params?: ListInboxParams, config?:"),
+        "got:\n{hooks}"
+    );
+    assert!(
+        hooks.contains(r#"["/inbox", params] as const"#),
+        "SWR key should include the params object, got:\n{hooks}"
+    );
+}
+
+#[test]
+fn sse_event_is_exported_and_no_parameter_properties_are_emitted() {
+    // #36: `SSEEvent` appears in public signatures, so the index exports it;
+    // classes use plain fields so type-stripping runtimes can run the source.
+    for pack in ["node-client", "react-swr-client"] {
+        let files = render_spec(pack, EVENT_STREAM);
+        let index = files
+            .iter()
+            .find(|f| f.path.ends_with("index.ts") || f.path.ends_with("index.tsx"))
+            .map(|f| f.content.clone())
+            .unwrap();
+        assert!(index.contains("type SSEEvent"), "{pack} index:\n{index}");
+        for file in &files {
+            let re = regex_lite_constructor_param_property(&file.content);
+            assert!(
+                re.is_none(),
+                "{} declares a parameter property: {:?}",
+                file.path,
+                re
+            );
+        }
+    }
+}
+
+/// Find a `constructor(...)` whose parameter list uses an accessibility or
+/// `readonly` modifier (a TypeScript parameter property).
+fn regex_lite_constructor_param_property(source: &str) -> Option<String> {
+    let mut rest = source;
+    while let Some(i) = rest.find("constructor(") {
+        let after = &rest[i + "constructor(".len()..];
+        let end = after.find(')').unwrap_or(after.len());
+        let params = &after[..end];
+        for modifier in ["public ", "private ", "protected ", "readonly "] {
+            if params.contains(modifier) {
+                return Some(params.to_string());
+            }
+        }
+        rest = &after[end..];
+    }
+    None
+}
+
+#[test]
+fn retries_default_to_idempotent_methods_and_never_to_streams() {
+    // #33: POST was retried by default, and SSE requests retried implicitly.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(r#"retryMethods: ["GET", "HEAD", "OPTIONS", "PUT", "DELETE"],"#),
+        "got:\n{client}"
+    );
+    assert!(
+        client.contains(r#"return new Headers(init.headers).has("idempotency-key");"#),
+        "an Idempotency-Key opts a request in, got:\n{client}"
+    );
+    assert!(
+        client.contains("retryAfter > retryConfig.maxRetryAfterMs"),
+        "got:\n{client}"
+    );
+    let sse = file_ending_with(&files, "sse.ts");
+    assert!(
+        sse.contains("options?.retry === undefined || options.retry === false"),
+        "SSE must not retry without an explicit `retry`, got:\n{sse}"
+    );
+}
+
+#[test]
+fn sse_reader_releases_the_connection_and_reports_how_it_ended() {
+    // #35: the reader only called `releaseLock()`, leaking the connection on
+    // early exit, and reported a dropped stream as a normal completion.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let sse = file_ending_with(&files, "sse.ts");
+    let finally = &sse[sse.find("} finally {").expect("a finally block")..];
+    assert!(
+        finally.contains("reader?.cancel()") && finally.contains("controller.abort();"),
+        "finally must cancel the body and abort the request, got:\n{sse}"
+    );
+    assert!(
+        sse.contains("AbortSignal.any([internal, external])"),
+        "caller signal combined with the internal one, got:\n{sse}"
+    );
+    assert!(
+        sse.contains(r#"typeof AbortSignal.any === "function""#),
+        "fallback when AbortSignal.any is unavailable, got:\n{sse}"
+    );
+    assert!(
+        sse.contains("export class SSEStreamClosedError extends SSEError"),
+        "got:\n{sse}"
+    );
+    assert!(sse.contains(r#"reason: "closed-by-server""#), "got:\n{sse}");
+    let index = file_ending_with(&files, "index.ts");
+    assert!(index.contains("SSEStreamClosedError"), "got:\n{index}");
+}
+
+#[test]
+fn sse_item_schema_events_render_as_a_union_keyed_by_event_name() {
+    // #32: named events are a discriminated union, decoded per event.
+    let files = render_spec("node-client", EVENT_STREAM);
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains(
+            r#"export type StreamInboxStreamEvent = { event: "inbox"; data: InboxItem; id?: string; retry?: number } | { event: "heartbeat"; data: string; id?: string; retry?: number } | SSEUnmatchedEvent;"#
+        ),
+        "got:\n{types}"
+    );
+    let client = file_ending_with(&files, "client.ts");
+    let method = ts_method(&client, "async *streamInbox(");
+    assert!(
+        method.contains("AsyncGenerator<StreamInboxStreamEvent, SSEStreamEnd, undefined>"),
+        "got:\n{method}"
+    );
+    assert!(
+        method.contains(r#"{ "inbox": ["json"], "heartbeat": ["text"] }"#),
+        "got:\n{method}"
+    );
+    assert!(
+        method.contains("streamSseEvents<StreamInboxStreamEvent>"),
+        "got:\n{method}"
+    );
+
+    // A payload item schema keeps `SSEEvent<T>`.
+    let chat = render_spec("node-client", include_str!("fixtures/sse-chat.yaml"));
+    let chat_client = file_ending_with(&chat, "client.ts");
+    assert!(
+        chat_client.contains("AsyncGenerator<SSEEvent<CreateChatCompletionStreamEvent>"),
+        "got:\n{chat_client}"
+    );
+
+    let react = render_spec("react-swr-client", EVENT_STREAM);
+    let hooks = file_ending_with(&react, "hooks.tsx");
+    assert!(
+        hooks.contains("useState<StreamInboxStreamEvent[]>"),
+        "got:\n{hooks}"
+    );
+
+    let py = render_spec("fastapi-server", EVENT_STREAM);
+    let models = file_ending_with(&py, "models.py");
+    assert!(
+        models.contains(
+            r#"StreamInboxStreamEvent: TypeAlias = "SSEEvent[InboxItem] | SSEEvent[str]""#
+        ),
+        "got:\n{models}"
+    );
+}
+
+#[test]
+fn encoded_content_survives_promotion_and_array_items() {
+    // #31 follow-up: a base64 field inside an inline object (promoted to a
+    // named schema) and array items with contentSchema both get helpers.
+    let files = render_spec(
+        "node-client",
+        include_str!("fixtures/content-encoding.yaml"),
+    );
+    let codecs = file_ending_with(&files, "codecs.ts");
+    assert!(
+        codecs.contains("export function decodeEnvelopeMetaBlob(value: string): Payload {"),
+        "nested inline object field, got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains("export function decodeEnvelopeAttachmentsItem(value: string): Payload {"),
+        "array items, got:\n{codecs}"
+    );
+    assert!(
+        codecs.contains(r#"decodeContent<Payload>(value, "base64url-json")"#),
+        "got:\n{codecs}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(types.contains("attachments?: string[];"), "got:\n{types}");
+    // `format: byte` is base64 text, not raw bytes.
+    assert!(types.contains("raw?: string;"), "got:\n{types}");
+}
+
+#[test]
+fn sse_variants_sharing_a_name_try_each_codec() {
+    // #32 follow-up: two variants without an `event` property are both
+    // `message`; both codecs are kept, in order, instead of first-wins.
+    let spec = r##"
+openapi: "3.2.0"
+info: { title: T, version: "1" }
+paths:
+  /s:
+    get:
+      operationId: watch
+      responses:
+        "200":
+          description: ok
+          content:
+            text/event-stream:
+              itemSchema:
+                oneOf:
+                  - type: object
+                    properties:
+                      data: { type: string, contentMediaType: application/json, contentSchema: { $ref: "#/components/schemas/P" } }
+                  - type: object
+                    properties:
+                      data: { type: string }
+components:
+  schemas:
+    P: { type: object, properties: { n: { type: integer } } }
+"##;
+    let files = render_spec("node-client", spec);
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(r#"{ "message": ["json", "text"] }"#),
+        "got:\n{client}"
+    );
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("| SSEUnmatchedEvent;")
+            && types.contains(r#"import type { SSEUnmatchedEvent } from "./sse.js";"#),
+        "got:\n{types}"
+    );
+}
+
+#[test]
+fn query_and_header_params_with_the_same_name_stay_distinct() {
+    let spec = r#"
+openapi: "3.2.0"
+info: { title: T, version: "1" }
+paths:
+  /x:
+    get:
+      operationId: getX
+      parameters:
+        - { name: version, in: query, schema: { type: string } }
+        - { name: version, in: header, schema: { type: string } }
+      responses:
+        "204": { description: ok }
+"#;
+    let files = render_spec("node-client", spec);
+    let types = file_ending_with(&files, "types.ts");
+    assert!(
+        types.contains("version?: string;") && types.contains("versionHeader?: string;"),
+        "got:\n{types}"
+    );
+    let client = file_ending_with(&files, "client.ts");
+    assert!(
+        client.contains(r#""version": params?.versionHeader"#),
+        "got:\n{client}"
+    );
+}
+
+#[test]
+fn implicit_discriminator_mapping_gets_guards() {
+    // Without `mapping`, each variant's discriminator value is its `const`
+    // (or the schema name, per OpenAPI's implicit mapping).
+    let spec = r##"
+openapi: "3.2.0"
+info: { title: T, version: "1" }
+paths: {}
+components:
+  schemas:
+    Cat: { type: object, required: [kind], properties: { kind: { const: cat } } }
+    Dog: { type: object, required: [kind], properties: { kind: { type: string } } }
+    Pet:
+      oneOf: [ { $ref: "#/components/schemas/Cat" }, { $ref: "#/components/schemas/Dog" } ]
+      discriminator: { propertyName: kind }
+"##;
+    let files = render_spec("node-client", spec);
+    let guards = file_ending_with(&files, "guards.ts");
+    assert!(
+        guards.contains(r#"(value as Cat).kind === "cat""#),
+        "got:\n{guards}"
+    );
+    assert!(
+        guards.contains(r#"(value as Dog).kind === "Dog""#),
+        "got:\n{guards}"
     );
 }
