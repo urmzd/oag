@@ -94,7 +94,7 @@ The built-in packs are compiled into the `oag` binary, so `oag generate` needs n
 
 <!-- fsrc src="crates/oag-core/default-config.yaml" fence="yaml" -->
 ```yaml
-# oag configuration — https://github.com/urmzd/oag
+# oag configuration: https://github.com/urmzd/oag
 #
 # Loaded automatically when running `oag generate`.
 # Override the spec with: oag generate other-spec.yaml
