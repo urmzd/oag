@@ -1,4 +1,4 @@
-# oag configuration — https://github.com/urmzd/oag
+# oag configuration: https://github.com/urmzd/oag
 #
 # Loaded automatically when running `oag generate`.
 # Override the spec with: oag generate other-spec.yaml
