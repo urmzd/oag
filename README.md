@@ -27,11 +27,11 @@
 Most OpenAPI generators produce bloated output that needs heavy post-processing. `oag` generates clean, readable code from one config file with one command.
 
 - Parses OpenAPI 3.x specs with full `$ref` resolution
-- Template pack engine — generators are Jinja2 templates, no Rust code needed
+- Template pack engine: generators are Jinja2 templates, no Rust code needed
 - Built-in packs: `node-client`, `react-swr-client`, `fastapi-server`
 - First-class SSE support (`AsyncGenerator` in TS, `StreamingResponse` in Python)
-- Literal-faithful output — a `const` or single-value `enum` (a discriminator like `type: "message"`) is always emitted with its value: required in TypeScript, `Literal["x"] = "x"` in Pydantic — never silently optional or empty
-- Packs install locally to `.oag/packs/` — version them, share them, customize them
+- Literal-faithful output: a `const` or single-value `enum` (a discriminator like `type: "message"`) is always emitted with its value (required in TypeScript, `Literal["x"] = "x"` in Pydantic), never silently optional or empty
+- Packs install locally to `.oag/packs/`: version them, share them, customize them
 
 ## Install
 
@@ -58,7 +58,7 @@ Or download binaries from [releases](https://github.com/urmzd/oag/releases/lates
 
 **macOS and Nix:** a binary built with `cargo install` while a Nix shell is active links against that shell's `libiconv` (a `/nix/store/...` path), and fails with `dyld: Library not loaded` once the store path is gone. oag itself has no Nix configuration. Check with `otool -L "$(command -v oag)"`, and rebuild outside the Nix shell or use the release binary.
 
-## Quick start
+## Quick Start
 
 ```sh
 oag init -p node-client          # creates oag.yaml, installs pack to .oag/packs/
@@ -140,7 +140,7 @@ generators:
 ```
 <!-- /fsrc -->
 
-By default, oag generates source files directly into the output directory — no `package.json`, no build tooling, no extra nesting. Just drop-in files you import from your existing project:
+By default, oag generates source files directly into the output directory. No `package.json`, no build tooling, no extra nesting. Just drop-in files you import from your existing project:
 
 ```
 src/generated/
@@ -178,22 +178,22 @@ packages/api-client/
     ...
 ```
 
-Scaffold files are **write-once** — they're only created if they don't exist, so your customizations survive regeneration. Use `--force-scaffold` to reset them.
+Scaffold files are **write-once**: they're only created if they don't exist, so your customizations survive regeneration. Use `--force-scaffold` to reset them.
 
 ### Layout modes
 
-- **modular** (default) — separate files per concern (types, client, sse, index)
-- **bundled** — everything in a single file
-- **split** — separate files per operation group (by `tag`, `operation`, or `route`)
+- **modular** (default): separate files per concern (types, client, sse, index)
+- **bundled**: everything in a single file
+- **split**: separate files per operation group (by `tag`, `operation`, or `route`)
 
 ## Template packs
 
 Packs live in `.oag/packs/` inside your project. Each pack is a directory with:
 
-- `oag.pack.toml` — manifest (metadata, type mappings, layouts, formatters)
-- `templates/` — Jinja2 `.j2` templates
+- `oag.pack.toml`: manifest (metadata, type mappings, layouts, formatters)
+- `templates/`: Jinja2 `.j2` templates
 
-Packs support inheritance (`extends` in the manifest). `react-swr-client` extends `node-client` — it inherits all base templates and adds React hooks on top.
+Packs support inheritance (`extends` in the manifest). `react-swr-client` extends `node-client`. It inherits all base templates and adds React hooks on top.
 
 To customize a built-in pack, install it locally and edit:
 
@@ -223,8 +223,8 @@ Fixes that need no migration but remove common workarounds: a `$ref` enum query 
 
 See [`examples/`](examples/) for working projects:
 
-- **[`petstore`](examples/petstore/)** — Node + React clients from the Petstore 3.2 spec
-- **[`sse-chat`](examples/sse-chat/)** — SSE streaming with Node + React hooks
+- **[`petstore`](examples/petstore/)**: Node + React clients from the Petstore 3.2 spec
+- **[`sse-chat`](examples/sse-chat/)**: SSE streaming with Node + React hooks
 - **[`event-stream`](examples/event-stream/)**: OAS 3.2 SSE events typed by name, base64 JSON payloads, a binary download, a shared discriminator mapping, a `$ref` enum query parameter, and a 204 next to a `default` error
 
 Regenerate with `just examples`.
@@ -232,10 +232,7 @@ Regenerate with `just examples`.
 ## Architecture
 
 ```
-oag-cli  -->  oag-core (engine)
-                 ├── .oag/packs/node-client/
-                 ├── .oag/packs/react-swr-client/  (extends node-client)
-                 └── .oag/packs/fastapi-server/
+oag-cli  -->  oag-core (engine)  -->  packs: node-client, react-swr-client (extends node-client), fastapi-server
 ```
 
 | Component | Role |
