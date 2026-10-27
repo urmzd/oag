@@ -13,6 +13,9 @@
 
 <p align="center">
   <a href="https://github.com/urmzd/oag/actions/workflows/ci.yml"><img src="https://github.com/urmzd/oag/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  &nbsp;
+  <a href="https://github.com/urmzd/oag/releases/latest"><img src="https://img.shields.io/github/v/release/urmzd/oag" alt="Release"></a>
+  &nbsp;
   <a href="https://crates.io/crates/oag"><img src="https://img.shields.io/crates/v/oag" alt="crates.io"></a>
   &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/github/license/urmzd/oag" alt="License"></a>
@@ -22,18 +25,17 @@
   <img src="showcase/demo.gif" alt="Demo" width="80%">
 </p>
 
-## Why oag?
-
-Most OpenAPI generators produce bloated output that needs heavy post-processing. `oag` generates clean, readable code from one config file with one command.
+## Features
 
 - Parses OpenAPI 3.x specs with full `$ref` resolution
+- Generates clean, readable code from one config file with one command
 - Template pack engine: generators are Jinja2 templates, no Rust code needed
 - Built-in packs: `node-client`, `react-swr-client`, `fastapi-server`
 - First-class SSE support (`AsyncGenerator` in TS, `StreamingResponse` in Python)
-- Literal-faithful output: a `const` or single-value `enum` (a discriminator like `type: "message"`) is always emitted with its value (required in TypeScript, `Literal["x"] = "x"` in Pydantic), never silently optional or empty
-- Packs install locally to `.oag/packs/`: version them, share them, customize them
+- Literal-faithful output: a `const` or single-value `enum` (such as `type: "message"`) is always emitted with its value, required in TypeScript and `Literal["x"] = "x"` in Pydantic
+- Packs install locally to `.oag/packs/`: version, share and customize them
 
-## Install
+## Installation
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/urmzd/oag/main/install.sh | sh
@@ -48,15 +50,29 @@ The installer verifies the binary against the release's `SHA256SUMS` and aborts 
 | `OAG_DOWNLOAD_URL` | Base URL of the release downloads, for a mirror. Must be `https://` (plain `http://` only for `127.0.0.1` or `localhost`). |
 | `OAG_SKIP_VERIFY` | **Unsafe.** `1` installs without any checksum. Only for releases that never had one (v0.20.6 and older). |
 
-Or via cargo:
+Or install with cargo:
 
 ```sh
 cargo install oag
 ```
 
-Or download binaries from [releases](https://github.com/urmzd/oag/releases/latest).
+Or download a binary from [releases](https://github.com/urmzd/oag/releases/latest).
 
 **macOS and Nix:** a binary built with `cargo install` while a Nix shell is active links against that shell's `libiconv` (a `/nix/store/...` path), and fails with `dyld: Library not loaded` once the store path is gone. oag itself has no Nix configuration. Check with `otool -L "$(command -v oag)"`, and rebuild outside the Nix shell or use the release binary.
+
+### Upgrading from v0.20
+
+Upgrading from v0.20.x changes generated code in five places. First, clear the packs v0.20 left behind: v0.20 downloaded every missing pack into `.oag/packs/`, and a local copy of a built-in pack takes precedence over the one built into oag. oag now refuses such a copy (it has no install record, or another oag version installed it) because its templates generate code that does not compile against the new engine and keeps the old retry policy. Delete `.oag/packs/<id>` for each built-in pack you did not customize; for one you did, run `oag packs install --id <id>` and reapply your edits. Then regenerate with `oag generate --force-scaffold`, so scaffolded files such as `client.test.ts` and `package.json` follow the new API (they are otherwise written only once). Then:
+
+| Change | Before (v0.20.6) | After | Migration |
+|--------|------------------|-------|-----------|
+| Query and header parameters | positional: `listInbox("open", undefined, true)` | one params object: `listInbox({ state: "open", unread: true })` | Pass an object typed `<Operation>Params`. Path parameters and the body keep their positions. React hooks take the same object. |
+| Retries | every method, including POST, on 408/429/5xx; SSE retried implicitly | idempotent methods only (GET, HEAD, OPTIONS, PUT, DELETE); SSE never retried implicitly | Send an `Idempotency-Key` header on POSTs that are safe to retry, or set `retry: { retryMethods: [...] }`. Pass `retry` to a stream call to retry its connection. |
+| SSE with an OAS 3.2 `itemSchema` describing the whole event | `SSEEvent<ItemSchema>` | `<Operation>StreamEvent`, a union discriminated by `event` with decoded `data` | Replace hand-written mapping of `SSEEvent.event` with a `switch (event.event)`. Item schemas that describe only the payload keep `SSEEvent<T>`. |
+| Pack resolution | a missing pack was downloaded from GitHub `main` | the pack built into the binary; downloads only for an explicit `id@ref` | Delete stale copies in `.oag/packs/` (see above). To use another version deliberately, pin it (`node-client@v0.21.0` as the generator key) or pass `--allow-stale-packs` for a copy you keep under `.oag/packs/`. |
+| `install.sh` | installed without verification | verifies `SHA256SUMS` | Releases up to v0.20.6 have no checksums: install them unverified only deliberately, with `OAG_SKIP_VERIFY=1`. |
+
+Fixes that need no migration but remove common workarounds: a `$ref` enum query parameter serializes as `?state=open`; a bodyless 204 next to a `default` error resolves to `void`; a discriminator mapping several values to one schema compiles; binary downloads resolve to a real `Blob`; base64 JSON fields get `decode<Schema><Field>()` helpers; SSE streams release their connection on early exit and report `closed-by-server` (or throw `SSEStreamClosedError` with `terminalEvents`); `SSEEvent` is exported; generated classes have no constructor parameter properties.
 
 ## Quick Start
 
@@ -65,9 +81,22 @@ oag init -p node-client          # creates oag.yaml, installs pack to .oag/packs
 oag generate                     # generates code
 ```
 
-## CLI
+## Examples
 
-```
+| Example | Description |
+|---------|-------------|
+| [`petstore`](examples/petstore/) | Node and React clients from the Petstore 3.2 spec |
+| [`petstore-polymorphic`](examples/petstore-polymorphic/) | Node and React clients from a polymorphic Petstore 3.2 spec |
+| [`sse-chat`](examples/sse-chat/) | SSE streaming with Node and React hooks |
+| [`event-stream`](examples/event-stream/) | OAS 3.2 SSE events typed by name, base64 JSON payloads, a binary download, a shared discriminator mapping, a `$ref` enum query parameter, and a 204 next to a `default` error |
+| [`literal-default`](examples/literal-default/) | Literal `const` fields with a `default` stay required across Node, React and FastAPI |
+| [`anthropic-messages`](examples/anthropic-messages/) | Node and React clients for the Anthropic Messages API |
+
+Regenerate all examples with `just examples`.
+
+## Usage
+
+```text
 oag generate [spec]              generate code (spec is optional, defaults to oag.yaml input)
 oag generate [spec] --force-scaffold   regenerate scaffold files too
 oag validate <spec>              parse an OpenAPI spec and report stats
@@ -87,6 +116,25 @@ oag version                      print version
 ```
 
 The built-in packs are compiled into the `oag` binary, so `oag generate` needs no network and the same oag version always produces the same output. A pack in `.oag/packs/` (relative to your project root) takes precedence: commit it, gitignore it, or customize it. oag only downloads a pack when you pin a ref explicitly (`--id node-client@v0.21.0`, or `node-client@v0.21.0` as the generator key in `oag.yaml`), and it never fetches from a branch implicitly. The generated `README.md` in each output directory records the sha256 of every pack used, so CI can verify what produced the code.
+
+### Template packs
+
+Packs live in `.oag/packs/` inside your project. Each pack is a directory with:
+
+- `oag.pack.toml`: manifest (metadata, type mappings, layouts, formatters)
+- `templates/`: Jinja2 `.j2` templates
+
+Packs support inheritance (`extends` in the manifest). `react-swr-client` extends `node-client`. It inherits all base templates and adds React hooks on top.
+
+To customize a built-in pack, install it locally and edit:
+
+```sh
+oag packs install --id node-client   # copies the built-in pack, no network
+# edit .oag/packs/node-client/templates/*.j2
+oag generate
+```
+
+Resolution order for a generator key: `id@ref` (downloaded from GitHub at that ref, cached by ref and digest, with its `extends` base pinned to the same ref), then `.oag/packs/<id>/`, then the pack built into the binary. A pack that is neither installed nor built in is an error, never a silent download. A local copy of a built-in pack must have been installed by the running oag version (`oag packs install` records it in `oag.source.toml`); an older copy is refused with instructions, unless you pass `oag generate --allow-stale-packs`.
 
 ## Configuration
 
@@ -140,16 +188,7 @@ generators:
 ```
 <!-- /fsrc -->
 
-By default, oag generates source files directly into the output directory. No `package.json`, no build tooling, no extra nesting. Just drop-in files you import from your existing project:
-
-```
-src/generated/
-  types.ts
-  client.ts
-  guards.ts
-  sse.ts
-  index.ts
-```
+By default, oag writes drop-in source files (`types.ts`, `client.ts`, `guards.ts`, `sse.ts`, `index.ts`) directly into the output directory, with no `package.json`, build tooling or extra nesting. Import them from your existing project.
 
 ### Standalone package mode
 
@@ -164,21 +203,9 @@ generators:
       package_name: "@myorg/api-client"
 ```
 
-This produces a self-contained package with `package.json`, `tsconfig.json`, biome, tsdown, and vitest pre-configured:
+This produces a self-contained package with `package.json`, `tsconfig.json`, biome, tsdown and vitest preconfigured, and the generated sources under `src/`.
 
-```
-packages/api-client/
-  package.json
-  tsconfig.json
-  biome.json
-  tsdown.config.ts
-  src/
-    types.ts
-    client.ts
-    ...
-```
-
-Scaffold files are **write-once**: they're only created if they don't exist, so your customizations survive regeneration. Use `--force-scaffold` to reset them.
+Scaffold files are **write-once**: oag creates them only when they do not exist, so your customizations survive regeneration. Use `--force-scaffold` to reset them.
 
 ### Layout modes
 
@@ -186,60 +213,11 @@ Scaffold files are **write-once**: they're only created if they don't exist, so 
 - **bundled**: everything in a single file
 - **split**: separate files per operation group (by `tag`, `operation`, or `route`)
 
-## Template packs
+## Documentation
 
-Packs live in `.oag/packs/` inside your project. Each pack is a directory with:
-
-- `oag.pack.toml`: manifest (metadata, type mappings, layouts, formatters)
-- `templates/`: Jinja2 `.j2` templates
-
-Packs support inheritance (`extends` in the manifest). `react-swr-client` extends `node-client`. It inherits all base templates and adds React hooks on top.
-
-To customize a built-in pack, install it locally and edit:
-
-```sh
-oag packs install --id node-client   # copies the built-in pack, no network
-# edit .oag/packs/node-client/templates/*.j2
-oag generate
-```
-
-Resolution order for a generator key: `id@ref` (downloaded from GitHub at that ref, cached by ref and digest, with its `extends` base pinned to the same ref), then `.oag/packs/<id>/`, then the pack built into the binary. A pack that is neither installed nor built in is an error, never a silent download. A local copy of a built-in pack must have been installed by the running oag version (`oag packs install` records it in `oag.source.toml`); an older copy is refused with instructions, unless you pass `oag generate --allow-stale-packs`.
-
-## Upgrading from v0.20
-
-Upgrading from v0.20.x changes generated code in five places. First, clear the packs v0.20 left behind: v0.20 downloaded every missing pack into `.oag/packs/`, and a local copy of a built-in pack takes precedence over the one built into oag. oag now refuses such a copy (it has no install record, or another oag version installed it) because its templates generate code that does not compile against the new engine and keeps the old retry policy. Delete `.oag/packs/<id>` for each built-in pack you did not customize; for one you did, run `oag packs install --id <id>` and reapply your edits. Then regenerate with `oag generate --force-scaffold`, so scaffolded files such as `client.test.ts` and `package.json` follow the new API (they are otherwise written only once). Then:
-
-| Change | Before (v0.20.6) | After | Migration |
-|--------|------------------|-------|-----------|
-| Query and header parameters | positional: `listInbox("open", undefined, true)` | one params object: `listInbox({ state: "open", unread: true })` | Pass an object typed `<Operation>Params`. Path parameters and the body keep their positions. React hooks take the same object. |
-| Retries | every method, including POST, on 408/429/5xx; SSE retried implicitly | idempotent methods only (GET, HEAD, OPTIONS, PUT, DELETE); SSE never retried implicitly | Send an `Idempotency-Key` header on POSTs that are safe to retry, or set `retry: { retryMethods: [...] }`. Pass `retry` to a stream call to retry its connection. |
-| SSE with an OAS 3.2 `itemSchema` describing the whole event | `SSEEvent<ItemSchema>` | `<Operation>StreamEvent`, a union discriminated by `event` with decoded `data` | Replace hand-written mapping of `SSEEvent.event` with a `switch (event.event)`. Item schemas that describe only the payload keep `SSEEvent<T>`. |
-| Pack resolution | a missing pack was downloaded from GitHub `main` | the pack built into the binary; downloads only for an explicit `id@ref` | Delete stale copies in `.oag/packs/` (see above). To use another version deliberately, pin it (`node-client@v0.21.0` as the generator key) or pass `--allow-stale-packs` for a copy you keep under `.oag/packs/`. |
-| `install.sh` | installed without verification | verifies `SHA256SUMS` | Releases up to v0.20.6 have no checksums: install them unverified only deliberately, with `OAG_SKIP_VERIFY=1`. |
-
-Fixes that need no migration but remove common workarounds: a `$ref` enum query parameter serializes as `?state=open`; a bodyless 204 next to a `default` error resolves to `void`; a discriminator mapping several values to one schema compiles; binary downloads resolve to a real `Blob`; base64 JSON fields get `decode<Schema><Field>()` helpers; SSE streams release their connection on early exit and report `closed-by-server` (or throw `SSEStreamClosedError` with `terminalEvents`); `SSEEvent` is exported; generated classes have no constructor parameter properties.
-
-## Examples
-
-See [`examples/`](examples/) for working projects:
-
-- **[`petstore`](examples/petstore/)**: Node + React clients from the Petstore 3.2 spec
-- **[`sse-chat`](examples/sse-chat/)**: SSE streaming with Node + React hooks
-- **[`event-stream`](examples/event-stream/)**: OAS 3.2 SSE events typed by name, base64 JSON payloads, a binary download, a shared discriminator mapping, a `$ref` enum query parameter, and a 204 next to a `default` error
-
-Regenerate with `just examples`.
-
-## Architecture
-
-```
-oag-cli  -->  oag-core (engine)  -->  packs: node-client, react-swr-client (extends node-client), fastapi-server
-```
-
-| Component | Role |
-|-----------|------|
-| [`oag-core`](crates/oag-core/) | Parser, IR, transforms, template engine |
-| [`oag-cli`](crates/oag-cli/) | CLI (clap), pack resolution, orchestration |
-| [`packs/`](packs/) | Built-in template packs (embedded in the binary at compile time) |
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+- [Architecture and agent context](AGENTS.md)
 
 ## Agent Skill
 
