@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.2 (2026-10-29)
+
+### Bug Fixes
+
+- **deps**: replace serde_yaml_ng with maintained serde_norway (#44) ([3a0eff8](https://github.com/urmzd/oag/commit/3a0eff840049f75f2df4e2788f486258fef37707))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.21.1...v0.21.2)
+
+
 ## 0.21.1 (2026-10-29)
 
 ### Bug Fixes
