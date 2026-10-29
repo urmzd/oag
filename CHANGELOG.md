@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.21.1 (2026-10-29)
+
+### Bug Fixes
+
+- **deps**: patch vulnerable dependencies (#43) ([9d05150](https://github.com/urmzd/oag/commit/9d05150a982d7d56793e30ee567d2315de0d2846))
+
+### Misc
+
+- align README with standalone structure ([5886b89](https://github.com/urmzd/oag/commit/5886b897a625c56acabe58a08ab0c3d5d9b39b54))
+- **deps**: bump actions/checkout from 6 to 7 (#23) ([9177a1f](https://github.com/urmzd/oag/commit/9177a1fff5f360683d08ad70e48bfe1661f2345c))
+
+[Full Changelog](https://github.com/urmzd/oag/compare/v0.21.0...v0.21.1)
+
+
 ## 0.21.0 (2026-10-14)
 
 ### Breaking
