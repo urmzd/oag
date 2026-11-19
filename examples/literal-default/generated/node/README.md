@@ -4,6 +4,7 @@ This directory is **auto-generated** by [oag](https://github.com/urmzd/oag).
 Any manual changes will be overwritten the next time `oag generate` is run.
 
 To regenerate, run:
+
 ```
 oag generate
 ```
