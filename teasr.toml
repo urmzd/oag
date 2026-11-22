@@ -1,5 +1,5 @@
 [output]
-dir = "./doc"
+dir = "./showcase"
 formats = [{ output_type = "gif" }]
 
 [[scenes]]
@@ -7,9 +7,9 @@ type = "terminal"
 name = "demo"
 theme = "dracula"
 cols = 100
-rows = 30
+rows = 27
 cwd = "examples/petstore"
-formats = [{ output_type = "gif" }]
+formats = [{ output_type = "gif" }, { output_type = "png" }]
 frame_duration = 120
 
 [scenes.intro]
@@ -25,38 +25,26 @@ text = """
 duration = 1500
 center = true
 
-# Show the config
+# Neutral prompt, no username or path
 [[scenes.interactions]]
 type = "type"
-text = "cat oag.yaml"
+text = 'export PS1="$ " && clear'
 speed = 20
+hidden = true
 
 [[scenes.interactions]]
 type = "key"
 key = "enter"
-
-[[scenes.interactions]]
-type = "wait"
-duration = 800
-
-# Generate from config
-[[scenes.interactions]]
-type = "type"
-text = "oag generate"
-speed = 20
-
-[[scenes.interactions]]
-type = "key"
-key = "enter"
+hidden = true
 
 [[scenes.interactions]]
 type = "wait"
 duration = 500
+hidden = true
 
-# Preview generated types
 [[scenes.interactions]]
 type = "type"
-text = "head -n 25 generated/node/src/types.ts"
+text = 'oag generate 2>&1 | grep -E "generated [0-9]+ files"'
 speed = 20
 
 [[scenes.interactions]]
@@ -65,12 +53,14 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 800
+duration = 2500
 
-# Preview generated client
+[[scenes.interactions]]
+type = "snapshot"
+
 [[scenes.interactions]]
 type = "type"
-text = "head -n 30 generated/node/src/client.ts"
+text = "head -n 22 generated/node/src/types.ts"
 speed = 20
 
 [[scenes.interactions]]
@@ -79,4 +69,8 @@ key = "enter"
 
 [[scenes.interactions]]
 type = "wait"
-duration = 800
+duration = 1500
+
+[[scenes.interactions]]
+type = "snapshot"
+name = "demo"
